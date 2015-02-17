@@ -1,0 +1,9898 @@
+/*****************************************************************************
+*
+* Filename:
+* ---------
+*   sensor.c
+*
+* Project:
+* --------
+*   ALPS
+*
+* Description:
+* ------------
+*   Source code of Sensor driver
+*
+*
+* Author:
+* -------
+*
+*
+*
+*------------------------------------------------------------------------------
+* Upper this line, this part is controlled by CC/CQ. DO NOT MODIFY!!
+*============================================================================
+****************************************************************************/
+#include <linux/videodev2.h>
+#include <linux/i2c.h>
+#include <linux/platform_device.h>
+#include <linux/delay.h>
+#include <linux/cdev.h>
+#include <linux/uaccess.h>
+#include <linux/fs.h>
+#include <asm/atomic.h>
+
+#include "kd_camera_hw.h"
+#include "kd_imgsensor.h"
+#include "kd_imgsensor_define.h"
+#include "kd_imgsensor_errcode.h"
+#include "kd_camera_feature.h"
+
+#include "hi351mipiyuv_Sensor.h"
+#include "hi351mipiyuv_Camera_Sensor_para.h"
+#include "hi351mipiyuv_CameraCustomized.h"
+
+
+/* Global Valuable */
+#define LGE_CAMERA_ANTIBAND_50HZ		// after manual flicker mathod
+#define PARAM_INIT_VALUE        0xFFFF
+#define Sleep(ms) msleep(ms)
+#define I2C_BUFFER_LEN 254 //MAX data to send by MT6572 i2c dma mode is 255 bytes
+#define BLOCK_I2C_DATA_WRITE iBurstWriteReg
+
+typedef enum {
+	SENSOR_MODE_INIT = 0,
+	SENSOR_MODE_PREVIEW,
+	SENSOR_MODE_CAPTURE
+} HI351_SENSOR_MODE;
+static DEFINE_SPINLOCK(hi351_drv_lock);
+
+static struct
+{
+	//kal_uint8   Banding;
+	kal_bool	  	NightMode;
+	kal_bool	  	VideoMode;
+	kal_uint16  	Fps;
+	kal_uint16  	ShutterStep;
+	kal_uint8   	IsPVmode;
+	kal_uint32  	PreviewDummyPixels;
+	kal_uint32  	PreviewDummyLines;
+	kal_uint32  	CaptureDummyPixels;
+	kal_uint32  	CaptureDummyLines;
+	kal_uint32  	PreviewPclk;
+	kal_uint32  	CapturePclk;
+	kal_uint32  	ZsdturePclk;
+	kal_uint32  	PreviewShutter;
+	kal_uint32 	 	PreviewExtraShutter;
+	kal_uint32  	SensorGain;
+	kal_bool    	manualAEStart;
+	kal_bool    	userAskAeLock;
+	kal_bool    	userAskAwbLock;
+	kal_uint32      currentExposureTime;
+	kal_uint32      currentShutter;
+	kal_uint32      currentextshutter;
+	kal_uint32      currentAxDGain;
+	kal_uint32  	sceneMode;
+	unsigned char 	isoSpeed;
+	unsigned char zsd_flag;
+	HI351_SENSOR_MODE SensorMode;
+} HI351Sensor;
+/* Global Valuable */
+
+static kal_uint32 HI351_zoom_factor = 0;
+
+static kal_bool HI351_gPVmode = KAL_TRUE; //PV size or Full size
+static kal_bool HI351_VEDIO_encode_mode = KAL_FALSE; //Picture(Jpeg) or Video(Mpeg4)
+static kal_bool HI351_sensor_cap_state = KAL_FALSE; //Preview or Capture
+static kal_bool HI351_ZSD_Preview_state = KAL_FALSE; //Preview or Capture
+
+
+UINT32 HI351_PV_dummy_pixels = 0, HI351_PV_dummy_lines = 0;
+UINT32 HI351_FULL_dummy_pixels = 0, HI351_FULL_dummy_lines = 0;
+
+kal_uint8 HI351_Banding_setting = AE_FLICKER_MODE_50HZ;
+
+static kal_uint16  HI351_PV_Shutter = 0;
+
+kal_uint32 HI351_isp_master_clock=0;
+static kal_uint32  HI351_preview_pclk = 0, HI351_capture_pclk = 0;
+kal_bool HI351_Night_mode = KAL_FALSE;
+kal_uint32 HI351_Scene_mode = SCENE_MODE_OFF;
+
+
+
+UINT8 HI351_PixelClockDivider=0;
+
+static kal_bool HI351_AWB_ENABLE = KAL_TRUE;
+static kal_bool HI351_AE_ENABLE = KAL_TRUE;
+
+static kal_uint32 Capture_Shutter = 0;
+static kal_uint32 Capture_Gain = 0;
+static kal_uint32 Capture_delay_in_Flash = 0;
+static kal_uint32 Capture_delay = 0;
+
+
+
+static kal_uint16 HI351_para_scene;
+static kal_uint16 HI351_para_wb;
+static kal_uint16 HI351_para_effect;
+typedef struct _HI351_EXIF_INFO_{
+	kal_uint32 awb;
+	kal_uint32 iso;
+	kal_uint32 flashlight;
+}HI351_EXIF_INFO;
+
+HI351_EXIF_INFO Exif_info;
+
+
+static DEFINE_SPINLOCK(hi351mipi_drv_lock);
+
+MSDK_SENSOR_CONFIG_STRUCT HI351SensorConfigData;
+
+MSDK_SCENARIO_ID_ENUM HI351CurrentScenarioId = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
+
+HI351_I2C_REG_STRUCT HI351_Initialize_Setting[] = {
+
+	{0x03, 0x00, BYTE_LEN},
+	{0x01, 0xf1, BYTE_LEN}, //Initial_111221_AWB(EV)_target_ColorRatio_lsc75p_AGC_D0_50_deSat_Ysat
+
+	{0x01, 0xf3, BYTE_LEN},
+	{0x01, 0xf1, BYTE_LEN},
+
+	///////////////////////////////////////////
+	// 0 Page PLL setting
+	///////////////////////////////////////////
+	{0x03, 0x00, BYTE_LEN},
+	{0x07, 0x25, BYTE_LEN}, //24/(5+1) = 4Mhz
+	{0x08, 0x48, BYTE_LEN}, // 72Mhz
+	{0x09, 0x82, BYTE_LEN},
+	{0x07, 0xa5, BYTE_LEN},
+	{0x07, 0xa5, BYTE_LEN},
+	{0x09, 0xa2, BYTE_LEN},
+	//_CHANGE_S MR LOW Light Tuning
+	{0x0A, 0x01, BYTE_LEN}, // MCU hardware reset
+	{0x0A, 0x00, BYTE_LEN},
+	{0x0A, 0x01, BYTE_LEN},
+	{0x0A, 0x00, BYTE_LEN},
+	//_CHANGE_E
+	///////////////////////////////////////////
+	// 20 Page OTP/ROM LSC download select setting
+	///////////////////////////////////////////
+	{0x03, 0x20, BYTE_LEN},
+	{0x3a, 0x00, BYTE_LEN},
+	{0x3b, 0x00, BYTE_LEN},
+	{0x3c, 0x00, BYTE_LEN},
+
+
+	///////////////////////////////////////////
+	// 30 Page MCU reset, enable setting
+	///////////////////////////////////////////
+	{0x03, 0x30, BYTE_LEN},
+	{0x30, 0x86, BYTE_LEN},
+	{0x31, 0x00, BYTE_LEN},
+	{0x32, 0x0c, BYTE_LEN},
+	{0xe0, 0x02, BYTE_LEN},// CLK INVERSION
+	{0x10, 0x81, BYTE_LEN}, // mcu reset high
+	{0x10, 0x89, BYTE_LEN}, // mcu enable high
+	{0x11, 0x08, BYTE_LEN}, // xdata memory reset high
+	{0x11, 0x00, BYTE_LEN}, // xdata memory reset low
+
+	///////////////////////////////////////////
+	// 7 Page OTP/ROM color ratio download select setting
+	///////////////////////////////////////////
+	{0x03, 0x07, BYTE_LEN},
+	{0x12, 0x07, BYTE_LEN},
+	{0x40, 0x0E, BYTE_LEN},
+	{0x47, 0x03, BYTE_LEN},
+	{0x2e, 0x00, BYTE_LEN},
+	{0x2f, 0x20, BYTE_LEN},
+	{0x30, 0x00, BYTE_LEN},
+	{0x31, 0xD6, BYTE_LEN},
+	{0x32, 0x00, BYTE_LEN},
+	{0x33, 0xFF, BYTE_LEN},
+	{0x10, 0x02, BYTE_LEN},
+
+	{0x03, 0x07, BYTE_LEN}, //delay
+	{0x03, 0x07, BYTE_LEN},
+	{0x03, 0x07, BYTE_LEN},
+	{0x03, 0x07, BYTE_LEN},
+	{0x03, 0x07, BYTE_LEN},
+
+	{0x2e, 0x03, BYTE_LEN}, // color ratio reg down
+	{0x2f, 0x20, BYTE_LEN},
+	{0x30, 0x20, BYTE_LEN},
+	{0x31, 0xa6, BYTE_LEN},
+	{0x32, 0x01, BYTE_LEN},
+	{0x33, 0x00, BYTE_LEN},
+	{0x10, 0x02, BYTE_LEN},
+
+
+	{0x03, 0x07, BYTE_LEN}, //delay
+	{0x03, 0x07, BYTE_LEN},
+	{0x03, 0x07, BYTE_LEN},
+	{0x03, 0x07, BYTE_LEN},
+	{0x03, 0x07, BYTE_LEN},
+
+	{0x12, 0x00, BYTE_LEN},
+	{0x98, 0x00, BYTE_LEN},
+	{0x97, 0x01, BYTE_LEN},
+
+	{0x8C, 0x08, BYTE_LEN},
+	{0x8F, 0x20, BYTE_LEN},
+	{0x92, 0x4C, BYTE_LEN},
+	{0x93, 0x00, BYTE_LEN}, // Set OTP Offset
+	{0x94, 0xF0, BYTE_LEN},
+	{0x95, 0x00, BYTE_LEN}, // Full Size normal XY-flip
+	///////////////////////////////////////////
+	// 30 Page MCU reset, enable setting
+	///////////////////////////////////////////
+	{0x03, 0x30, BYTE_LEN},
+	{0x10, 0x09, BYTE_LEN}, // mcu reset low  = mcu start!!
+
+	///////////////////////////////////////////
+	// 0 Page
+	///////////////////////////////////////////
+	{0x03, 0x00, BYTE_LEN},
+	{0x0B, 0x02, BYTE_LEN}, //PLL lock time
+	{0x10, 0x00, BYTE_LEN},
+	{0x13, 0x80, BYTE_LEN},
+	{0x14, 0x70, BYTE_LEN},
+	{0x15, 0x03, BYTE_LEN},
+	{0x17, 0x04, BYTE_LEN}, //Parallel, MIPI : 04, JPEG : 0c
+
+	//{0x20, 0x00, BYTE_LEN}, //Start Width
+	//{0x21, 0x0c, BYTE_LEN},
+	//{0x22, 0x00, BYTE_LEN}, //Start Height
+	//{0x23, 0x10, BYTE_LEN},
+
+	{0x20, 0x00, BYTE_LEN}, //Start Width
+	{0x21, 0x01, BYTE_LEN},
+	{0x22, 0x00, BYTE_LEN}, //Start Height
+	{0x23, 0x0a, BYTE_LEN},
+
+	{0x24, 0x06, BYTE_LEN}, //Widht Size
+	{0x25, 0x00, BYTE_LEN},
+	{0x26, 0x08, BYTE_LEN}, //Height Size
+	{0x27, 0x00, BYTE_LEN},
+	{0x50, 0x01, BYTE_LEN}, // HBLANK 1140 + 288 = 1428
+	{0x51, 0x20, BYTE_LEN},
+
+	{0x52, 0x00, BYTE_LEN}, //VBLANK = 50
+	{0x53, 0x1e, BYTE_LEN},
+	//BLC
+	{0x80, 0x02, BURST_TYPE},
+	{0x81, 0x87, BURST_TYPE},
+	{0x82, 0x28, BURST_TYPE},
+	{0x83, 0x08, BURST_TYPE},
+	{0x84, 0x8c, BURST_TYPE},
+	{0x85, 0x0c, BURST_TYPE},//blc on
+	{0x86, 0x00, BURST_TYPE},
+	{0x87, 0x00, BURST_TYPE},
+	{0x88, 0x98, BURST_TYPE},
+	{0x89, 0x10, BURST_TYPE},
+	{0x8a, 0x80, BURST_TYPE},
+	{0x8b, 0x00, BURST_TYPE_ED},
+	{0x8e, 0x80, BYTE_LEN},
+	{0x8f, 0x0f, BYTE_LEN},
+	{0x90, 0x0c, BYTE_LEN}, //BLC_TIME_TH_ON
+	{0x91, 0x0c, BYTE_LEN}, //BLC_TIME_TH_OFF
+	{0x92, 0xe8, BYTE_LEN}, //BLC_AG_TH_ON  // STEVE AGC 0xd0
+	{0x93, 0xe0, BYTE_LEN}, //BLC_AG_TH_OFF // STEVE AGC 0xd0
+	{0x96, 0xfe, BYTE_LEN}, //BLC_OUT_TH
+	{0x97, 0xfd, BYTE_LEN}, //BLC_OUT_TH
+	{0x98, 0x20, BYTE_LEN},
+
+
+
+	{0xa0, 0x85, BURST_TYPE}, //odd_adj_normal
+	{0xa1, 0x85, BURST_TYPE}, //out r
+	{0xa2, 0x85, BURST_TYPE}, //in
+	{0xa3, 0x88, BURST_TYPE}, //dark	MR Low Light Tuning
+	{0xa4, 0x85, BURST_TYPE}, //even_adj_normal
+	{0xa5, 0x85, BURST_TYPE}, //out b
+	{0xa6, 0x85, BURST_TYPE}, //in
+	{0xa7, 0x88, BURST_TYPE_ED}, //dark	 MR Low Light Tuning
+
+
+	{0xbb, 0x20, BYTE_LEN},
+	///////////////////////////////////////////
+	// 2 Page
+	///////////////////////////////////////////
+
+	{0x03, 0x02, BYTE_LEN},
+	{0x10, 0x00, BYTE_LEN},
+	{0x13, 0x00, BYTE_LEN},
+	{0x14, 0x00, BYTE_LEN},
+	{0x15, 0x08, BYTE_LEN},
+	{0x1a, 0x00, BYTE_LEN},//ncp adaptive off
+	{0x1b, 0x00, BYTE_LEN},
+	{0x1c, 0xc0, BYTE_LEN},
+	{0x1d, 0x00, BYTE_LEN},//MCU update bit[4]
+	{0x20, 0x44, BYTE_LEN},
+	{0x21, 0x02, BYTE_LEN},
+	{0x22, 0x22, BYTE_LEN},
+	{0x23, 0x30, BYTE_LEN},//clamp on 10 -30
+	{0x24, 0x77, BYTE_LEN},
+	{0x2b, 0x00, BURST_TYPE},
+	{0x2c, 0x0C, BURST_TYPE},
+	{0x2d, 0x80, BURST_TYPE},
+	{0x2e, 0x00, BURST_TYPE},
+	{0x2f, 0x00, BURST_TYPE},
+	{0x30, 0x00, BURST_TYPE},
+	{0x31, 0xf0, BURST_TYPE},
+	{0x32, 0x22, BURST_TYPE},
+	{0x33, 0x42, BURST_TYPE}, // STEVE01 0x02 -)0x42 DV3 fix
+	{0x34, 0x30, BURST_TYPE},
+	{0x35, 0x00, BURST_TYPE},
+	{0x36, 0x08, BURST_TYPE},
+	{0x37, 0x40, BURST_TYPE}, // STEVE01 0x20 -) 0x40 DV3 fix
+	{0x38, 0x14, BURST_TYPE},
+	{0x39, 0x02, BURST_TYPE},
+	{0x3a, 0x00, BURST_TYPE_ED},
+
+	{0x3d, 0x70, BYTE_LEN},
+	{0x3e, 0x04, BURST_TYPE},
+	{0x3f, 0x00, BURST_TYPE},
+	{0x40, 0x01, BURST_TYPE},
+	{0x41, 0x8a, BURST_TYPE},
+	{0x42, 0x00, BURST_TYPE},
+	{0x43, 0x25, BURST_TYPE},
+	{0x44, 0x00, BURST_TYPE_ED},
+	{0x46, 0x00, BYTE_LEN},
+	{0x47, 0x00, BURST_TYPE},
+	{0x48, 0x3C, BURST_TYPE},
+	{0x49, 0x10, BURST_TYPE},
+	{0x4a, 0x00, BURST_TYPE},
+	{0x4b, 0x10, BURST_TYPE},
+	{0x4c, 0x08, BURST_TYPE},
+	{0x4d, 0x70, BURST_TYPE},
+	{0x4e, 0x04, BURST_TYPE},
+	{0x4f, 0x38, BURST_TYPE},
+	{0x50, 0xa0, BURST_TYPE},
+	{0x51, 0x00, BURST_TYPE},
+	{0x52, 0x70, BURST_TYPE},
+	{0x53, 0x00, BURST_TYPE},
+	{0x54, 0xc0, BURST_TYPE},
+	{0x55, 0x40, BURST_TYPE},
+	{0x56, 0x11, BURST_TYPE},
+	{0x57, 0x00, BURST_TYPE},
+	{0x58, 0x10, BURST_TYPE},
+	{0x59, 0x0E, BURST_TYPE},
+	{0x5a, 0x00, BURST_TYPE},
+	{0x5b, 0x00, BURST_TYPE},
+	{0x5c, 0x00, BURST_TYPE},
+	{0x5d, 0x00, BURST_TYPE_ED},
+	{0x60, 0x04, BYTE_LEN},
+	{0x61, 0xe2, BURST_TYPE},
+	{0x62, 0x00, BURST_TYPE},
+	{0x63, 0xc8, BURST_TYPE},
+	{0x64, 0x00, BURST_TYPE},
+	{0x65, 0x00, BURST_TYPE},
+	{0x66, 0x00, BURST_TYPE},
+	{0x67, 0x3f, BURST_TYPE},
+	{0x68, 0x3f, BURST_TYPE},
+	{0x69, 0x3f, BURST_TYPE},
+	{0x6a, 0x04, BURST_TYPE},
+	{0x6b, 0x38, BURST_TYPE},
+	{0x6c, 0x00, BURST_TYPE},
+	{0x6d, 0x00, BURST_TYPE},
+	{0x6e, 0x00, BURST_TYPE},
+	{0x6f, 0x00, BURST_TYPE},
+	{0x70, 0x00, BURST_TYPE},
+	{0x71, 0x50, BURST_TYPE},
+	{0x72, 0x05, BURST_TYPE},
+	{0x73, 0xa5, BURST_TYPE},
+	{0x74, 0x00, BURST_TYPE},
+	{0x75, 0x50, BURST_TYPE},
+	{0x76, 0x02, BURST_TYPE},
+	{0x77, 0xfa, BURST_TYPE},
+	{0x78, 0x01, BURST_TYPE},
+	{0x79, 0xb4, BURST_TYPE},
+	{0x7a, 0x01, BURST_TYPE},
+	{0x7b, 0xb8, BURST_TYPE},
+	{0x7c, 0x00, BURST_TYPE},
+	{0x7d, 0x00, BURST_TYPE},
+	{0x7e, 0x00, BURST_TYPE},
+	{0x7f, 0x00, BURST_TYPE_ED},
+	{0xa0, 0x00, BYTE_LEN},
+	{0xa1, 0xEB, BURST_TYPE},
+	{0xa2, 0x02, BURST_TYPE},
+	{0xa3, 0x2D, BURST_TYPE},
+	{0xa4, 0x02, BURST_TYPE},
+	{0xa5, 0xB9, BURST_TYPE},
+	{0xa6, 0x05, BURST_TYPE},
+	{0xa7, 0xED, BURST_TYPE},
+	{0xa8, 0x00, BURST_TYPE},
+	{0xa9, 0xEB, BURST_TYPE},
+	{0xaa, 0x01, BURST_TYPE},
+	{0xab, 0xED, BURST_TYPE},
+	{0xac, 0x02, BURST_TYPE},
+	{0xad, 0x79, BURST_TYPE},
+	{0xae, 0x04, BURST_TYPE},
+	{0xaf, 0x2D, BURST_TYPE},
+	{0xb0, 0x00, BURST_TYPE},
+	{0xb1, 0x56, BURST_TYPE},
+	{0xb2, 0x01, BURST_TYPE},
+	{0xb3, 0x08, BURST_TYPE},
+	{0xb4, 0x00, BURST_TYPE},
+	{0xb5, 0x2B, BURST_TYPE},
+	{0xb6, 0x03, BURST_TYPE},
+	{0xb7, 0x2B, BURST_TYPE},
+	{0xb8, 0x00, BURST_TYPE},
+	{0xb9, 0x56, BURST_TYPE},
+	{0xba, 0x00, BURST_TYPE},
+	{0xbb, 0xC8, BURST_TYPE},
+	{0xbc, 0x00, BURST_TYPE},
+	{0xbd, 0x2B, BURST_TYPE},
+	{0xbe, 0x01, BURST_TYPE},
+	{0xbf, 0xAB, BURST_TYPE},
+	{0xc0, 0x00, BURST_TYPE},
+	{0xc1, 0x54, BURST_TYPE},
+	{0xc2, 0x01, BURST_TYPE},
+	{0xc3, 0x0A, BURST_TYPE},
+	{0xc4, 0x00, BURST_TYPE},
+	{0xc5, 0x29, BURST_TYPE},
+	{0xc6, 0x03, BURST_TYPE},
+	{0xc7, 0x2D, BURST_TYPE},
+	{0xc8, 0x00, BURST_TYPE},
+	{0xc9, 0x54, BURST_TYPE},
+	{0xca, 0x00, BURST_TYPE},
+	{0xcb, 0xCA, BURST_TYPE},
+	{0xcc, 0x00, BURST_TYPE},
+	{0xcd, 0x29, BURST_TYPE},
+	{0xce, 0x01, BURST_TYPE},
+	{0xcf, 0xAD, BURST_TYPE},
+	{0xd0, 0x10, BURST_TYPE},
+	{0xd1, 0x14, BURST_TYPE},
+	{0xd2, 0x20, BURST_TYPE},
+	{0xd3, 0x00, BURST_TYPE},
+#if defined (LGE_CAMERA_ANTIBAND_50HZ)	//Flicker 50Hz
+	{0xd4, 0x0c, BURST_TYPE},//DCDC_TIME_TH_ON  // STEVE for 50hz
+	{0xd5, 0x0c, BURST_TYPE},//DCDC_TIME_TH_OFF // STEVE for 50hz
+#else
+	{0xd4, 0x0f, BURST_TYPE},//DCDC_TIME_TH_ON // STEVE
+	{0xd5, 0x0f, BURST_TYPE},//DCDC_TIME_TH_OFF // STEVE
+#endif
+	{0xd6, 0xe8, BURST_TYPE},//DCDC_AG_TH_ON	 // STEVE AGC 0xf0
+	{0xd7, 0xe0, BURST_TYPE_ED},//DCDC_AG_TH_OFF  // STEVE AGC 0xf0
+	{0xE0, 0xf0, BYTE_LEN},//ncp adaptive
+	{0xE1, 0xf0, BURST_TYPE},//ncp adaptive
+	{0xE2, 0xf0, BURST_TYPE},//ncp adaptive
+	{0xE3, 0xf0, BURST_TYPE},//ncp adaptive
+	{0xE4, 0xd0, BURST_TYPE},//ncp adaptive
+	{0xE5, 0x00, BURST_TYPE},//ncp adaptive
+	{0xE6, 0x00, BURST_TYPE},
+	{0xE7, 0x00, BURST_TYPE},
+	{0xE8, 0x00, BURST_TYPE},
+	{0xE9, 0x00, BURST_TYPE},
+	{0xEA, 0x15, BURST_TYPE},
+	{0xEB, 0x15, BURST_TYPE},
+	{0xEC, 0x15, BURST_TYPE},
+	{0xED, 0x05, BURST_TYPE},
+	{0xEE, 0x05, BURST_TYPE},
+	{0xEF, 0x65, BURST_TYPE},
+	{0xF0, 0x0c, BURST_TYPE_ED},
+	{0xF3, 0x05, BYTE_LEN},
+	{0xF4, 0x0a, BURST_TYPE},
+	{0xF5, 0x05, BURST_TYPE},
+	{0xF6, 0x05, BURST_TYPE},
+	{0xF7, 0x15, BURST_TYPE},
+	{0xF8, 0x15, BURST_TYPE},
+	{0xF9, 0x15, BURST_TYPE},
+	{0xFA, 0x15, BURST_TYPE},
+	{0xFB, 0x15, BURST_TYPE},
+	{0xFC, 0x55, BURST_TYPE},
+	{0xFD, 0x55, BURST_TYPE},
+	{0xFE, 0x05, BURST_TYPE_ED},
+	///////////////////////////////////////////
+	//3Page
+	///////////////////////////////////////////
+	{0x03, 0x03, BYTE_LEN},
+	{0x10, 0x00, BURST_TYPE},
+	{0x11, 0x64, BURST_TYPE},
+	{0x12, 0x00, BURST_TYPE},
+	{0x13, 0x32, BURST_TYPE},
+	{0x14, 0x02, BURST_TYPE},
+	{0x15, 0x51, BURST_TYPE},
+	{0x16, 0x02, BURST_TYPE},
+	{0x17, 0x59, BURST_TYPE},
+	{0x18, 0x00, BURST_TYPE},
+	{0x19, 0x97, BURST_TYPE},
+	{0x1a, 0x01, BURST_TYPE},
+	{0x1b, 0x7C, BURST_TYPE},
+	{0x1c, 0x00, BURST_TYPE},
+	{0x1d, 0x97, BURST_TYPE},
+	{0x1e, 0x01, BURST_TYPE},
+	{0x1f, 0x7C, BURST_TYPE},
+	{0x20, 0x00, BURST_TYPE},
+	{0x21, 0x97, BURST_TYPE},
+	{0x22, 0x00, BURST_TYPE},
+	{0x23, 0xe3, BURST_TYPE}, //cds 2 off time sunspot
+	{0x24, 0x00, BURST_TYPE},
+	{0x25, 0x97, BURST_TYPE},
+	{0x26, 0x00, BURST_TYPE},
+	{0x27, 0xe3, BURST_TYPE}, //cds 2 off time  sunspot
+
+	{0x28, 0x00, BURST_TYPE},
+	{0x29, 0x97, BURST_TYPE},
+	{0x2a, 0x00, BURST_TYPE},
+	{0x2b, 0xE6, BURST_TYPE},
+	{0x2c, 0x00, BURST_TYPE},
+	{0x2d, 0x97, BURST_TYPE},
+	{0x2e, 0x00, BURST_TYPE},
+	{0x2f, 0xE6, BURST_TYPE},
+	{0x30, 0x00, BURST_TYPE},
+	{0x31, 0x0a, BURST_TYPE},
+	{0x32, 0x03, BURST_TYPE},
+	{0x33, 0x31, BURST_TYPE},
+	{0x34, 0x00, BURST_TYPE},
+	{0x35, 0x0a, BURST_TYPE},
+	{0x36, 0x03, BURST_TYPE},
+	{0x37, 0x31, BURST_TYPE},
+	{0x38, 0x00, BURST_TYPE},
+	{0x39, 0x0A, BURST_TYPE},
+	{0x3a, 0x01, BURST_TYPE},
+	{0x3b, 0xB0, BURST_TYPE},
+	{0x3c, 0x00, BURST_TYPE},
+	{0x3d, 0x0A, BURST_TYPE},
+	{0x3e, 0x01, BURST_TYPE},
+	{0x3f, 0xB0, BURST_TYPE},
+	{0x40, 0x00, BURST_TYPE},
+	{0x41, 0x04, BURST_TYPE},
+	{0x42, 0x00, BURST_TYPE},
+	{0x43, 0x1c, BURST_TYPE},
+	{0x44, 0x00, BURST_TYPE},
+	{0x45, 0x02, BURST_TYPE},
+	{0x46, 0x00, BURST_TYPE},
+	{0x47, 0x34, BURST_TYPE},
+	{0x48, 0x00, BURST_TYPE},
+	{0x49, 0x06, BURST_TYPE},
+	{0x4a, 0x00, BURST_TYPE},
+	{0x4b, 0x1a, BURST_TYPE},
+	{0x4c, 0x00, BURST_TYPE},
+	{0x4d, 0x06, BURST_TYPE},
+	{0x4e, 0x00, BURST_TYPE},
+	{0x4f, 0x1a, BURST_TYPE},
+	{0x50, 0x00, BURST_TYPE},
+	{0x51, 0x08, BURST_TYPE},
+	{0x52, 0x00, BURST_TYPE},
+	{0x53, 0x18, BURST_TYPE},
+	{0x54, 0x00, BURST_TYPE},
+	{0x55, 0x08, BURST_TYPE},
+	{0x56, 0x00, BURST_TYPE},
+	{0x57, 0x18, BURST_TYPE},
+	{0x58, 0x00, BURST_TYPE},
+	{0x59, 0x08, BURST_TYPE},
+	{0x5A, 0x00, BURST_TYPE},
+	{0x5b, 0x18, BURST_TYPE},
+	{0x5c, 0x00, BURST_TYPE},
+	{0x5d, 0x06, BURST_TYPE},
+	{0x5e, 0x00, BURST_TYPE},
+	{0x5f, 0x1c, BURST_TYPE},
+	{0x60, 0x00, BURST_TYPE},
+	{0x61, 0x00, BURST_TYPE},
+	{0x62, 0x00, BURST_TYPE},
+	{0x63, 0x00, BURST_TYPE},
+	{0x64, 0x00, BURST_TYPE},
+	{0x65, 0x00, BURST_TYPE},
+	{0x66, 0x00, BURST_TYPE},
+	{0x67, 0x00, BURST_TYPE},
+	{0x68, 0x00, BURST_TYPE},
+	{0x69, 0x02, BURST_TYPE},
+	{0x6A, 0x00, BURST_TYPE},
+	{0x6B, 0x1e, BURST_TYPE},
+	{0x6C, 0x00, BURST_TYPE},
+	{0x6D, 0x00, BURST_TYPE},
+	{0x6E, 0x00, BURST_TYPE},
+	{0x6F, 0x00, BURST_TYPE},
+	{0x70, 0x00, BURST_TYPE},
+	{0x71, 0x66, BURST_TYPE},
+	{0x72, 0x01, BURST_TYPE},
+	{0x73, 0x86, BURST_TYPE},
+	{0x74, 0x00, BURST_TYPE},
+	{0x75, 0x6B, BURST_TYPE},
+	{0x76, 0x00, BURST_TYPE},
+	{0x77, 0x93, BURST_TYPE},
+	{0x78, 0x01, BURST_TYPE},
+	{0x79, 0x84, BURST_TYPE},
+	{0x7a, 0x01, BURST_TYPE},
+	{0x7b, 0x88, BURST_TYPE},
+	{0x7c, 0x01, BURST_TYPE},
+	{0x7d, 0x84, BURST_TYPE},
+	{0x7e, 0x01, BURST_TYPE},
+	{0x7f, 0x88, BURST_TYPE},
+	{0x80, 0x01, BURST_TYPE},
+	{0x81, 0x13, BURST_TYPE},
+	{0x82, 0x01, BURST_TYPE},
+	{0x83, 0x3B, BURST_TYPE},
+	{0x84, 0x01, BURST_TYPE},
+	{0x85, 0x84, BURST_TYPE},
+	{0x86, 0x01, BURST_TYPE},
+	{0x87, 0x88, BURST_TYPE},
+	{0x88, 0x01, BURST_TYPE},
+	{0x89, 0x84, BURST_TYPE},
+	{0x8a, 0x01, BURST_TYPE},
+	{0x8b, 0x88, BURST_TYPE},
+	{0x8c, 0x01, BURST_TYPE},
+	{0x8d, 0x16, BURST_TYPE},
+	{0x8e, 0x01, BURST_TYPE},
+	{0x8f, 0x42, BURST_TYPE},
+	{0x90, 0x00, BURST_TYPE},
+	{0x91, 0x68, BURST_TYPE},
+	{0x92, 0x01, BURST_TYPE},
+	{0x93, 0x80, BURST_TYPE},
+	{0x94, 0x00, BURST_TYPE},
+	{0x95, 0x68, BURST_TYPE},
+	{0x96, 0x01, BURST_TYPE},
+	{0x97, 0x80, BURST_TYPE},
+	{0x98, 0x01, BURST_TYPE},
+	{0x99, 0x80, BURST_TYPE},
+	{0x9a, 0x00, BURST_TYPE},
+	{0x9b, 0x68, BURST_TYPE},
+	{0x9c, 0x01, BURST_TYPE},
+	{0x9d, 0x80, BURST_TYPE},
+	{0x9e, 0x00, BURST_TYPE},
+	{0x9f, 0x68, BURST_TYPE},
+	{0xa0, 0x00, BURST_TYPE},
+	{0xa1, 0x08, BURST_TYPE},
+	{0xa2, 0x00, BURST_TYPE},
+	{0xa3, 0x04, BURST_TYPE},
+	{0xa4, 0x00, BURST_TYPE},
+	{0xa5, 0x08, BURST_TYPE},
+	{0xa6, 0x00, BURST_TYPE},
+	{0xa7, 0x04, BURST_TYPE},
+	{0xa8, 0x00, BURST_TYPE},
+	{0xa9, 0x73, BURST_TYPE},
+	{0xaa, 0x00, BURST_TYPE},
+	{0xab, 0x64, BURST_TYPE},
+	{0xac, 0x00, BURST_TYPE},
+	{0xad, 0x73, BURST_TYPE},
+	{0xae, 0x00, BURST_TYPE},
+	{0xaf, 0x64, BURST_TYPE_ED},
+	{0xc0, 0x00, BYTE_LEN},
+	{0xc1, 0x1d, BURST_TYPE},
+	{0xc2, 0x00, BURST_TYPE},
+	{0xc3, 0x2f, BURST_TYPE},
+	{0xc4, 0x00, BURST_TYPE},
+	{0xc5, 0x1d, BURST_TYPE},
+	{0xc6, 0x00, BURST_TYPE},
+	{0xc7, 0x2f, BURST_TYPE},
+	{0xc8, 0x00, BURST_TYPE},
+	{0xc9, 0x1f, BURST_TYPE},
+	{0xca, 0x00, BURST_TYPE},
+	{0xcb, 0x2d, BURST_TYPE},
+	{0xcc, 0x00, BURST_TYPE},
+	{0xcd, 0x1f, BURST_TYPE},
+	{0xce, 0x00, BURST_TYPE},
+	{0xcf, 0x2d, BURST_TYPE},
+	{0xd0, 0x00, BURST_TYPE},
+	{0xd1, 0x21, BURST_TYPE},
+	{0xd2, 0x00, BURST_TYPE},
+	{0xd3, 0x2b, BURST_TYPE},
+	{0xd4, 0x00, BURST_TYPE},
+	{0xd5, 0x21, BURST_TYPE},
+	{0xd6, 0x00, BURST_TYPE},
+	{0xd7, 0x2b, BURST_TYPE},
+	{0xd8, 0x00, BURST_TYPE},
+	{0xd9, 0x23, BURST_TYPE},
+	{0xdA, 0x00, BURST_TYPE},
+	{0xdB, 0x29, BURST_TYPE},
+	{0xdC, 0x00, BURST_TYPE},
+	{0xdD, 0x23, BURST_TYPE},
+	{0xdE, 0x00, BURST_TYPE},
+	{0xdF, 0x29, BURST_TYPE},
+	{0xe0, 0x00, BURST_TYPE},
+	{0xe1, 0x6B, BURST_TYPE},
+	{0xe2, 0x00, BURST_TYPE},
+	{0xe3, 0xE8, BURST_TYPE},
+	{0xe4, 0x00, BURST_TYPE},
+	{0xe5, 0xEB, BURST_TYPE},
+	{0xe6, 0x01, BURST_TYPE},
+	{0xe7, 0x7E, BURST_TYPE},
+	{0xe8, 0x00, BURST_TYPE},
+	{0xe9, 0x95, BURST_TYPE},
+	{0xea, 0x00, BURST_TYPE},
+	{0xeb, 0xF1, BURST_TYPE},
+	{0xec, 0x00, BURST_TYPE},
+	{0xed, 0xdd, BURST_TYPE},
+	{0xee, 0x00, BURST_TYPE},
+	{0xef, 0x00, BURST_TYPE},
+
+	{0xf0, 0x00, BURST_TYPE},
+	{0xf1, 0x34, BURST_TYPE},
+	{0xf2, 0x00, BURST_TYPE_ED},
+
+	///////////////////////////////////////////
+	// 10 Page
+	///////////////////////////////////////////
+	{0x03, 0x10, BYTE_LEN},
+	{0xe0, 0xff, BYTE_LEN},
+	{0xe1, 0x3f, BYTE_LEN}, // don't touch update
+	{0xe2, 0xff, BYTE_LEN}, // don't touch update
+	{0xe3, 0xff, BYTE_LEN}, // don't touch update
+	{0xe4, 0xf7, BYTE_LEN}, // don't touch update
+	{0xe5, 0x79, BYTE_LEN}, // don't touch update
+	{0xe6, 0xce, BYTE_LEN}, // don't touch update
+	{0xe7, 0x1f, BYTE_LEN}, // don't touch update
+	{0xe8, 0x5f, BYTE_LEN}, // don't touch update
+	{0xe9, 0x00, BYTE_LEN}, // don't touch update
+	{0xea, 0x00, BYTE_LEN}, // don't touch update
+	{0xeb, 0x00, BYTE_LEN}, // don't touch update
+	{0xec, 0x00, BYTE_LEN}, // don't touch update
+	{0xed, 0x00, BYTE_LEN}, // don't touch update
+	{0xf0, 0x3f, BYTE_LEN},
+	{0xf1, 0x00, BYTE_LEN}, // don't touch update
+	{0xf2, 0x40, BYTE_LEN}, // don't touch update
+
+	{0x10, 0x03, BYTE_LEN}, //YUV422-YUYV
+	{0x12, 0x30, BYTE_LEN}, //Y,DY offset Enb
+	{0x13, 0x02, BYTE_LEN}, //Bright2, Contrast Enb
+	{0x20, 0x80, BYTE_LEN},
+
+	{0x60, 0x03, BYTE_LEN}, //Sat, Trans Enb
+	{0x61, 0x80, BYTE_LEN},
+	{0x62, 0x80, BYTE_LEN},
+	//Desat - Chroma
+	// STEVE for achromatic color
+	//_CHANGE_S MR LOW Light Tuning
+	{0x03, 0x10, BYTE_LEN},
+	{0x70, 0x08, BURST_TYPE},
+	{0x71, 0x00, BURST_TYPE},
+	{0x72, 0xbe, BURST_TYPE},
+	{0x73, 0x88, BURST_TYPE},
+	{0x74, 0x51, BURST_TYPE},
+	{0x75, 0x00, BURST_TYPE},
+	{0x76, 0x23, BURST_TYPE},
+	{0x77, 0x31, BURST_TYPE},
+	{0x78, 0xeb, BURST_TYPE},
+	{0x79, 0x38, BURST_TYPE},
+	{0x7a, 0x51, BURST_TYPE},
+	{0x7b, 0x40, BURST_TYPE},
+	{0x7c, 0x00, BURST_TYPE},
+	{0x7d, 0x14, BURST_TYPE},
+	{0x7e, 0x20, BURST_TYPE},
+	{0x7f, 0x38, BURST_TYPE_ED},
+
+	///////////////////////////////////////////
+	// 11 page D-LPF
+	///////////////////////////////////////////
+	//DLPF
+	{0x03, 0x11, BYTE_LEN},
+	{0xf0, 0x20, BURST_TYPE},
+	{0xf1, 0x00, BURST_TYPE},
+	{0xf2, 0xe8, BURST_TYPE}, //in/dark1 PGA
+	{0xf3, 0xe0, BURST_TYPE},
+	{0xf4, 0xfe, BURST_TYPE},
+	{0xf5, 0xfd, BURST_TYPE},
+	{0xf6, 0x00, BURST_TYPE},
+	{0xf7, 0x00, BURST_TYPE_ED},
+	//_CHANGE_E
+	// STEVE Luminanace level setting (Add to DMA)
+	{0x32, 0x8b, BYTE_LEN},
+	{0x33, 0x54, BYTE_LEN},
+	{0x34, 0x2c, BYTE_LEN},
+	{0x35, 0x29, BYTE_LEN},
+	{0x36, 0x18, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x38, 0x17, BYTE_LEN},
+
+	///////////////////////////////////////////
+	// 12 page DPC / GBGR /LensDebulr
+	///////////////////////////////////////////
+	{0x03, 0x12, BYTE_LEN},
+	{0x10, 0x57, BURST_TYPE},
+	{0x11, 0x29, BURST_TYPE},
+	{0x12, 0x08, BURST_TYPE},
+	{0x13, 0x00, BURST_TYPE},
+	{0x14, 0x00, BURST_TYPE},
+	{0x15, 0x00, BURST_TYPE},
+	{0x16, 0x00, BURST_TYPE},
+	{0x17, 0x00, BURST_TYPE},
+
+	{0x18, 0xc8, BURST_TYPE},
+	{0x19, 0x7d, BURST_TYPE},
+	{0x1a, 0x32, BURST_TYPE},
+	{0x1b, 0x02, BURST_TYPE},
+	{0x1c, 0x77, BURST_TYPE},
+	{0x1d, 0x1e, BURST_TYPE},
+	{0x1e, 0x28, BURST_TYPE},
+	{0x1f, 0x28, BURST_TYPE},
+
+	{0x20, 0x14, BURST_TYPE},
+	{0x21, 0x11, BURST_TYPE},
+	{0x22, 0x0f, BURST_TYPE},
+	{0x23, 0x16, BURST_TYPE},
+	{0x24, 0x15, BURST_TYPE},
+	{0x25, 0x14, BURST_TYPE},
+	{0x26, 0x28, BURST_TYPE},
+	{0x27, 0x3c, BURST_TYPE},
+
+	{0x28, 0x78, BURST_TYPE},
+	{0x29, 0xa0, BURST_TYPE},
+	{0x2a, 0xb4, BURST_TYPE},
+	{0x2b, 0x08, BURST_TYPE},//DPC threshold
+	{0x2c, 0x08, BURST_TYPE},//DPC threshold
+	{0x2d, 0x08, BURST_TYPE},//DPC threshold
+	{0x2e, 0x06, BURST_TYPE},//DPC threshold
+	{0x2f, 0x64, BURST_TYPE},
+
+	{0x30, 0x64, BURST_TYPE},
+	{0x31, 0x64, BURST_TYPE},
+	{0x32, 0x64, BURST_TYPE},
+	//GBGR
+	{0x33, 0xaa, BURST_TYPE},
+	{0x34, 0x96, BURST_TYPE},
+	{0x35, 0x04, BURST_TYPE},
+	{0x36, 0x0e, BURST_TYPE},
+	{0x37, 0x0c, BURST_TYPE},
+
+	{0x38, 0x04, BURST_TYPE},
+	{0x39, 0x04, BURST_TYPE},
+	{0x3a, 0x03, BURST_TYPE},
+	{0x3b, 0x0c, BURST_TYPE},
+	{0x3C, 0x00, BURST_TYPE},
+	{0x3D, 0x00, BURST_TYPE},
+	{0x3E, 0x00, BURST_TYPE},
+	{0x3F, 0x00, BURST_TYPE_ED},
+
+	{0x40, 0x33, BYTE_LEN},
+	{0xE0, 0x0c, BYTE_LEN},
+	{0xE1, 0x58, BYTE_LEN},
+	{0xEC, 0x10, BYTE_LEN},
+	{0xEE, 0x03, BYTE_LEN},
+
+	///////////////////////////////////////////
+	// 13 page YC2D LPF
+	///////////////////////////////////////////
+	{0x03, 0x13, BYTE_LEN},
+
+	{0x10, 0x33, BYTE_LEN}, //Don't touch
+	{0xa0, 0x0f, BYTE_LEN}, //Don't touch
+
+	{0xe1, 0x07, BYTE_LEN},
+
+	///////////////////////////////////////////
+	// 14 page Sharpness
+	///////////////////////////////////////////
+	{0x03, 0x14, BYTE_LEN},
+
+	{0x10, 0x27, BYTE_LEN}, //Don't touch
+	{0x11, 0x02, BYTE_LEN}, //Don't touch
+	{0x12, 0x40, BYTE_LEN}, //Don't touch
+	{0x20, 0x82, BYTE_LEN}, //Don't touch
+	{0x30, 0x82, BYTE_LEN}, //Don't touch
+	{0x40, 0x84, BYTE_LEN}, //Don't touch
+	{0x50, 0x84, BYTE_LEN}, //Don't touch
+
+	///////////////////////////////////////////
+	// 15 Page LSC off
+	///////////////////////////////////////////
+	{0x03, 0x15, BYTE_LEN},
+	{0x10, 0x82, BYTE_LEN}, //lsc off
+
+
+	///////////////////////////////////////////
+	// 7 Page LSC data (STEVE 75p)
+	///////////////////////////////////////////
+	{0x03, 0x07, BYTE_LEN},
+	{0x12, 0x04, BYTE_LEN},//07
+	{0x34, 0x00, BYTE_LEN},
+	{0x35, 0x00, BYTE_LEN},
+	{0x13, 0x85, BYTE_LEN},
+	{0x13, 0x05, BYTE_LEN},
+
+	//================ LSC set start
+	//start
+	{0x37, 0x39, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x34, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x40, BYTE_LEN},
+	{0x37, 0x46, BYTE_LEN},
+	{0x37, 0x48, BYTE_LEN},
+	{0x37, 0x4a, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x33, BYTE_LEN},
+	{0x37, 0x39, BYTE_LEN},
+	{0x37, 0x3f, BYTE_LEN},
+	{0x37, 0x43, BYTE_LEN},
+	{0x37, 0x43, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x16, BYTE_LEN},
+	{0x37, 0x16, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x33, BYTE_LEN},
+	{0x37, 0x3a, BYTE_LEN},
+	{0x37, 0x40, BYTE_LEN},
+	{0x37, 0x40, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x33, BYTE_LEN},
+	{0x37, 0x3a, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x34, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x16, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x16, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x38, BYTE_LEN},
+	{0x37, 0x3a, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x3e, BYTE_LEN},
+	{0x37, 0x3f, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x42, BYTE_LEN},
+	{0x37, 0x44, BYTE_LEN},
+	{0x37, 0x3f, BYTE_LEN},
+	{0x37, 0x3e, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x38, BYTE_LEN},
+	{0x37, 0x34, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x34, BYTE_LEN},
+	{0x37, 0x39, BYTE_LEN},
+	{0x37, 0x3e, BYTE_LEN},
+	{0x37, 0x43, BYTE_LEN},
+	{0x37, 0x48, BYTE_LEN},
+	{0x37, 0x4b, BYTE_LEN},
+	{0x37, 0x4d, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x39, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x42, BYTE_LEN},
+	{0x37, 0x46, BYTE_LEN},
+	{0x37, 0x46, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x42, BYTE_LEN},
+	{0x37, 0x43, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x3e, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x39, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x33, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x39, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x16, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x3f, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x34, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x3d, BYTE_LEN},
+	{0x37, 0x43, BYTE_LEN},
+	{0x37, 0x44, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x34, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x41, BYTE_LEN},
+	{0x37, 0x47, BYTE_LEN},
+	{0x37, 0x48, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x3f, BYTE_LEN},
+	{0x37, 0x41, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x34, BYTE_LEN},
+	{0x37, 0x39, BYTE_LEN},
+	{0x37, 0x39, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x16, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x3a, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x3a, BYTE_LEN},
+	{0x37, 0x3d, BYTE_LEN},
+	{0x37, 0x3d, BYTE_LEN},
+	{0x37, 0x41, BYTE_LEN},
+	{0x37, 0x3e, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x33, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x33, BYTE_LEN},
+	{0x37, 0x38, BYTE_LEN},
+	{0x37, 0x3d, BYTE_LEN},
+	{0x37, 0x43, BYTE_LEN},
+	{0x37, 0x47, BYTE_LEN},
+	{0x37, 0x4a, BYTE_LEN},
+	{0x37, 0x3a, BYTE_LEN},
+	{0x37, 0x38, BYTE_LEN},
+	{0x37, 0x34, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x41, BYTE_LEN},
+	{0x37, 0x42, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x3d, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x16, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x1d, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x11, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x02, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x2a, BYTE_LEN},
+	{0x37, 0x2d, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x03, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x00, BYTE_LEN},
+	{0x37, 0x01, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x08, BYTE_LEN},
+	{0x37, 0x0e, BYTE_LEN},
+	{0x37, 0x16, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x20, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x07, BYTE_LEN},
+	{0x37, 0x05, BYTE_LEN},
+	{0x37, 0x04, BYTE_LEN},
+	{0x37, 0x06, BYTE_LEN},
+	{0x37, 0x09, BYTE_LEN},
+	{0x37, 0x0d, BYTE_LEN},
+	{0x37, 0x13, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x33, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x19, BYTE_LEN},
+	{0x37, 0x15, BYTE_LEN},
+	{0x37, 0x10, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x0b, BYTE_LEN},
+	{0x37, 0x0a, BYTE_LEN},
+	{0x37, 0x0c, BYTE_LEN},
+	{0x37, 0x0f, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x1a, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x2e, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x29, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x17, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x12, BYTE_LEN},
+	{0x37, 0x14, BYTE_LEN},
+	{0x37, 0x18, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x35, BYTE_LEN},
+	{0x37, 0x3b, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x26, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x1f, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x1b, BYTE_LEN},
+	{0x37, 0x1c, BYTE_LEN},
+	{0x37, 0x1e, BYTE_LEN},
+	{0x37, 0x21, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x30, BYTE_LEN},
+	{0x37, 0x37, BYTE_LEN},
+	{0x37, 0x3d, BYTE_LEN},
+	{0x37, 0x42, BYTE_LEN},
+	{0x37, 0x42, BYTE_LEN},
+	{0x37, 0x33, BYTE_LEN},
+	{0x37, 0x32, BYTE_LEN},
+	{0x37, 0x2f, BYTE_LEN},
+	{0x37, 0x2b, BYTE_LEN},
+	{0x37, 0x27, BYTE_LEN},
+	{0x37, 0x25, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x22, BYTE_LEN},
+	{0x37, 0x23, BYTE_LEN},
+	{0x37, 0x24, BYTE_LEN},
+	{0x37, 0x28, BYTE_LEN},
+	{0x37, 0x2c, BYTE_LEN},
+	{0x37, 0x31, BYTE_LEN},
+	{0x37, 0x36, BYTE_LEN},
+	{0x37, 0x3c, BYTE_LEN},
+	{0x37, 0x41, BYTE_LEN},
+	{0x37, 0x46, BYTE_LEN},
+	{0x37, 0x46, BYTE_LEN},
+	//END
+
+	//================ LSC set end
+
+	{0x12, 0x00, BYTE_LEN},
+	{0x13, 0x00, BYTE_LEN},
+
+	{0x03, 0x15, BYTE_LEN},
+	{0x10, 0x83, BYTE_LEN}, // LSC ON
+
+	///////////////////////////////////////////
+	// 16 Page CMC
+	///////////////////////////////////////////
+	{0x03, 0x16, BYTE_LEN},
+
+	{0x10, 0x0f, BYTE_LEN}, //cmc
+	{0x17, 0x2f, BYTE_LEN}, //CMC SIGN
+	{0x60, 0xff, BYTE_LEN}, //mcmc steve MCMC ON 20111221 MR
+
+	// STEVE automatic saturation according Y level
+	{0x8a, 0x5c, BURST_TYPE},
+	{0x8b, 0x73, BURST_TYPE},
+	{0x8c, 0x7b, BURST_TYPE},
+	{0x8d, 0x7f, BURST_TYPE},
+	{0x8e, 0x7f, BURST_TYPE},
+	{0x8f, 0x7f, BURST_TYPE},
+	{0x90, 0x7f, BURST_TYPE},
+	{0x91, 0x7f, BURST_TYPE},
+	{0x92, 0x7f, BURST_TYPE},
+	{0x93, 0x7f, BURST_TYPE},
+	{0x94, 0x7f, BURST_TYPE},
+	{0x95, 0x7f, BURST_TYPE},
+	{0x96, 0x7f, BURST_TYPE},
+	{0x97, 0x7f, BURST_TYPE},
+	{0x98, 0x7f, BURST_TYPE},
+	{0x99, 0x7c, BURST_TYPE},
+	{0x9a, 0x78, BURST_TYPE_ED},
+
+	//Dgain
+	{0xa0, 0x81, BYTE_LEN}, //Manual WB gain enable
+	{0xa1, 0x00, BYTE_LEN},
+
+	{0xa2, 0x68, BYTE_LEN}, //R_dgain_byr
+	{0xa3, 0x70, BYTE_LEN}, //B_dgain_byr
+
+	{0xa6, 0xa0, BYTE_LEN}, //r max
+	{0xa8, 0xa0, BYTE_LEN}, //b max
+	// Pre WB gain setting(after AWB setting)
+	//LGE_CHANGE_S MR LOW Light Tuning
+	{0xF0, 0x01, BYTE_LEN},//Pre WB gain enable Gain resolution_1x	STEVE LOW
+	{0xF1, 0x40, BYTE_LEN},
+	{0xF2, 0x40, BYTE_LEN},
+	{0xF3, 0x40, BYTE_LEN},
+	{0xF4, 0x40, BYTE_LEN},
+	//LGE_CHANGE_E
+	///////////////////////////////////////////
+	// 17 Page Gamma
+	///////////////////////////////////////////
+	{0x03, 0x17, BYTE_LEN},
+	{0x10, 0x01, BYTE_LEN},
+
+	///////////////////////////////////////////
+	// 18 Page Histogram
+	///////////////////////////////////////////
+	{0x03, 0x18, BYTE_LEN},
+	{0x10, 0x00, BYTE_LEN},
+	{0xc0, 0x01, BYTE_LEN},
+	{0xc4, 0x7e, BYTE_LEN},//120725
+	{0xc5, 0x69, BYTE_LEN},
+
+	///////////////////////////////////////////
+	// 20 Page AE
+	///////////////////////////////////////////
+	{0x03, 0x20, BYTE_LEN},
+#if defined (LGE_CAMERA_ANTIBAND_50HZ)	//Flicker 50Hz
+	{0x10, 0x9f, BYTE_LEN},// STEVE Mananual 50Hz flicker (50Hz: 9f, 60hz: 8f)
+	{0x12, 0x2d, BYTE_LEN}, // STEVE Dgain ON for Low Light Spec. (2d -) 6d)  MR
+	{0x17, 0xa0, BYTE_LEN},
+	{0x1f, 0x1f, BYTE_LEN},
+
+	{0x03, 0x20, BYTE_LEN}, //Page 20
+	{0x20, 0x00, BURST_TYPE}, //EXP Normal 30.00 fps
+	{0x21, 0x10, BURST_TYPE},
+	{0x22, 0x79, BURST_TYPE},
+	{0x23, 0x10, BURST_TYPE},
+	{0x24, 0x00, BURST_TYPE}, //EXP Max 8.00 fps
+	{0x25, 0x41, BURST_TYPE},
+	{0x26, 0xe4, BURST_TYPE},
+	{0x27, 0x40, BURST_TYPE_ED},
+#else
+	{0x10, 0x8f, BYTE_LEN},//auto flicker auto 60hz select
+	{0x12, 0x6d, BYTE_LEN}, // STEVE Dgain ON for Low Light Spec. (2d -) 6d)  MR
+	{0x17, 0xa0, BYTE_LEN},
+	{0x1f, 0x1f, BYTE_LEN},
+
+	{0x03, 0x20, BYTE_LEN}, //Page 20
+	{0x20, 0x00, BURST_TYPE}, //EXP Normal 30.00 fps
+	{0x21, 0x12, BURST_TYPE},
+	{0x22, 0x4d, BURST_TYPE},
+	{0x23, 0xa0, BURST_TYPE},
+	{0x24, 0x00, BURST_TYPE}, //EXP Max 8.00 fps
+	{0x25, 0x44, BURST_TYPE},
+	{0x26, 0xa3, BURST_TYPE},
+	{0x27, 0x18, BURST_TYPE},
+#endif
+
+	{0x28, 0x00, BURST_TYPE}, //EXPMin 25210.08 fps
+	{0x29, 0x0b, BURST_TYPE},
+	{0x2a, 0x28, BURST_TYPE_ED},
+
+	{0x30, 0x05, BYTE_LEN}, //EXP100
+	{0x31, 0x7d, BURST_TYPE},
+	{0x32, 0xb0, BURST_TYPE},
+
+	{0x33, 0x04, BURST_TYPE}, //EXP120
+	{0x34, 0x93, BURST_TYPE},
+	{0x35, 0x68, BURST_TYPE},
+	{0x36, 0x00, BURST_TYPE}, //EXP Unit
+	{0x37, 0x05, BURST_TYPE},
+	{0x38, 0x94, BURST_TYPE_ED},
+
+#if defined (LGE_CAMERA_ANTIBAND_50HZ)	//Flicker 50Hz
+	{0x40, 0x00, BYTE_LEN}, //exp 12000
+	{0x41, 0x05, BYTE_LEN},
+	{0x42, 0x7d, BYTE_LEN},
+#else
+	{0x40, 0x00, BYTE_LEN}, //exp 12000
+	{0x41, 0x04, BYTE_LEN},
+	{0x42, 0x93, BYTE_LEN},
+#endif
+	{0x43, 0x04, BYTE_LEN},
+
+	{0x51, 0xF0, BYTE_LEN}, //pga_max_total A0 -) D0 STEVE MR
+	{0x52, 0x28, BYTE_LEN}, //pga_min_total
+
+	{0x71, 0xD0, BYTE_LEN}, //DG MAX 0x80 -) 0xD0 STEVE MR
+	{0x72, 0x80, BYTE_LEN}, //DG MIN
+
+	{0x80, 0x36, BYTE_LEN}, //AE target 34 -> 36 STEVE
+
+	///////////////////////////////////////////
+	// Preview Setting
+	///////////////////////////////////////////
+
+	{0x03, 0x00, BYTE_LEN},
+	{0x10, 0x13, BYTE_LEN}, //Pre2
+
+	{0x20, 0x00, BYTE_LEN},
+	{0x21, 0x01, BYTE_LEN}, //preview row start set.
+
+	{0x03, 0x15, BYTE_LEN},  //Shading
+	{0x10, 0x81, BYTE_LEN},  //
+	{0x20, 0x04, BYTE_LEN},  //Shading Width 2048
+	{0x21, 0x00, BYTE_LEN},
+	{0x22, 0x03, BYTE_LEN},  //Shading Height 768
+	{0x23, 0x00, BYTE_LEN},
+
+	{0x03, 0x19, BYTE_LEN},
+	{0x10, 0x87, BYTE_LEN},//MODE_ZOOM
+	{0x11, 0x00, BYTE_LEN},//MODE_ZOOM2
+	{0x12, 0x06, BYTE_LEN},//ZOOM_CONFIG
+	{0x13, 0x01, BYTE_LEN},//Test Setting
+	{0x20, 0x04, BYTE_LEN},//ZOOM_DST_WIDTH_H
+	{0x21, 0x00, BYTE_LEN},//ZOOM_DST_WIDTH_L
+	{0x22, 0x03, BYTE_LEN},//ZOOM_DST_HEIGHT_H
+	{0x23, 0x00, BYTE_LEN},//ZOOM_DST_HEIGHT_L
+	{0x24, 0x00, BYTE_LEN},//ZOOM_WIN_STX_H
+	{0x25, 0x03, BYTE_LEN},//ZOOM_WIN_STX_L 	 STEVE00 value changed : 0x03 -) 0x01
+	{0x26, 0x00, BYTE_LEN},//ZOOM_WIN_STY_H
+	{0x27, 0x00, BYTE_LEN},//ZOOM_WIN_STY_L
+	{0x28, 0x04, BYTE_LEN},//ZOOM_WIN_ENX_H
+	{0x29, 0x03, BYTE_LEN},//ZOOM_WIN_ENX_L 	 STEVE00 value changed : 0x83 -) 0x81
+	{0x2a, 0x03, BYTE_LEN},//ZOOM_WIN_ENY_H
+	{0x2b, 0x00, BYTE_LEN},//ZOOM_WIN_ENY_L
+	{0x2c, 0x08, BYTE_LEN},//ZOOM_VER_STEP_H
+	{0x2d, 0x00, BYTE_LEN},//ZOOM_VER_STEP_L
+	{0x2e, 0x08, BYTE_LEN},//ZOOM_HOR_STEP_H
+	{0x2f, 0x00, BYTE_LEN},//ZOOM_HOR_STEP_L
+	{0x30, 0x04, BYTE_LEN},//ZOOM_FIFO_DELAY
+	{0x30, 0x04, BYTE_LEN},//ZOOM_FIFO_DELAY
+
+	///////////////////////////////////////////
+	// 30 Page DMA address set
+	///////////////////////////////////////////
+	{0x03, 0x30, BYTE_LEN}, //DMA
+	{0x7c, 0x2c, BYTE_LEN}, //Extra str
+	{0x7d, 0xce, BYTE_LEN},
+	{0x7e, 0x2c, BYTE_LEN}, //Extra end
+	{0x7f, 0xd1, BYTE_LEN},
+	{0x80, 0x24, BYTE_LEN}, //Outdoor str
+	{0x81, 0x70, BYTE_LEN},
+	{0x82, 0x24, BYTE_LEN}, //Outdoor end
+	{0x83, 0x73, BYTE_LEN},
+	{0x84, 0x21, BYTE_LEN}, //Indoor str
+	{0x85, 0xa6, BYTE_LEN},
+	{0x86, 0x21, BYTE_LEN}, //Indoor end
+	{0x87, 0xa9, BYTE_LEN},
+	{0x88, 0x27, BYTE_LEN}, //Dark1 str
+	{0x89, 0x3a, BYTE_LEN},
+	{0x8a, 0x27, BYTE_LEN}, //Dark1 end
+	{0x8b, 0x3d, BYTE_LEN},
+	{0x8c, 0x2a, BYTE_LEN}, //Dark2 str
+	{0x8d, 0x04, BYTE_LEN},
+	{0x8e, 0x2a, BYTE_LEN}, //Dark2 end
+	{0x8f, 0x07, BYTE_LEN},
+
+	{0x03, 0xC0, BYTE_LEN},
+	{0x2F, 0xf0, BYTE_LEN}, //DMA busy flag check
+	{0x31, 0x20, BYTE_LEN}, //Delay before DMA write
+	{0x33, 0x20, BYTE_LEN}, //DMA full stuck mode
+	{0x32, 0x01, BYTE_LEN}, //DMA on first
+
+	{0x03, 0xC0, BYTE_LEN},
+	{0x2F, 0xf0, BYTE_LEN}, //DMA busy flag check
+	{0x31, 0x20, BYTE_LEN}, //Delay before DMA write
+	{0x33, 0x20, BYTE_LEN},
+	{0x32, 0x01, BYTE_LEN}, //DMA on second
+
+
+	//MCU Set
+	{0x03, 0x30, BYTE_LEN},
+	{0x12, 0x00, BYTE_LEN},
+	{0x20, 0x08, BYTE_LEN},
+	{0x50, 0x00, BYTE_LEN},
+	{0xE0, 0x02, BYTE_LEN},
+	{0xF0, 0x00, BYTE_LEN},
+	{0x11, 0x05, BYTE_LEN},// M2i Hold
+	{0x03, 0xc0, BYTE_LEN},
+	{0xe4, 0x64, BYTE_LEN}, //delay
+	{0x03, 0x00, BYTE_LEN},
+	{0x01, 0xF0, BYTE_LEN}, // sleep off
+
+	///////////////////////////////////////////
+	// CD Page Adaptive Mode(Color ratio)
+	///////////////////////////////////////////
+	//_CHANGE_S MR LOW Light Tuning
+	{0x03, 0xCD, BYTE_LEN},
+	{0x47, 0x00, BYTE_LEN},
+	{0x12, 0x40, BYTE_LEN}, // STEVE LOW
+	{0x13, 0x40, BYTE_LEN}, //Ratio WB R gain min
+	{0x14, 0x46, BYTE_LEN}, //Ratio WB R gain max
+	{0x15, 0x40, BYTE_LEN}, //Ratio WB B gain min
+	{0x16, 0x46, BYTE_LEN}, //Ratio WB B gain max
+	{0x10, 0xB9, BYTE_LEN}, // STEVE 38 -) b9 Enable
+
+	//_CHANGE_E
+	///////////////////////////////////////////
+	// 1F Page SSD
+	///////////////////////////////////////////
+	{0x03, 0x1f, BYTE_LEN}, //1F page
+	{0x11, 0x00, BYTE_LEN}, //bit[5:4]: debug mode
+	{0x12, 0x60, BYTE_LEN},
+	{0x13, 0x14, BYTE_LEN},
+	{0x14, 0x10, BYTE_LEN},
+	{0x15, 0x00, BYTE_LEN},
+	{0x20, 0x18, BYTE_LEN}, //ssd_x_start_pos
+	{0x21, 0x14, BYTE_LEN}, //ssd_y_start_pos
+	{0x22, 0x8C, BYTE_LEN}, //ssd_blk_width
+	{0x23, 0x9c, BYTE_LEN}, //ssd_blk_height
+	{0x28, 0x18, BYTE_LEN},
+	{0x29, 0x02, BYTE_LEN},
+	{0x3B, 0x18, BYTE_LEN},
+	{0x3C, 0x8C, BYTE_LEN},
+	{0x10, 0x19, BYTE_LEN}, //SSD enable
+
+	///////////////////////////////////////////
+
+	///////////////////////////////////////////
+	// C4 Page MCU AE
+	///////////////////////////////////////////
+	{0x03, 0xc4, BYTE_LEN},
+	{0x11, 0xB0, BYTE_LEN}, // ae speed B[7:6] 0 (SLOW) ~ 3 (FAST), 0x70 - 0x30   0x30->0xb0
+	{0x12, 0x10, BYTE_LEN},
+	{0x19, 0x3c, BURST_TYPE}, // band0 gain 40fps 0x2d
+	{0x1a, 0x4c, BURST_TYPE}, // band1 gain 20fps original 34 Steve
+	{0x1b, 0x5c, BURST_TYPE}, // band2 gain 12fps
+	{0x1c, 0x04, BURST_TYPE},
+	{0x1d, 0x80, BURST_TYPE},
+	{0x1e, 0x00, BURST_TYPE}, // band1 min exposure time	1/40s // correction point
+	{0x1f, 0x10, BURST_TYPE},
+	{0x20, 0x79, BURST_TYPE_ED},
+	{0x21, 0x10,BYTE_LEN},
+
+	{0x22, 0x00, BURST_TYPE}, // band2 min exposure time	1/20s
+	{0x23, 0x1b, BURST_TYPE},
+	{0x24, 0x74, BURST_TYPE},
+	{0x25, 0x70, BURST_TYPE},
+	{0x26, 0x00, BURST_TYPE},// band3 min exposure time  1/12s
+	{0x27, 0x2b, BURST_TYPE},
+	{0x28, 0xed, BURST_TYPE},
+
+	{0x29, 0x80, BURST_TYPE_ED},
+
+	{0x36, 0x22, BYTE_LEN}, // AE Yth º¯°æ
+
+	{0x03, 0x20, BYTE_LEN},
+	{0x12, 0x2d, BYTE_LEN}, //STEVE Dgain ON for Low Light Spec. (2d) MR
+
+	///////////////////////////////////////////
+	// c3 Page MCU AE Weight
+	///////////////////////////////////////////
+	{0x03, 0xc3, BYTE_LEN},
+	{0x10, 0x00, BYTE_LEN},
+	{0x38, 0xFf, BURST_TYPE},
+	{0x39, 0xff, BURST_TYPE},
+	//AE_CenterWeighted
+	{0x70, 0x00, BURST_TYPE},
+	{0x71, 0x00, BURST_TYPE},
+
+	{0x72, 0x00, BURST_TYPE},
+	{0x73, 0x00, BURST_TYPE},
+	{0x74, 0x00, BURST_TYPE},
+	{0x75, 0x00, BURST_TYPE},
+	{0x76, 0x00, BURST_TYPE},
+	{0x77, 0x00, BURST_TYPE},
+	{0x78, 0x00, BURST_TYPE},
+	{0x79, 0x00, BURST_TYPE},
+
+	{0x7A, 0x00, BURST_TYPE},
+	{0x7B, 0x00, BURST_TYPE},
+	{0x7C, 0x11, BURST_TYPE},
+	{0x7D, 0x11, BURST_TYPE},
+	{0x7E, 0x11, BURST_TYPE},
+	{0x7F, 0x11, BURST_TYPE},
+	{0x80, 0x11, BURST_TYPE},
+	{0x81, 0x11, BURST_TYPE},
+
+	{0x82, 0x11, BURST_TYPE},
+	{0x83, 0x21, BURST_TYPE},
+	{0x84, 0x44, BURST_TYPE},
+	{0x85, 0x44, BURST_TYPE},
+	{0x86, 0x12, BURST_TYPE},
+	{0x87, 0x11, BURST_TYPE},
+	{0x88, 0x11, BURST_TYPE},
+	{0x89, 0x22, BURST_TYPE_ED},
+	{0x8A, 0x64,BYTE_LEN},
+	{0x8B, 0x46,BYTE_LEN},
+	{0x8C, 0x22, BURST_TYPE},
+	{0x8D, 0x11, BURST_TYPE},
+	{0x8E, 0x21, BURST_TYPE},
+	{0x8F, 0x33, BURST_TYPE},
+	{0x90, 0x64, BURST_TYPE},
+	{0x91, 0x46, BURST_TYPE_ED},
+	{0x92, 0x33,BYTE_LEN},
+	{0x93, 0x12, BURST_TYPE},
+	{0x94, 0x21, BURST_TYPE},
+	{0x95, 0x33, BURST_TYPE},
+	{0x96, 0x44, BURST_TYPE},
+	{0x97, 0x44, BURST_TYPE},
+	{0x98, 0x33, BURST_TYPE},
+	{0x99, 0x12, BURST_TYPE},
+
+	{0x9A, 0x21, BURST_TYPE},
+	{0x9B, 0x33, BURST_TYPE},
+	{0x9C, 0x33, BURST_TYPE},
+	{0x9D, 0x33, BURST_TYPE},
+	{0x9E, 0x33, BURST_TYPE},
+	{0x9F, 0x12, BURST_TYPE},
+	{0xA0, 0x11, BURST_TYPE},
+	{0xA1, 0x11, BURST_TYPE},
+
+	{0xA2, 0x11, BURST_TYPE},
+	{0xA3, 0x11, BURST_TYPE},
+	{0xA4, 0x11, BURST_TYPE},
+	{0xA5, 0x11, BURST_TYPE_ED},
+	{0xE1, 0x29,BYTE_LEN}, //Outdoor AG Max
+	{0xE2, 0x03,BYTE_LEN},
+
+	///////////////////////////////////////////
+	// Capture Setting
+	///////////////////////////////////////////
+
+	{0x03, 0xd5, BYTE_LEN},
+	{0x11, 0xb0, BYTE_LEN}, // b1-)b0 STEVE CAP PLL OFF manual sleep onoff STEVE Y correnctio OFF 20120220 Dgain Lowlight
+	{0x14, 0xfd, BYTE_LEN}, // STEVE EXPMIN x2
+	{0x1e, 0x02, BYTE_LEN}, //capture clock set
+	{0x86, 0x02, BYTE_LEN}, //preview clock set
+	//{0x1f, 0x01, BYTE_LEN}, //
+	//{0x20, 0x40, BYTE_LEN}, // Capture Hblank 320
+
+	// STEVE When capture process, decrease Green
+	{0x1f, 0x01, BYTE_LEN},
+	{0x20, 0x20, BYTE_LEN}, // STEVE Capture Hblank 288 -) 2180 + 288 one line 2468
+
+	{0x21, 0x09, BYTE_LEN},
+	{0x22, 0xA4, BYTE_LEN}, // C4 -) A4 Capture Line unit 2468
+
+	///////////////////////////////////////////
+	// Capture Mode option D6
+	///////////////////////////////////////////
+	{0x03, 0xd6, BYTE_LEN},
+
+	{0x03, 0xd6, BYTE_LEN},
+	{0x10, 0x28, BYTE_LEN}, // ISO 100
+	{0x11, 0x38, BYTE_LEN}, // ISO 200
+	{0x12, 0x78, BYTE_LEN}, // ISO 400
+	{0x13, 0xa0, BYTE_LEN}, // ISO 800
+	{0x14, 0xe0, BYTE_LEN}, // ISO 1600
+	{0x15, 0xf0, BYTE_LEN}, // ISO 3200
+	///////////////////////////////////////////
+	// C0 Page Firmware system
+	///////////////////////////////////////////
+	{0x03, 0xc0, BYTE_LEN},
+	{0x16, 0x81, BYTE_LEN}, //MCU main roof holding on
+
+	///////////////////////////////////////////
+	// C5 Page AWB
+	///////////////////////////////////////////
+
+	{0x03, 0xc5, BYTE_LEN},
+	{0x10, 0xb0, BURST_TYPE}, //bCtl1_a00_n00
+	{0x11, 0xa1, BURST_TYPE}, // Steve [4] bit must 0 for MWB
+	{0x12, 0x17, BURST_TYPE}, // STEVE 97 -> 9f YNorm -> 1f -> 17 near pt chek, Ynorm OFF
+	{0x13, 0x19, BURST_TYPE}, //bCtl4_a00_n00
+	{0x14, 0x24, BURST_TYPE}, //bLockTh_a00_n00
+	{0x15, 0x04, BURST_TYPE},
+	{0x16, 0x0a, BURST_TYPE},
+	{0x17, 0x14, BURST_TYPE}, //bBlkPtBndWdhTh_a00_n00
+
+	{0x18, 0x28, BURST_TYPE}, //bBlkPtBndCntTh_a00_n00
+	{0x19, 0x03, BURST_TYPE},
+	{0x1a, 0xa0, BURST_TYPE},//awb max ylvl
+	{0x1b, 0x18, BURST_TYPE},//awb min ylvl
+	{0x1c, 0x0a, BURST_TYPE},//awb frame skip when min max
+	{0x1d, 0x40, BURST_TYPE},
+	{0x1e, 0x00, BURST_TYPE},
+	{0x1f, 0xfe, BURST_TYPE},//sky limit
+
+	{0x20, 0x00, BURST_TYPE}, // out2 Angle MIN
+	{0x21, 0x96, BURST_TYPE}, // out2 Angle MIN steve outdoor awb angle min (for tree) 160
+	{0x22, 0x01, BURST_TYPE}, // out2 Anble Max
+	{0x23, 0x02, BURST_TYPE}, // out2 Anble Max              sky limit
+	{0x24, 0x00, BURST_TYPE}, // out1 Angle MIN
+	{0x25, 0x8e, BURST_TYPE}, // out1 Angle MIN //steve
+	{0x26, 0x00, BURST_TYPE}, // out1 Anble Max //iInAglMaxLmt_a00_n00
+	{0x27, 0xf2, BURST_TYPE}, // out1 Anble Max //iInAglMaxLmt_a00_n01
+
+	{0x28, 0x00, BURST_TYPE},
+	{0x29, 0x64, BURST_TYPE}, //iInAglMinLmt_a00_n01 STEVE for Inca white
+	{0x2a, 0x01, BURST_TYPE}, //iDakAglMaxLmt_a00_n00
+	{0x2b, 0x04, BURST_TYPE}, //iDakAglMaxLmt_a00_n01
+	{0x2c, 0x00, BURST_TYPE}, //iDakAglMinLmt_a00_n00
+	{0x2d, 0x62, BURST_TYPE}, //iDakAglMinLmt_a00_n01
+	{0x2e, 0x00, BURST_TYPE},
+	{0x2f, 0x00, BURST_TYPE},
+
+	{0x30, 0x4e, BURST_TYPE},
+	{0x31, 0x20, BURST_TYPE},
+	{0x32, 0x00, BURST_TYPE},
+	{0x33, 0x00, BURST_TYPE},
+	{0x34, 0x52, BURST_TYPE},
+	{0x35, 0x08, BURST_TYPE},
+	{0x36, 0x00, BURST_TYPE},
+	{0x37, 0x02, BURST_TYPE}, //dwOut1LmtTh_a00_n01
+
+	{0x38, 0xbf, BURST_TYPE},
+	{0x39, 0x20, BURST_TYPE},
+	{0x3a, 0x00, BURST_TYPE},
+	{0x3b, 0x03, BURST_TYPE}, //dwOut1StrLmtTh_a00_n01
+	{0x3c, 0x0d, BURST_TYPE}, //dwOut1StrLmtTh_a00_n02
+	{0x3d, 0x40, BURST_TYPE}, //dwOut1StrLmtTh_a00_n03
+	{0x3e, 0x00, BURST_TYPE},
+	{0x3f, 0xb7, BURST_TYPE},
+
+	{0x40, 0x1b, BURST_TYPE},
+	{0x41, 0x00, BURST_TYPE},
+	{0x42, 0x00, BURST_TYPE},
+	{0x43, 0xd5, BURST_TYPE},
+	{0x44, 0x9f, BURST_TYPE}, //dwDakLmtTh_a00_n02
+	{0x45, 0x80, BURST_TYPE},
+	{0x46, 0x00, BURST_TYPE},
+	{0x47, 0x03, BURST_TYPE},
+
+	{0x48, 0x0d, BURST_TYPE},
+	{0x49, 0x40, BURST_TYPE},
+	{0x4a, 0x00, BURST_TYPE},  // steve H outdoor -> indoor(EV)
+	{0x4b, 0x04, BURST_TYPE},  // steve M1 outdoor -> indoor(EV)
+	{0x4c, 0x93, BURST_TYPE},  // steve M2 outdoor -> indoor(EV)
+	{0x4d, 0xe0, BURST_TYPE},  // steve L outdoor -) indoor(EV)
+	{0x4e, 0x00, BURST_TYPE},  // white region shift X
+	{0x4f, 0x00, BURST_TYPE},  // white region shift Y
+
+	{0x50, 0x55, BURST_TYPE},
+	{0x51, 0x55, BURST_TYPE},
+	{0x52, 0x55, BURST_TYPE},
+	{0x53, 0x55, BURST_TYPE},
+	{0x54, 0x55, BURST_TYPE},
+	{0x55, 0x55, BURST_TYPE},
+	{0x56, 0x55, BURST_TYPE},
+	{0x57, 0x55, BURST_TYPE},
+
+	{0x58, 0x55, BURST_TYPE},
+	{0x59, 0x55, BURST_TYPE},
+	{0x5a, 0x55, BURST_TYPE},
+	{0x5b, 0x55, BURST_TYPE},
+	{0x5c, 0x55, BURST_TYPE},
+	{0x5d, 0x55, BURST_TYPE},
+	{0x5e, 0x55, BURST_TYPE},
+	{0x5f, 0x55, BURST_TYPE},
+
+	{0x60, 0x55, BURST_TYPE},
+	{0x61, 0x55, BURST_TYPE},
+	{0x62, 0x55, BURST_TYPE},
+	{0x63, 0x55, BURST_TYPE},
+	{0x64, 0x55, BURST_TYPE},
+	{0x65, 0x55, BURST_TYPE},
+	{0x66, 0x55, BURST_TYPE},
+	{0x67, 0x55, BURST_TYPE},
+
+	{0x68, 0x55, BURST_TYPE},
+	{0x69, 0x55, BURST_TYPE},
+	{0x6a, 0x55, BURST_TYPE},
+	{0x6b, 0x24, BURST_TYPE}, //aInWhtRgnBg_a00_n00
+	{0x6c, 0x2a, BURST_TYPE}, //aInWhtRgnBg_a01_n00
+	{0x6d, 0x31, BURST_TYPE}, //aInWhtRgnBg_a02_n00
+	{0x6e, 0x38, BURST_TYPE}, //aInWhtRgnBg_a03_n00
+	{0x6f, 0x3e, BURST_TYPE}, //aInWhtRgnBg_a04_n00
+	{0x70, 0x42, BURST_TYPE}, //aInWhtRgnBg_a05_n00
+	{0x71, 0x4a, BURST_TYPE}, //aInWhtRgnBg_a06_n00
+	{0x72, 0x53, BURST_TYPE}, //aInWhtRgnBg_a07_n00
+	{0x73, 0x5c, BURST_TYPE}, //aInWhtRgnBg_a08_n00
+	{0x74, 0x69, BURST_TYPE}, //aInWhtRgnBg_a09_n00
+	{0x75, 0x75, BURST_TYPE}, //aInWhtRgnBg_a10_n00
+	{0x76, 0x86, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a00_n00
+	{0x77, 0x79, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a01_n00
+	{0x78, 0x69, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a02_n00
+	{0x79, 0x5b, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a03_n00
+	{0x7a, 0x53, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a04_n00
+	{0x7b, 0x4e, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a05_n00
+	{0x7c, 0x48, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a06_n00
+	{0x7d, 0x43, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a07_n00
+	{0x7e, 0x40, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a08_n00
+	{0x7f, 0x3c, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a09_n00
+	{0x80, 0x3c, BURST_TYPE}, //aInWhtRgnRgLeftLmt_a10_n00
+	{0x81, 0x95, BURST_TYPE}, //aInWhtRgnRgRightLmt_a00_n00
+	{0x82, 0x8f, BURST_TYPE}, //aInWhtRgnRgRightLmt_a01_n00
+	{0x83, 0x88, BURST_TYPE}, //aInWhtRgnRgRightLmt_a02_n00
+	{0x84, 0x81, BURST_TYPE}, //aInWhtRgnRgRightLmt_a03_n00
+	{0x85, 0x79, BURST_TYPE}, //aInWhtRgnRgRightLmt_a04_n00
+	{0x86, 0x71, BURST_TYPE}, //aInWhtRgnRgRightLmt_a05_n00
+	{0x87, 0x6b, BURST_TYPE}, //aInWhtRgnRgRightLmt_a06_n00
+	{0x88, 0x62, BURST_TYPE}, //aInWhtRgnRgRightLmt_a07_n00
+	{0x89, 0x5a, BURST_TYPE}, //aInWhtRgnRgRightLmt_a08_n00
+	{0x8a, 0x52, BURST_TYPE}, //aInWhtRgnRgRightLmt_a09_n00
+	{0x8b, 0x4e, BURST_TYPE}, //aInWhtRgnRgRightLmt_a10_n00
+	{0x8c, 0x25, BURST_TYPE}, //aInWhtLineBg_a00_n00
+	{0x8d, 0x30, BURST_TYPE}, //aInWhtLineBg_a01_n00
+	{0x8e, 0x35, BURST_TYPE}, //aInWhtLineBg_a02_n00
+	{0x8f, 0x3b, BURST_TYPE}, //aInWhtLineBg_a03_n00
+	{0x90, 0x40, BURST_TYPE}, //aInWhtLineBg_a04_n00
+	{0x91, 0x44, BURST_TYPE}, //aInWhtLineBg_a05_n00
+	{0x92, 0x4c, BURST_TYPE}, //aInWhtLineBg_a06_n00
+	{0x93, 0x55, BURST_TYPE}, //aInWhtLineBg_a07_n00
+	{0x94, 0x60, BURST_TYPE}, //aInWhtLineBg_a08_n00
+	{0x95, 0x69, BURST_TYPE}, //aInWhtLineBg_a09_n00
+	{0x96, 0x75, BURST_TYPE}, //aInWhtLineBg_a10_n00
+	{0x97, 0x8e, BURST_TYPE}, //aInWhtLineRg_a00_n00
+	{0x98, 0x7c, BURST_TYPE}, //aInWhtLineRg_a01_n00
+	{0x99, 0x73, BURST_TYPE}, //aInWhtLineRg_a02_n00
+	{0x9a, 0x6a, BURST_TYPE}, //aInWhtLineRg_a03_n00
+	{0x9b, 0x61, BURST_TYPE}, //aInWhtLineRg_a04_n00
+	{0x9c, 0x5c, BURST_TYPE}, //aInWhtLineRg_a05_n00
+	{0x9d, 0x55, BURST_TYPE}, //aInWhtLineRg_a06_n00
+	{0x9e, 0x4f, BURST_TYPE}, //aInWhtLineRg_a07_n00
+	{0x9f, 0x4a, BURST_TYPE}, //aInWhtLineRg_a08_n00
+	{0xa0, 0x47, BURST_TYPE}, //aInWhtLineRg_a09_n00
+	{0xa1, 0x46, BURST_TYPE}, //aInWhtLineRg_a10_n00
+	//AWB target angle
+	{0xa2, 0x34, BURST_TYPE}, //aInTgtAngle_a00_n00
+	{0xa3, 0x3c, BURST_TYPE}, //aInTgtAngle_a01_n00
+	{0xa4, 0x41, BURST_TYPE}, //aInTgtAngle_a02_n00
+	{0xa5, 0x46, BURST_TYPE}, //aInTgtAngle_a03_n00
+	{0xa6, 0x4b, BURST_TYPE}, //aInTgtAngle_a04_n00
+	{0xa7, 0x6e, BURST_TYPE}, //aInTgtAngle_a05_n00
+	{0xa8, 0x73, BURST_TYPE}, //aInTgtAngle_a06_n00
+	{0xa9, 0x78, BURST_TYPE_ED}, //aInTgtAngle_a07_n00
+
+	//AWB target RG angle
+	{0xaa, 0x28, BYTE_LEN},//aInRgTgtOfs_a00_n00
+	{0xab, 0x1e, BYTE_LEN},//aInRgTgtOfs_a01_n00
+	{0xac, 0x14, BYTE_LEN},//aInRgTgtOfs_a02_n00
+	{0xad, 0x0a, BYTE_LEN},//aInRgTgtOfs_a03_n00
+	{0xae, 0x00, BYTE_LEN},//aInRgTgtOfs_a04_n00
+	{0xaf, 0x81, BYTE_LEN},//aInRgTgtOfs_a05_n00
+	{0xb0, 0x84, BYTE_LEN},//aInRgTgtOfs_a06_n00
+	{0xb1, 0x85, BYTE_LEN},//aInRgTgtOfs_a07_n00
+
+	//AWB target BG angle
+	{0xb2, 0xa8, BYTE_LEN},//aInBgTgtOfs_a00_n00
+	{0xb3, 0x9e, BYTE_LEN},//aInBgTgtOfs_a01_n00
+	{0xb4, 0x94, BYTE_LEN},//aInBgTgtOfs_a02_n00
+	{0xb5, 0x8a, BYTE_LEN},//aInBgTgtOfs_a03_n00
+	{0xb6, 0x00, BYTE_LEN},//aInBgTgtOfs_a04_n00
+	{0xb7, 0x01, BYTE_LEN},//aInBgTgtOfs_a05_n00
+	{0xb8, 0x04, BYTE_LEN},//aInBgTgtOfs_a06_n00
+	{0xb9, 0x05, BYTE_LEN},//aInBgTgtOfs_a07_n00
+
+
+	//AWB left target offset
+	{0xba, 0x00, BURST_TYPE},
+	{0xbb, 0x00, BURST_TYPE},
+	{0xbc, 0x00, BURST_TYPE},
+	{0xbd, 0x00, BURST_TYPE},
+	{0xbe, 0x00, BURST_TYPE},
+	{0xbf, 0x00, BURST_TYPE},
+
+	{0xc0, 0x00, BURST_TYPE},
+	{0xc1, 0x00, BURST_TYPE},
+	//AWB right target offset
+	{0xc2, 0x00, BURST_TYPE},
+	{0xc3, 0x00, BURST_TYPE},
+	{0xc4, 0x00, BURST_TYPE},
+	{0xc5, 0x00, BURST_TYPE},
+	{0xc6, 0x00, BURST_TYPE},
+	{0xc7, 0x00, BURST_TYPE},
+
+	{0xc8, 0x00, BURST_TYPE},
+	{0xc9, 0x00, BURST_TYPE},
+	{0xca, 0x00, BURST_TYPE},
+	{0xcb, 0x00, BURST_TYPE},
+	{0xcc, 0x00, BURST_TYPE},
+	{0xcd, 0x00, BURST_TYPE},
+	{0xce, 0x00, BURST_TYPE},
+	{0xcf, 0x00, BURST_TYPE},
+
+	{0xd0, 0x00, BURST_TYPE},
+	{0xd1, 0x00, BURST_TYPE},
+	// Y wgt
+	{0xd2, 0x01, BURST_TYPE}, // STEVE 20120626
+	{0xd3, 0x03, BURST_TYPE},
+	{0xd4, 0x05, BURST_TYPE},
+	{0xd5, 0x08, BURST_TYPE},
+	{0xd6, 0x0E, BURST_TYPE},
+	{0xd7, 0x20, BURST_TYPE},
+	{0xd8, 0x2C, BURST_TYPE},
+	{0xd9, 0x32, BURST_TYPE},
+	{0xda, 0x32, BURST_TYPE},
+	{0xdb, 0x30, BURST_TYPE},
+	{0xdc, 0x2E, BURST_TYPE},
+	{0xdd, 0x2c, BURST_TYPE},
+	{0xde, 0x28, BURST_TYPE},
+	{0xdf, 0x20, BURST_TYPE},
+	{0xe0, 0x14, BURST_TYPE},
+	{0xe1, 0x08, BURST_TYPE},
+
+	{0xe2, 0x28, BURST_TYPE},
+	{0xe3, 0x28, BURST_TYPE},
+	{0xe4, 0x28, BURST_TYPE},
+	{0xe5, 0x28, BURST_TYPE},
+	{0xe6, 0x28, BURST_TYPE},
+	{0xe7, 0x24, BURST_TYPE},
+	{0xe8, 0x20, BURST_TYPE},
+	{0xe9, 0x1c, BURST_TYPE},
+	{0xea, 0x18, BURST_TYPE},
+	{0xeb, 0x14, BURST_TYPE},
+	{0xec, 0x14, BURST_TYPE},
+	{0xed, 0x0a, BURST_TYPE},
+	{0xee, 0x0a, BURST_TYPE},
+	{0xef, 0x0a, BURST_TYPE},
+	{0xf0, 0x0a, BURST_TYPE},
+	{0xf1, 0x09, BURST_TYPE},
+	{0xf2, 0x08, BURST_TYPE},
+	{0xf3, 0x07, BURST_TYPE},
+	{0xf4, 0x07, BURST_TYPE},
+	{0xf5, 0x06, BURST_TYPE},
+	{0xf6, 0x06, BURST_TYPE},
+	{0xf7, 0x05, BURST_TYPE},
+
+	{0xf8, 0x64, BURST_TYPE}, //aInHiTmpWgtRatio_a00_n00
+	{0xf9, 0x20, BURST_TYPE}, //bInDyAglDiffMin_a00_n00
+	{0xfa, 0xc0, BURST_TYPE}, //bInDyAglDiffMax_a00_n00
+	{0xfb, 0x19, BURST_TYPE}, //bInDyMinMaxTempWgt_a00_n00
+	{0xfc, 0xc8, BURST_TYPE}, //96 (100(96) -> 200(c8)deg  //bInSplTmpAgl_a00_n00
+	{0xfd, 0x0a, BURST_TYPE_ED}, //bInSplTmpAglOfs_a00_n00
+	//{0xfe, 0x1e, BURST_TYPE}, // STEVE delete
+	//{0xff, 0x1e, BURST_TYPE}, //pt core STEVE delete
+
+	{0x03, 0xc6, BYTE_LEN},
+	{0x10, 0x14, BURST_TYPE}, //bInSplTmpBpCntTh_a00_n00
+	{0x11, 0x32, BURST_TYPE}, //bInSplTmpPtCorWgt_a00_n00
+	{0x12, 0x1e, BURST_TYPE}, //bInSplTmpPtWgtRatio_a00_n00
+	{0x13, 0x14, BURST_TYPE}, //bInSplTmpAglMinLmt_a00_n00
+	{0x14, 0xb4, BURST_TYPE}, //bInSplTmpAglMaxLmt_a00_n00
+	{0x15, 0x1e, BURST_TYPE},
+	{0x16, 0x04, BURST_TYPE},
+	{0x17, 0xf8, BURST_TYPE},
+
+	{0x18, 0x40, BURST_TYPE}, //bInRgainMin_a00_n00
+	{0x19, 0xf0, BURST_TYPE}, //bInRgainMax_a00_n00
+	{0x1a, 0x40, BURST_TYPE},
+	{0x1b, 0xf0, BURST_TYPE}, //bInBgainMax_a00_n00
+
+	{0x1c, 0x08, BURST_TYPE},
+	{0x1d, 0x00, BURST_TYPE},
+	{0x1e, 0x35, BURST_TYPE}, //aOutWhtRgnBg_a00_n00
+	{0x1f, 0x3a, BURST_TYPE}, //aOutWhtRgnBg_a01_n00
+	{0x20, 0x3f, BURST_TYPE}, //aOutWhtRgnBg_a02_n00
+	{0x21, 0x43, BURST_TYPE}, //aOutWhtRgnBg_a03_n00
+	{0x22, 0x49, BURST_TYPE}, //aOutWhtRgnBg_a04_n00
+	{0x23, 0x4f, BURST_TYPE}, //aOutWhtRgnBg_a05_n00
+	{0x24, 0x55, BURST_TYPE}, //aOutWhtRgnBg_a06_n00
+	{0x25, 0x5e, BURST_TYPE}, //aOutWhtRgnBg_a07_n00
+	{0x26, 0x66, BURST_TYPE}, //aOutWhtRgnBg_a08_n00
+	{0x27, 0x6e, BURST_TYPE}, //aOutWhtRgnBg_a09_n00
+	{0x28, 0x78, BURST_TYPE}, //aOutWhtRgnBg_a10_n00
+	{0x29, 0x5f, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a00_n00
+	{0x2a, 0x5a, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a01_n00
+	{0x2b, 0x54, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a02_n00
+	{0x2c, 0x4e, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a03_n00
+	{0x2d, 0x4b, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a04_n00
+	{0x2e, 0x46, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a05_n00
+	{0x2f, 0x43, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a06_n00
+	{0x30, 0x3e, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a07_n00
+	{0x31, 0x3d, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a08_n00
+	{0x32, 0x3c, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a09_n00
+	{0x33, 0x3b, BURST_TYPE}, //aOutWhtRgnRgLeftLmt_a10_n00
+	{0x34, 0x6f, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a00_n00
+	{0x35, 0x6b, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a01_n00
+	{0x36, 0x68, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a02_n00
+	{0x37, 0x63, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a03_n00
+	{0x38, 0x60, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a04_n00
+	{0x39, 0x5c, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a05_n00
+	{0x3a, 0x58, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a06_n00
+	{0x3b, 0x53, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a07_n00
+	{0x3c, 0x4f, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a08_n00
+	{0x3d, 0x4c, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a09_n00
+	{0x3e, 0x4a, BURST_TYPE}, //aOutWhtRgnRgRightLmt_a10_n00
+	{0x3f, 0x34, BURST_TYPE}, //aOutWhtLineBg_a00_n00
+	{0x40, 0x3b, BURST_TYPE}, //aOutWhtLineBg_a01_n00
+	{0x41, 0x41, BURST_TYPE}, //aOutWhtLineBg_a02_n00
+	{0x42, 0x46, BURST_TYPE}, //aOutWhtLineBg_a03_n00
+	{0x43, 0x4b, BURST_TYPE}, //aOutWhtLineBg_a04_n00
+	{0x44, 0x51, BURST_TYPE}, //aOutWhtLineBg_a05_n00
+	{0x45, 0x56, BURST_TYPE}, //aOutWhtLineBg_a06_n00
+	{0x46, 0x5f, BURST_TYPE}, //aOutWhtLineBg_a07_n00
+	{0x47, 0x6a, BURST_TYPE}, //aOutWhtLineBg_a08_n00
+	{0x48, 0x71, BURST_TYPE}, //aOutWhtLineBg_a09_n00
+	{0x49, 0x78, BURST_TYPE}, //aOutWhtLineBg_a10_n00
+	{0x4a, 0x66, BURST_TYPE}, //aOutWhtLineRg_a00_n00
+	{0x4b, 0x61, BURST_TYPE}, //aOutWhtLineRg_a01_n00
+	{0x4c, 0x5c, BURST_TYPE}, //aOutWhtLineRg_a02_n00
+	{0x4d, 0x59, BURST_TYPE}, //aOutWhtLineRg_a03_n00
+	{0x4e, 0x55, BURST_TYPE}, //aOutWhtLineRg_a04_n00
+	{0x4f, 0x51, BURST_TYPE}, //aOutWhtLineRg_a05_n00
+	{0x50, 0x4e, BURST_TYPE}, //aOutWhtLineRg_a06_n00
+	{0x51, 0x49, BURST_TYPE}, //aOutWhtLineRg_a07_n00
+	{0x52, 0x44, BURST_TYPE}, //aOutWhtLineRg_a08_n00
+	{0x53, 0x43, BURST_TYPE}, //aOutWhtLineRg_a09_n00
+	{0x54, 0x43, BURST_TYPE}, //aOutWhtLineRg_a10_n00
+	{0x55, 0x46, BURST_TYPE}, //aOutTgtAngle_a00_n00
+	{0x56, 0x4b, BURST_TYPE}, //aOutTgtAngle_a01_n00
+	{0x57, 0x50, BURST_TYPE}, //aOutTgtAngle_a02_n00
+
+	{0x58, 0x66, BURST_TYPE},
+	{0x59, 0x69, BURST_TYPE},
+	{0x5a, 0x6e, BURST_TYPE},
+	{0x5b, 0x73, BURST_TYPE},
+	{0x5c, 0x78, BURST_TYPE},
+	{0x5d, 0x0a, BURST_TYPE},
+	{0x5e, 0x05, BURST_TYPE},
+	{0x5f, 0x00, BURST_TYPE},
+	{0x60, 0x81, BURST_TYPE}, //aOutRgTgtOfs_a03_n00
+	{0x61, 0x81, BURST_TYPE}, //aOutRgTgtOfs_a04_n00  // STEVE 20120626
+	{0x62, 0x82, BURST_TYPE}, //aOutRgTgtOfs_a05_n00
+	{0x63, 0x85, BURST_TYPE},
+	{0x64, 0x8f, BURST_TYPE},
+	{0x65, 0x8a, BURST_TYPE},
+	{0x66, 0x85, BURST_TYPE},
+	{0x67, 0x00, BURST_TYPE},
+
+	{0x68, 0x01, BURST_TYPE}, //aOutBgTgtOfs_a03_n00
+	{0x69, 0x01, BURST_TYPE}, //aOutBgTgtOfs_a04_n00 // STEVE 20120626
+	{0x6a, 0x02, BURST_TYPE}, //aOutBgTgtOfs_a05_n00
+	{0x6b, 0x05, BURST_TYPE},
+	{0x6c, 0x0f, BURST_TYPE},
+	{0x6d, 0x00, BURST_TYPE},
+	{0x6e, 0x00, BURST_TYPE},
+	{0x6f, 0x00, BURST_TYPE},
+
+	{0x70, 0x00, BURST_TYPE},
+	{0x71, 0x00, BURST_TYPE},
+	{0x72, 0x00, BURST_TYPE},
+	{0x73, 0x00, BURST_TYPE},
+	{0x74, 0x00, BURST_TYPE},
+	{0x75, 0x00, BURST_TYPE},
+	{0x76, 0x00, BURST_TYPE},
+	{0x77, 0x00, BURST_TYPE},
+
+	{0x78, 0x00, BURST_TYPE},
+	{0x79, 0x00, BURST_TYPE},
+	{0x7a, 0x00, BURST_TYPE},
+	{0x7b, 0x00, BURST_TYPE},
+	{0x7c, 0x00, BURST_TYPE},
+	{0x7d, 0x55, BURST_TYPE},
+	{0x7e, 0x55, BURST_TYPE},
+	{0x7f, 0x00, BURST_TYPE},
+
+	{0x80, 0x00, BURST_TYPE},
+	{0x81, 0x00, BURST_TYPE},
+	{0x82, 0x00, BURST_TYPE},
+	{0x83, 0x00, BURST_TYPE},
+	{0x84, 0x00, BURST_TYPE},
+
+	// YLVL
+	{0x85, 0x01, BURST_TYPE}, // STEVE 20120626
+	{0x86, 0x03, BURST_TYPE},
+	{0x87, 0x05, BURST_TYPE},
+	{0x88, 0x08, BURST_TYPE},
+	{0x89, 0x0E, BURST_TYPE},
+	{0x8a, 0x20, BURST_TYPE},
+	{0x8b, 0x2C, BURST_TYPE},
+	{0x8c, 0x32, BURST_TYPE},
+	{0x8d, 0x32, BURST_TYPE},
+	{0x8e, 0x30, BURST_TYPE},
+	{0x8f, 0x2E, BURST_TYPE},
+	{0x90, 0x2c, BURST_TYPE},
+	{0x91, 0x28, BURST_TYPE},
+	{0x92, 0x20, BURST_TYPE},
+	{0x93, 0x14, BURST_TYPE},
+	{0x94, 0x08, BURST_TYPE},
+
+	{0x95, 0x20, BURST_TYPE}, //aOutHiTmpWgtHiLmt_a00_n00
+	{0x96, 0x1e, BURST_TYPE}, //01
+	{0x97, 0x1c, BURST_TYPE}, //02
+	{0x98, 0x1e, BURST_TYPE}, //03
+	{0x99, 0x1e, BURST_TYPE}, //04
+	{0x9a, 0x20, BURST_TYPE}, //05
+	{0x9b, 0x23, BURST_TYPE}, //06
+	{0x9c, 0x24, BURST_TYPE}, //07
+	{0x9d, 0x27, BURST_TYPE}, //08
+	{0x9e, 0x28, BURST_TYPE}, //09
+	{0x9f, 0x29, BURST_TYPE}, //10
+
+	{0xa0, 0x08, BURST_TYPE}, //aOutHiTmpWgtLoLmt_a00_n00
+	{0xa1, 0x08, BURST_TYPE}, //01
+	{0xa2, 0x08, BURST_TYPE}, //02
+	{0xa3, 0x0d, BURST_TYPE}, //03
+	{0xa4, 0x10, BURST_TYPE}, //04
+	{0xa5, 0x12, BURST_TYPE}, //05
+	{0xa6, 0x12, BURST_TYPE}, //06
+	{0xa7, 0x12, BURST_TYPE}, //07
+	{0xa8, 0x13, BURST_TYPE}, //08
+	{0xa9, 0x13, BURST_TYPE}, //09
+	{0xaa, 0x14, BURST_TYPE}, //10
+	{0xab, 0x64, BURST_TYPE},
+	{0xac, 0x01, BURST_TYPE},
+	{0xad, 0x14, BURST_TYPE},
+	{0xae, 0x19, BURST_TYPE},
+	{0xaf, 0x64, BURST_TYPE},//kjh out limit 64 -> 76 sky
+
+	{0xb0, 0x14, BURST_TYPE},
+	{0xb1, 0x1e, BURST_TYPE},
+	{0xb2, 0x20, BURST_TYPE}, //50 -> 20 sky outdoor
+	{0xb3, 0x32, BURST_TYPE}, //1e -> 32(50%)
+	{0xb4, 0x14, BURST_TYPE},
+	{0xb5, 0x3c, BURST_TYPE},
+	{0xb6, 0x1e, BURST_TYPE},
+	{0xb7, 0x08, BURST_TYPE},
+	{0xb8, 0xd2, BURST_TYPE},
+
+	{0xb9, 0x58, BURST_TYPE}, // steve OutRgainMin
+	{0xba, 0xf0, BURST_TYPE}, // steve OutRgainMax
+	{0xbb, 0x40, BURST_TYPE}, // steve OutBgainMin
+	{0xbc, 0x90, BURST_TYPE}, // steve OutBgainMax
+
+	{0xbd, 0x04, BURST_TYPE},
+	{0xbe, 0x00, BURST_TYPE},
+	{0xbf, 0xcd, BURST_TYPE_ED},
+
+	///////////////////////////////////////////
+	// CD Page (Color ratio)
+	///////////////////////////////////////////
+	{0x03, 0xCD, BYTE_LEN},
+	{0x47, 0x06, BYTE_LEN},
+	{0x10, 0xB8, BYTE_LEN}, //STEVE 38 -) B8 disable
+
+	///////////////////////////////////////////
+	//Adaptive mode : Page Mode = 0xCF
+	///////////////////////////////////////////
+	{0x03, 0xcf, BYTE_LEN},
+
+	{0x10, 0x00, BURST_TYPE},
+	{0x11, 0x84, BURST_TYPE}, // STEVE 04 -> 84  //cmc + - , adaptive lsc
+	{0x12, 0x01, BURST_TYPE},
+
+	{0x13, 0x02, BURST_TYPE}, //STEVE //Y_LUM_MAX 10fps, DG : 0xd0, AG:0xf0 MAX
+	{0x14, 0x60, BURST_TYPE},
+	{0x15, 0x00, BURST_TYPE},
+	{0x16, 0x00, BURST_TYPE},
+
+	{0x17, 0x00, BURST_TYPE},  //Y_LUM middle 1 //72mhz 14.58fps, AG 0x4c
+	{0x18, 0x3d, BURST_TYPE},
+	{0x19, 0x39, BURST_TYPE},
+	{0x1a, 0xd4, BURST_TYPE},
+
+	{0x1b, 0x00, BURST_TYPE},  //Y_LUM middle 2 //72mhz 120fps, AG 0x30	 0.5(0x10) x 1(0x80) = 10,000(0x0186a0)
+	{0x1c, 0x06, BURST_TYPE},
+	{0x1d, 0xdd, BURST_TYPE},
+	{0x1e, 0xd0, BURST_TYPE},
+
+	{0x1f, 0x00, BURST_TYPE},  //Y_LUM min //72mhz 6000fps,AG 0x30
+	{0x20, 0x00, BURST_TYPE},
+	{0x21, 0x1d, BURST_TYPE},
+	{0x22, 0x4c, BURST_TYPE},
+
+	{0x23, 0x9a, BURST_TYPE},  //CTEM high
+	{0x24, 0x50, BURST_TYPE},  //ctemp middler
+	{0x25, 0x3e, BURST_TYPE},  //CTEM low
+
+	{0x26, 0x30, BURST_TYPE},  //YCON high
+	{0x27, 0x18, BURST_TYPE},  //YCON middle
+	{0x28, 0x08, BURST_TYPE},  //YCON low
+
+	{0x29, 0x00, BURST_TYPE}, //Y_LUM max_TH
+	{0x2a, 0x00, BURST_TYPE},
+	{0x2b, 0x00, BURST_TYPE},
+	{0x2c, 0x00, BURST_TYPE},
+
+	{0x2d, 0x00, BURST_TYPE},  //Y_LUM middle1_TH
+	{0x2e, 0x00, BURST_TYPE},
+	{0x2f, 0x00, BURST_TYPE},
+	{0x30, 0x00, BURST_TYPE},
+
+	{0x31, 0x00, BURST_TYPE},  //Y_LUM middle_TH
+	{0x32, 0x00, BURST_TYPE},
+	{0x33, 0x00, BURST_TYPE},
+	{0x34, 0x00, BURST_TYPE},
+
+	{0x35, 0x00, BURST_TYPE}, //Y_LUM min_TH
+	{0x36, 0x00, BURST_TYPE},
+	{0x37, 0x00, BURST_TYPE},
+	{0x38, 0x00, BURST_TYPE},
+
+	{0x39, 0x00, BURST_TYPE},  //CTEM high_TH
+	{0x3a, 0x00, BURST_TYPE},  //CTEM middle_TH
+	{0x3b, 0x00, BURST_TYPE}, //CTEM low_TH
+
+	{0x3c, 0x00, BURST_TYPE}, //YCON high_TH
+	{0x3d, 0x00, BURST_TYPE}, //YCON middle_TH
+	{0x3e, 0x00, BURST_TYPE}, //YCON low_TH
+
+	/////////////BURST_TYPE///////////////////////
+	// CF Page Adaptive Y Target
+	/////////////BURST_TYPE//////////////////////
+
+	{0x3f, 0x30, BURST_TYPE},  //YLVL_00
+	{0x40, 0x30, BURST_TYPE},  //YLVL_01
+	{0x41, 0x30, BURST_TYPE},  //YLVL_02
+	{0x42, 0x34, BURST_TYPE},  //YLVL_03
+	{0x43, 0x34, BURST_TYPE},  //YLVL_04
+	{0x44, 0x34, BURST_TYPE},  //YLVL_05
+	{0x45, 0x36, BURST_TYPE},  //YLVL_06
+	{0x46, 0x36, BURST_TYPE},  //YLVL_07
+	{0x47, 0x36, BURST_TYPE},  //YLVL_08
+	{0x48, 0x34, BURST_TYPE},  //YLVL_09
+	{0x49, 0x34, BURST_TYPE},  //YLVL_10
+	{0x4a, 0x34, BURST_TYPE},  //36 YLVL_11
+
+	{0x4b, 0x80, BURST_TYPE},  //YCON_00
+	{0x4c, 0x80, BURST_TYPE},  //YCON_01
+	{0x4d, 0x80, BURST_TYPE},  //YCON_02
+	{0x4e, 0x80, BURST_TYPE},  //Contrast 3
+	{0x4f, 0x80, BURST_TYPE},  //Contrast 4
+	{0x50, 0x80, BURST_TYPE},  //Contrast 5
+	{0x51, 0x80, BURST_TYPE},  //Contrast 6
+	{0x52, 0x80, BURST_TYPE},  //Contrast 7
+	{0x53, 0x80, BURST_TYPE},  //Contrast 8
+	{0x54, 0x80, BURST_TYPE},  //Contrast 9
+	{0x55, 0x80, BURST_TYPE},  //Contrast 10
+	{0x56, 0x80, BURST_TYPE},  //Contrast 11
+
+	/////////////BURST_TYPE//////////////////////
+	// CF Page AdBURST_TYPE OFFSET
+	/////////////BURST_TYPE//////////////////////
+
+	{0x57, 0x08, BURST_TYPE}, // dark offset for noise
+	{0x58, 0x08, BURST_TYPE},
+	{0x59, 0x08, BURST_TYPE},
+	{0x5a, 0x00, BURST_TYPE},
+	{0x5b, 0x00, BURST_TYPE},
+	{0x5c, 0x00, BURST_TYPE},
+	{0x5d, 0x00, BURST_TYPE},
+	{0x5e, 0x00, BURST_TYPE},
+	{0x5f, 0x00, BURST_TYPE},
+
+	{0x60, 0x00, BURST_TYPE},
+	{0x61, 0x00, BURST_TYPE},
+	{0x62, 0x00, BURST_TYPE},
+	/////////////BURST_TYPE//////////////////////
+	// CF~D0~D1 PBURST_TYPEtive GAMMA
+	/////////////BURST_TYPE//////////////////////
+	//_CHANGE_S MR LOW Light Tuning
+
+	{0x63, 0x00, BURST_TYPE},//GMA00
+	{0x64, 0x07, BURST_TYPE},
+	{0x65, 0x0F, BURST_TYPE},
+	{0x66, 0x17, BURST_TYPE},
+	{0x67, 0x1D, BURST_TYPE},
+	{0x68, 0x2A, BURST_TYPE},
+	{0x69, 0x34, BURST_TYPE},
+	{0x6a, 0x3E, BURST_TYPE},
+	{0x6b, 0x47, BURST_TYPE},
+	{0x6c, 0x4E, BURST_TYPE},
+	{0x6d, 0x56, BURST_TYPE},
+	{0x6e, 0x5D, BURST_TYPE},
+	{0x6f, 0x63, BURST_TYPE},
+	{0x70, 0x6A, BURST_TYPE},
+	{0x71, 0x70, BURST_TYPE},
+	{0x72, 0x75, BURST_TYPE},
+	{0x73, 0x7B, BURST_TYPE},
+	{0x74, 0x80, BURST_TYPE},
+	{0x75, 0x85, BURST_TYPE},
+	{0x76, 0x8A, BURST_TYPE},
+	{0x77, 0x8F, BURST_TYPE},
+	{0x78, 0x98, BURST_TYPE},
+	{0x79, 0xA1, BURST_TYPE},
+	{0x7a, 0xA9, BURST_TYPE},
+	{0x7b, 0xB8, BURST_TYPE},
+	{0x7c, 0xC5, BURST_TYPE},
+	{0x7d, 0xD1, BURST_TYPE},
+	{0x7e, 0xDB, BURST_TYPE},
+	{0x7f, 0xE4, BURST_TYPE},
+	{0x80, 0xEB, BURST_TYPE},
+	{0x81, 0xF2, BURST_TYPE},
+	{0x82, 0xF7, BURST_TYPE},
+	{0x83, 0xFB, BURST_TYPE},
+	{0x84, 0xFF, BURST_TYPE},
+
+	{0x85, 0x00, BURST_TYPE},//GMA01
+	{0x86, 0x07, BURST_TYPE},
+	{0x87, 0x0F, BURST_TYPE},
+	{0x88, 0x17, BURST_TYPE},
+	{0x89, 0x1D, BURST_TYPE},
+	{0x8a, 0x2A, BURST_TYPE},
+	{0x8b, 0x34, BURST_TYPE},
+	{0x8c, 0x3E, BURST_TYPE},
+	{0x8d, 0x47, BURST_TYPE},
+	{0x8e, 0x4E, BURST_TYPE},
+	{0x8f, 0x56, BURST_TYPE},
+	{0x90, 0x5D, BURST_TYPE},
+	{0x91, 0x63, BURST_TYPE},
+	{0x92, 0x6A, BURST_TYPE},
+	{0x93, 0x70, BURST_TYPE},
+	{0x94, 0x75, BURST_TYPE},
+	{0x95, 0x7B, BURST_TYPE},
+	{0x96, 0x80, BURST_TYPE},
+	{0x97, 0x85, BURST_TYPE},
+	{0x98, 0x8A, BURST_TYPE},
+	{0x99, 0x8F, BURST_TYPE},
+	{0x9a, 0x98, BURST_TYPE},
+	{0x9b, 0xA1, BURST_TYPE},
+	{0x9c, 0xA9, BURST_TYPE},
+	{0x9d, 0xB8, BURST_TYPE},
+	{0x9e, 0xC5, BURST_TYPE},
+	{0x9f, 0xD1, BURST_TYPE},
+	{0xa0, 0xDB, BURST_TYPE},
+	{0xa1, 0xE4, BURST_TYPE},
+	{0xa2, 0xEB, BURST_TYPE},
+	{0xa3, 0xF2, BURST_TYPE},
+	{0xa4, 0xF7, BURST_TYPE},
+	{0xa5, 0xFB, BURST_TYPE},
+	{0xa6, 0xFF, BURST_TYPE},
+
+	{0xa7, 0x00, BURST_TYPE},//GMA02
+	{0xa8, 0x07, BURST_TYPE},
+	{0xa9, 0x0F, BURST_TYPE},
+	{0xaa, 0x17, BURST_TYPE},
+	{0xab, 0x1D, BURST_TYPE},
+	{0xac, 0x2A, BURST_TYPE},
+	{0xad, 0x34, BURST_TYPE},
+	{0xae, 0x3E, BURST_TYPE},
+	{0xaf, 0x47, BURST_TYPE},
+	{0xb0, 0x4E, BURST_TYPE},
+	{0xb1, 0x56, BURST_TYPE},
+	{0xb2, 0x5D, BURST_TYPE},
+	{0xb3, 0x63, BURST_TYPE},
+	{0xb4, 0x6A, BURST_TYPE},
+	{0xb5, 0x70, BURST_TYPE},
+	{0xb6, 0x75, BURST_TYPE},
+	{0xb7, 0x7B, BURST_TYPE},
+	{0xb8, 0x80, BURST_TYPE},
+	{0xb9, 0x85, BURST_TYPE},
+	{0xba, 0x8A, BURST_TYPE},
+	{0xbb, 0x8F, BURST_TYPE},
+	{0xbc, 0x98, BURST_TYPE},
+	{0xbd, 0xA1, BURST_TYPE},
+	{0xbe, 0xA9, BURST_TYPE},
+	{0xbf, 0xB8, BURST_TYPE},
+	{0xc0, 0xC5, BURST_TYPE},
+	{0xc1, 0xD1, BURST_TYPE},
+	{0xc2, 0xDB, BURST_TYPE},
+	{0xc3, 0xE4, BURST_TYPE},
+	{0xc4, 0xEB, BURST_TYPE},
+	{0xc5, 0xF2, BURST_TYPE},
+	{0xc6, 0xF7, BURST_TYPE},
+	{0xc7, 0xFB, BURST_TYPE},
+	{0xc8, 0xFF, BURST_TYPE},
+
+	{0xc9, 0x00, BURST_TYPE}, //GMA03
+	{0xca, 0x02, BURST_TYPE},
+	{0xcb, 0x04, BURST_TYPE},
+	{0xcc, 0x08, BURST_TYPE},
+	{0xcd, 0x0C, BURST_TYPE},
+	{0xce, 0x1A, BURST_TYPE},
+	{0xcf, 0x2B, BURST_TYPE},
+	{0xd0, 0x3C, BURST_TYPE},
+	{0xd1, 0x49, BURST_TYPE},
+	{0xd2, 0x55, BURST_TYPE},
+	{0xd3, 0x5F, BURST_TYPE},
+	{0xd4, 0x67, BURST_TYPE},
+	{0xd5, 0x70, BURST_TYPE},
+	{0xd6, 0x78, BURST_TYPE},
+	{0xd7, 0x80, BURST_TYPE},
+	{0xd8, 0x86, BURST_TYPE},
+	{0xd9, 0x8C, BURST_TYPE},
+	{0xda, 0x92, BURST_TYPE},
+	{0xdb, 0x97, BURST_TYPE},
+	{0xdc, 0x9C, BURST_TYPE},
+	{0xdd, 0xA1, BURST_TYPE},
+	{0xde, 0xAA, BURST_TYPE},
+	{0xdf, 0xB2, BURST_TYPE},
+	{0xe0, 0xB9, BURST_TYPE},
+	{0xe1, 0xC6, BURST_TYPE},
+	{0xe2, 0xD0, BURST_TYPE},
+	{0xe3, 0xD8, BURST_TYPE},
+	{0xe4, 0xDF, BURST_TYPE},
+	{0xe5, 0xE6, BURST_TYPE},
+	{0xe6, 0xEC, BURST_TYPE},
+	{0xe7, 0xF1, BURST_TYPE},
+	{0xe8, 0xF7, BURST_TYPE},
+	{0xe9, 0xFB, BURST_TYPE},
+	{0xea, 0xFF, BURST_TYPE},
+
+	{0xeb, 0x00, BURST_TYPE}, //GMA04
+	{0xec, 0x02, BURST_TYPE},
+	{0xed, 0x04, BURST_TYPE},
+	{0xee, 0x0A, BURST_TYPE},
+	{0xef, 0x10, BURST_TYPE},
+	{0xf0, 0x1F, BURST_TYPE},
+	{0xf1, 0x2D, BURST_TYPE},
+	{0xf2, 0x3E, BURST_TYPE},
+	{0xf3, 0x4A, BURST_TYPE},
+	{0xf4, 0x55, BURST_TYPE},
+	{0xf5, 0x5F, BURST_TYPE},
+	{0xf6, 0x67, BURST_TYPE},
+	{0xf7, 0x70, BURST_TYPE},
+	{0xf8, 0x78, BURST_TYPE},
+	{0xf9, 0x80, BURST_TYPE},
+	{0xfa, 0x86, BURST_TYPE},
+	{0xfb, 0x8C, BURST_TYPE},
+	{0xfc, 0x92, BURST_TYPE},
+	{0xfd, 0x97, BURST_TYPE_ED},
+	{0x03, 0xd0, BYTE_LEN}, //Page d0
+	{0x10, 0x9C, BURST_TYPE},
+	{0x11, 0xA1, BURST_TYPE},
+	{0x12, 0xAA, BURST_TYPE},
+	{0x13, 0xB2, BURST_TYPE},
+	{0x14, 0xB9, BURST_TYPE},
+	{0x15, 0xC6, BURST_TYPE},
+	{0x16, 0xD0, BURST_TYPE},
+	{0x17, 0xD8, BURST_TYPE},
+	{0x18, 0xDF, BURST_TYPE},
+	{0x19, 0xE6, BURST_TYPE},
+	{0x1a, 0xEC, BURST_TYPE},
+	{0x1b, 0xF1, BURST_TYPE},
+	{0x1c, 0xF7, BURST_TYPE},
+	{0x1d, 0xFB, BURST_TYPE},
+	{0x1e, 0xFF, BURST_TYPE},
+
+	{0x1f, 0x00, BURST_TYPE}, //GMA05
+	{0x20, 0x03, BURST_TYPE},
+	{0x21, 0x08, BURST_TYPE},
+	{0x22, 0x12, BURST_TYPE},
+	{0x23, 0x19, BURST_TYPE},
+	{0x24, 0x25, BURST_TYPE},
+	{0x25, 0x32, BURST_TYPE},
+	{0x26, 0x3E, BURST_TYPE},
+	{0x27, 0x4B, BURST_TYPE},
+	{0x28, 0x56, BURST_TYPE},
+	{0x29, 0x62, BURST_TYPE},
+	{0x2a, 0x6A, BURST_TYPE},
+	{0x2b, 0x71, BURST_TYPE},
+	{0x2c, 0x78, BURST_TYPE},
+	{0x2d, 0x7F, BURST_TYPE},
+	{0x2e, 0x85, BURST_TYPE},
+	{0x2f, 0x8A, BURST_TYPE},
+	{0x30, 0x90, BURST_TYPE},
+	{0x31, 0x95, BURST_TYPE},
+	{0x32, 0x9A, BURST_TYPE},
+	{0x33, 0x9F, BURST_TYPE},
+	{0x34, 0xA9, BURST_TYPE},
+	{0x35, 0xB1, BURST_TYPE},
+	{0x36, 0xB9, BURST_TYPE},
+	{0x37, 0xC6, BURST_TYPE},
+	{0x38, 0xD0, BURST_TYPE},
+	{0x39, 0xD8, BURST_TYPE},
+	{0x3a, 0xDF, BURST_TYPE},
+	{0x3b, 0xE6, BURST_TYPE},
+	{0x3c, 0xEC, BURST_TYPE},
+	{0x3d, 0xF1, BURST_TYPE},
+	{0x3e, 0xF7, BURST_TYPE},
+	{0x3f, 0xFB, BURST_TYPE},
+	{0x40, 0xFF, BURST_TYPE},
+
+	{0x41, 0x00, BURST_TYPE}, //GMA06
+	{0x42, 0x02, BURST_TYPE},
+	{0x43, 0x04, BURST_TYPE},
+	{0x44, 0x08, BURST_TYPE},
+	{0x45, 0x0C, BURST_TYPE},
+	{0x46, 0x1A, BURST_TYPE},
+	{0x47, 0x2B, BURST_TYPE},
+	{0x48, 0x3C, BURST_TYPE},
+	{0x49, 0x49, BURST_TYPE},
+	{0x4a, 0x55, BURST_TYPE},
+	{0x4b, 0x5F, BURST_TYPE},
+	{0x4c, 0x67, BURST_TYPE},
+	{0x4d, 0x70, BURST_TYPE},
+	{0x4e, 0x78, BURST_TYPE},
+	{0x4f, 0x80, BURST_TYPE},
+	{0x50, 0x86, BURST_TYPE},
+	{0x51, 0x8C, BURST_TYPE},
+	{0x52, 0x92, BURST_TYPE},
+	{0x53, 0x97, BURST_TYPE},
+	{0x54, 0x9C, BURST_TYPE},
+	{0x55, 0xA1, BURST_TYPE},
+	{0x56, 0xAA, BURST_TYPE},
+	{0x57, 0xB2, BURST_TYPE},
+	{0x58, 0xB9, BURST_TYPE},
+	{0x59, 0xC6, BURST_TYPE},
+	{0x5a, 0xD0, BURST_TYPE},
+	{0x5b, 0xD8, BURST_TYPE},
+	{0x5c, 0xDF, BURST_TYPE},
+	{0x5d, 0xE6, BURST_TYPE},
+	{0x5e, 0xEC, BURST_TYPE},
+	{0x5f, 0xF1, BURST_TYPE},
+	{0x60, 0xF7, BURST_TYPE},
+	{0x61, 0xFB, BURST_TYPE},
+	{0x62, 0xFF, BURST_TYPE},
+
+	{0x63, 0x00, BURST_TYPE}, //GMA07
+	{0x64, 0x02, BURST_TYPE},
+	{0x65, 0x04, BURST_TYPE},
+	{0x66, 0x0A, BURST_TYPE},
+	{0x67, 0x10, BURST_TYPE},
+	{0x68, 0x1F, BURST_TYPE},
+	{0x69, 0x2D, BURST_TYPE},
+	{0x6a, 0x3E, BURST_TYPE},
+	{0x6b, 0x4A, BURST_TYPE},
+	{0x6c, 0x55, BURST_TYPE},
+	{0x6d, 0x5F, BURST_TYPE},
+	{0x6e, 0x67, BURST_TYPE},
+	{0x6f, 0x70, BURST_TYPE},
+	{0x70, 0x78, BURST_TYPE},
+	{0x71, 0x80, BURST_TYPE},
+	{0x72, 0x86, BURST_TYPE},
+	{0x73, 0x8C, BURST_TYPE},
+	{0x74, 0x92, BURST_TYPE},
+	{0x75, 0x97, BURST_TYPE},
+	{0x76, 0x9C, BURST_TYPE},
+	{0x77, 0xA1, BURST_TYPE},
+	{0x78, 0xAA, BURST_TYPE},
+	{0x79, 0xB2, BURST_TYPE},
+	{0x7a, 0xB9, BURST_TYPE},
+	{0x7b, 0xC6, BURST_TYPE},
+	{0x7c, 0xD0, BURST_TYPE},
+	{0x7d, 0xD8, BURST_TYPE},
+	{0x7e, 0xDF, BURST_TYPE},
+	{0x7f, 0xE6, BURST_TYPE},
+	{0x80, 0xEC, BURST_TYPE},
+	{0x81, 0xF1, BURST_TYPE},
+	{0x82, 0xF7, BURST_TYPE},
+	{0x83, 0xFB, BURST_TYPE},
+	{0x84, 0xFF, BURST_TYPE},
+
+	{0x85, 0x00, BURST_TYPE}, //GMA08
+	{0x86, 0x03, BURST_TYPE},
+	{0x87, 0x08, BURST_TYPE},
+	{0x88, 0x12, BURST_TYPE},
+	{0x89, 0x19, BURST_TYPE},
+	{0x8a, 0x25, BURST_TYPE},
+	{0x8b, 0x32, BURST_TYPE},
+	{0x8c, 0x3E, BURST_TYPE},
+	{0x8d, 0x4B, BURST_TYPE},
+	{0x8e, 0x56, BURST_TYPE},
+	{0x8f, 0x62, BURST_TYPE},
+	{0x90, 0x6A, BURST_TYPE},
+	{0x91, 0x71, BURST_TYPE},
+	{0x92, 0x78, BURST_TYPE},
+	{0x93, 0x7F, BURST_TYPE},
+	{0x94, 0x85, BURST_TYPE},
+	{0x95, 0x8A, BURST_TYPE},
+	{0x96, 0x90, BURST_TYPE},
+	{0x97, 0x95, BURST_TYPE},
+	{0x98, 0x9A, BURST_TYPE},
+	{0x99, 0x9F, BURST_TYPE},
+	{0x9a, 0xA9, BURST_TYPE},
+	{0x9b, 0xB1, BURST_TYPE},
+	{0x9c, 0xB9, BURST_TYPE},
+	{0x9d, 0xC6, BURST_TYPE},
+	{0x9e, 0xD0, BURST_TYPE},
+	{0x9f, 0xD8, BURST_TYPE},
+	{0xa0, 0xDF, BURST_TYPE},
+	{0xa1, 0xE6, BURST_TYPE},
+	{0xa2, 0xEC, BURST_TYPE},
+	{0xa3, 0xF1, BURST_TYPE},
+	{0xa4, 0xF7, BURST_TYPE},
+	{0xa5, 0xFB, BURST_TYPE},
+	{0xa6, 0xFF, BURST_TYPE},
+
+	{0xa7, 0x00, BURST_TYPE}, //GMA09
+	{0xa8, 0x02, BURST_TYPE},
+	{0xa9, 0x04, BURST_TYPE},
+	{0xaa, 0x08, BURST_TYPE},
+	{0xab, 0x0C, BURST_TYPE},
+	{0xac, 0x1A, BURST_TYPE},
+	{0xad, 0x2B, BURST_TYPE},
+	{0xae, 0x3C, BURST_TYPE},
+	{0xaf, 0x49, BURST_TYPE},
+	{0xb0, 0x55, BURST_TYPE},
+	{0xb1, 0x5F, BURST_TYPE},
+	{0xb2, 0x67, BURST_TYPE},
+	{0xb3, 0x70, BURST_TYPE},
+	{0xb4, 0x78, BURST_TYPE},
+	{0xb5, 0x80, BURST_TYPE},
+	{0xb6, 0x86, BURST_TYPE},
+	{0xb7, 0x8C, BURST_TYPE},
+	{0xb8, 0x92, BURST_TYPE},
+	{0xb9, 0x97, BURST_TYPE},
+	{0xba, 0x9C, BURST_TYPE},
+	{0xbb, 0xA1, BURST_TYPE},
+	{0xbc, 0xAA, BURST_TYPE},
+	{0xbd, 0xB2, BURST_TYPE},
+	{0xbe, 0xB9, BURST_TYPE},
+	{0xbf, 0xC6, BURST_TYPE},
+	{0xc0, 0xD0, BURST_TYPE},
+	{0xc1, 0xD8, BURST_TYPE},
+	{0xc2, 0xDF, BURST_TYPE},
+	{0xc3, 0xE6, BURST_TYPE},
+	{0xc4, 0xEC, BURST_TYPE},
+	{0xc5, 0xF1, BURST_TYPE},
+	{0xc6, 0xF7, BURST_TYPE},
+	{0xc7, 0xFB, BURST_TYPE},
+	{0xc8, 0xFF, BURST_TYPE},
+
+	{0xc9, 0x00, BURST_TYPE}, //GMA10
+	{0xca, 0x02, BURST_TYPE},
+	{0xcb, 0x04, BURST_TYPE},
+	{0xcc, 0x0A, BURST_TYPE},
+	{0xcd, 0x10, BURST_TYPE},
+	{0xce, 0x1F, BURST_TYPE},
+	{0xcf, 0x2D, BURST_TYPE},
+	{0xd0, 0x3E, BURST_TYPE},
+	{0xd1, 0x4A, BURST_TYPE},
+	{0xd2, 0x55, BURST_TYPE},
+	{0xd3, 0x5F, BURST_TYPE},
+	{0xd4, 0x67, BURST_TYPE},
+	{0xd5, 0x70, BURST_TYPE},
+	{0xd6, 0x78, BURST_TYPE},
+	{0xd7, 0x80, BURST_TYPE},
+	{0xd8, 0x86, BURST_TYPE},
+	{0xd9, 0x8C, BURST_TYPE},
+	{0xda, 0x92, BURST_TYPE},
+	{0xdb, 0x97, BURST_TYPE},
+	{0xdc, 0x9C, BURST_TYPE},
+	{0xdd, 0xA1, BURST_TYPE},
+	{0xde, 0xAA, BURST_TYPE},
+	{0xdf, 0xB2, BURST_TYPE},
+	{0xe0, 0xB9, BURST_TYPE},
+	{0xe1, 0xC6, BURST_TYPE},
+	{0xe2, 0xD0, BURST_TYPE},
+	{0xe3, 0xD8, BURST_TYPE},
+	{0xe4, 0xDF, BURST_TYPE},
+	{0xe5, 0xE6, BURST_TYPE},
+	{0xe6, 0xEC, BURST_TYPE},
+	{0xe7, 0xF1, BURST_TYPE},
+	{0xe8, 0xF7, BURST_TYPE},
+	{0xe9, 0xFB, BURST_TYPE},
+	{0xea, 0xFF, BURST_TYPE},
+
+	{0xeb, 0x00, BURST_TYPE},//GMA11
+	{0xec, 0x03, BURST_TYPE},
+	{0xed, 0x08, BURST_TYPE},
+	{0xee, 0x12, BURST_TYPE},
+	{0xef, 0x19, BURST_TYPE},
+	{0xf0, 0x25, BURST_TYPE},
+	{0xf1, 0x32, BURST_TYPE},
+	{0xf2, 0x3E, BURST_TYPE},
+	{0xf3, 0x4B, BURST_TYPE},
+	{0xf4, 0x56, BURST_TYPE},
+	{0xf5, 0x62, BURST_TYPE},
+	{0xf6, 0x6A, BURST_TYPE},
+	{0xf7, 0x71, BURST_TYPE},
+	{0xf8, 0x78, BURST_TYPE},
+	{0xf9, 0x7F, BURST_TYPE},
+	{0xfa, 0x85, BURST_TYPE},
+	{0xfb, 0x8A, BURST_TYPE},
+	{0xfc, 0x90, BURST_TYPE},
+	{0xfd, 0x95, BURST_TYPE_ED},
+	{0x03, 0xd1, BYTE_LEN},//Page d1
+	{0x10, 0x9A, BURST_TYPE},
+	{0x11, 0x9F, BURST_TYPE},
+	{0x12, 0xA9, BURST_TYPE},
+	{0x13, 0xB1, BURST_TYPE},
+	{0x14, 0xB9, BURST_TYPE},
+	{0x15, 0xC6, BURST_TYPE},
+	{0x16, 0xD0, BURST_TYPE},
+	{0x17, 0xD8, BURST_TYPE},
+	{0x18, 0xDF, BURST_TYPE},
+	{0x19, 0xE6, BURST_TYPE},
+	{0x1a, 0xEC, BURST_TYPE},
+	{0x1b, 0xF1, BURST_TYPE},
+	{0x1c, 0xF7, BURST_TYPE},
+	{0x1d, 0xFB, BURST_TYPE},
+	{0x1e, 0xFF, BURST_TYPE},
+
+	///////////////////////////////////////////
+	// D1 Page Adaptive Y Target delta
+	///////////////////////////////////////////
+	{0x1f, 0x80, BURST_TYPE},//Y target delta 0
+	{0x20, 0x80, BURST_TYPE},//Y target delta 1
+	{0x21, 0x80, BURST_TYPE},//Y target delta 2
+	{0x22, 0x80, BURST_TYPE},//Y target delta 3
+	{0x23, 0x80, BURST_TYPE},//Y target delta 4
+	{0x24, 0x80, BURST_TYPE},//Y target delta 5
+	{0x25, 0x80, BURST_TYPE},//Y target delta 6
+	{0x26, 0x80, BURST_TYPE},//Y target delta 7
+	{0x27, 0x80, BURST_TYPE},//Y target delta 8
+	{0x28, 0x80, BURST_TYPE},//Y target delta 9
+	{0x29, 0x80, BURST_TYPE},//Y target delta 10
+	{0x2a, 0x80, BURST_TYPE},//Y target delta 11
+	///////////////////////////////////////////
+	// D1 Page Adaptive R/B saturation
+	///////////////////////////////////////////
+	{0x2b, 0x90, BURST_TYPE},//SATB_00 STEVE for Low Light
+	{0x2c, 0x90, BURST_TYPE},//SATB_01 STEVE for Low Light
+	{0x2d, 0x90, BURST_TYPE},//SATB_02 STEVE for Low Light
+	{0x2e, 0x98, BURST_TYPE},//SATB_03
+	{0x2f, 0x98, BURST_TYPE},//SATB_04
+	{0x30, 0x98, BURST_TYPE},//SATB_05
+	{0x31, 0xa0, BURST_TYPE},//SATB_06
+	{0x32, 0xa0, BURST_TYPE},//SATB_07
+	{0x33, 0xa0, BURST_TYPE},//SATB_08
+	{0x34, 0xa8, BURST_TYPE},//SATB_09
+	{0x35, 0xa8, BURST_TYPE},//SATB_10
+	{0x36, 0xa8, BURST_TYPE},//SATB_11
+
+	//Cr
+
+	{0x37, 0x90, BURST_TYPE},//SATR_00 STEVE for Low Light
+	{0x38, 0x90, BURST_TYPE},//SATR_01 STEVE for Low Light
+	{0x39, 0x98, BURST_TYPE},//SATR_02 STEVE for Low Light
+	{0x3a, 0x98, BURST_TYPE},//SATR_03
+	{0x3b, 0x98, BURST_TYPE},//SATR_04
+	{0x3c, 0x98, BURST_TYPE},//SATR_05
+	{0x3d, 0xa0, BURST_TYPE},//SATR_06
+	{0x3e, 0xa0, BURST_TYPE},//SATR_07
+	{0x3f, 0xa0, BURST_TYPE},//SATR_08
+	{0x40, 0xa8, BURST_TYPE},//SATR_09
+	{0x41, 0xa8, BURST_TYPE},//SATR_10
+	{0x42, 0xa8, BURST_TYPE},//SATR_11
+
+	//_CHANGE_E
+	///////////////////////////////////////////
+	// D1 Page Adaptive CMC
+	///////////////////////////////////////////
+
+	{0x43, 0x2f, BURST_TYPE},//CMC_00
+	{0x44, 0x6a, BURST_TYPE},
+	{0x45, 0x32, BURST_TYPE},
+	{0x46, 0x08, BURST_TYPE},
+	{0x47, 0x1a, BURST_TYPE},
+	{0x48, 0x6c, BURST_TYPE},
+	{0x49, 0x12, BURST_TYPE},
+	{0x4a, 0x03, BURST_TYPE},
+	{0x4b, 0x30, BURST_TYPE},
+	{0x4c, 0x73, BURST_TYPE},
+
+	{0x4d, 0x2f, BURST_TYPE},//CMC_01
+	{0x4e, 0x64, BURST_TYPE},
+	{0x4f, 0x2b, BURST_TYPE},
+	{0x50, 0x06, BURST_TYPE},
+	{0x51, 0x24, BURST_TYPE},
+	{0x52, 0x70, BURST_TYPE},
+	{0x53, 0x0b, BURST_TYPE},
+	{0x54, 0x08, BURST_TYPE},
+	{0x55, 0x2a, BURST_TYPE},
+	{0x56, 0x73, BURST_TYPE},
+
+	{0x57, 0x2f, BURST_TYPE},//CMC_02
+	{0x58, 0x64, BURST_TYPE},
+	{0x59, 0x2b, BURST_TYPE},
+	{0x5a, 0x06, BURST_TYPE},
+	{0x5b, 0x24, BURST_TYPE},
+	{0x5c, 0x70, BURST_TYPE},
+	{0x5d, 0x0b, BURST_TYPE},
+	{0x5e, 0x08, BURST_TYPE},
+	{0x5f, 0x2a, BURST_TYPE},
+	{0x60, 0x73, BURST_TYPE},
+
+	{0x61, 0x2f, BURST_TYPE},//CMC_03
+	{0x62, 0x6a, BURST_TYPE},
+	{0x63, 0x32, BURST_TYPE},
+	{0x64, 0x08, BURST_TYPE},
+	{0x65, 0x1a, BURST_TYPE},
+	{0x66, 0x6c, BURST_TYPE},
+	{0x67, 0x12, BURST_TYPE},
+	{0x68, 0x03, BURST_TYPE},
+	{0x69, 0x30, BURST_TYPE},
+	{0x6a, 0x73, BURST_TYPE},
+
+	{0x6b, 0x2f, BURST_TYPE},//CMC_04
+	{0x6c, 0x65, BURST_TYPE},
+	{0x6d, 0x2b, BURST_TYPE},
+	{0x6e, 0x06, BURST_TYPE},
+	{0x6f, 0x19, BURST_TYPE},
+	{0x70, 0x6c, BURST_TYPE},
+	{0x71, 0x13, BURST_TYPE},
+	{0x72, 0x09, BURST_TYPE},
+	{0x73, 0x2a, BURST_TYPE},
+	{0x74, 0x73, BURST_TYPE},
+
+	{0x75, 0x2f, BURST_TYPE},//CMC_05
+	{0x76, 0x65, BURST_TYPE},
+	{0x77, 0x2b, BURST_TYPE},
+	{0x78, 0x06, BURST_TYPE},
+	{0x79, 0x19, BURST_TYPE},
+	{0x7a, 0x6c, BURST_TYPE},
+	{0x7b, 0x13, BURST_TYPE},
+	{0x7c, 0x09, BURST_TYPE},
+	{0x7d, 0x2a, BURST_TYPE},
+	{0x7e, 0x73, BURST_TYPE},
+
+	{0x7f, 0x2f, BURST_TYPE},//CMC_06
+	{0x80, 0x6a, BURST_TYPE},
+	{0x81, 0x32, BURST_TYPE},
+	{0x82, 0x08, BURST_TYPE},
+	{0x83, 0x1a, BURST_TYPE},
+	{0x84, 0x6c, BURST_TYPE},
+	{0x85, 0x12, BURST_TYPE},
+	{0x86, 0x03, BURST_TYPE},
+	{0x87, 0x30, BURST_TYPE},
+	{0x88, 0x73, BURST_TYPE},
+
+	{0x89, 0x2f, BURST_TYPE},//CMC_07
+	{0x8a, 0x6a, BURST_TYPE},
+	{0x8b, 0x32, BURST_TYPE},
+	{0x8c, 0x08, BURST_TYPE},
+	{0x8d, 0x1a, BURST_TYPE},
+	{0x8e, 0x6c, BURST_TYPE},
+	{0x8f, 0x12, BURST_TYPE},
+	{0x90, 0x03, BURST_TYPE},
+	{0x91, 0x30, BURST_TYPE},
+	{0x92, 0x73, BURST_TYPE},
+
+	{0x93, 0x2f, BURST_TYPE},//CMC_08
+	{0x94, 0x6a, BURST_TYPE},
+	{0x95, 0x32, BURST_TYPE},
+	{0x96, 0x08, BURST_TYPE},
+	{0x97, 0x1a, BURST_TYPE},
+	{0x98, 0x6c, BURST_TYPE},
+	{0x99, 0x12, BURST_TYPE},
+	{0x9a, 0x03, BURST_TYPE},
+	{0x9b, 0x30, BURST_TYPE},
+	{0x9c, 0x73, BURST_TYPE},
+
+	{0x9d, 0x2f, BURST_TYPE},//CMC_09
+	{0x9e, 0x6a, BURST_TYPE},
+	{0x9f, 0x32, BURST_TYPE},
+	{0xa0, 0x08, BURST_TYPE},
+	{0xa1, 0x1a, BURST_TYPE},
+	{0xa2, 0x6c, BURST_TYPE},
+	{0xa3, 0x12, BURST_TYPE},
+	{0xa4, 0x03, BURST_TYPE},
+	{0xa5, 0x30, BURST_TYPE},
+	{0xa6, 0x73, BURST_TYPE},
+
+	{0xa7, 0x2f, BURST_TYPE},//CMC_10
+	{0xa8, 0x6a, BURST_TYPE},
+	{0xa9, 0x32, BURST_TYPE},
+	{0xaa, 0x08, BURST_TYPE},
+	{0xab, 0x1a, BURST_TYPE},
+	{0xac, 0x6c, BURST_TYPE},
+	{0xad, 0x12, BURST_TYPE},
+	{0xae, 0x03, BURST_TYPE},
+	{0xaf, 0x30, BURST_TYPE},
+	{0xb0, 0x73, BURST_TYPE},
+
+	{0xb1, 0x2f, BURST_TYPE},//CMC_11
+	{0xb2, 0x6a, BURST_TYPE},
+	{0xb3, 0x32, BURST_TYPE},
+	{0xb4, 0x08, BURST_TYPE},
+	{0xb5, 0x1a, BURST_TYPE},
+	{0xb6, 0x6c, BURST_TYPE},
+	{0xb7, 0x12, BURST_TYPE},
+	{0xb8, 0x03, BURST_TYPE},
+	{0xb9, 0x30, BURST_TYPE},
+	{0xba, 0x73, BURST_TYPE},
+	///////////////////////////////////////////
+	// D1~D2~D3 Page Adaptive Multi-CMC
+	///////////////////////////////////////////
+	//_CHANGE_S MR LOW Light Tuning
+	//MCMC_00
+	{0xbb, 0x80, BURST_TYPE},//GLB_GAIN
+	{0xbc, 0x00, BURST_TYPE},//GLB_HUE
+	{0xbd, 0x80, BURST_TYPE}, //0_GAIN
+	{0xbe, 0x80, BURST_TYPE}, //0_HUE
+	{0xbf, 0x32, BURST_TYPE}, //0_CENTER
+	{0xc0, 0x13, BURST_TYPE}, //0_DELTA
+	{0xc1, 0x80, BURST_TYPE}, //1_GAIN
+	{0xc2, 0x87, BURST_TYPE}, //1_HUE
+	{0xc3, 0x4c, BURST_TYPE}, //1_CENTER
+	{0xc4, 0x13, BURST_TYPE}, //1_DELTA
+	{0xc5, 0x80, BURST_TYPE}, //2_GAIN
+	{0xc6, 0x07, BURST_TYPE}, //2_HUE
+	{0xc7, 0x70, BURST_TYPE}, //2_CENTER
+	{0xc8, 0x1e, BURST_TYPE}, //2_DELTA
+	{0xc9, 0x80, BURST_TYPE}, //3_GAIN
+	{0xca, 0x00, BURST_TYPE}, //3_HUE
+	{0xcb, 0x8f, BURST_TYPE}, //3_CENTER
+	{0xcc, 0x0e, BURST_TYPE}, //3_DELTA
+	{0xcd, 0x80, BURST_TYPE}, //4_GAIN
+	{0xce, 0x84, BURST_TYPE}, //4_HUE
+	{0xcf, 0xa5, BURST_TYPE}, //4_CENTER
+	{0xd0, 0x18, BURST_TYPE}, //4_DELTA
+	{0xd1, 0x80, BURST_TYPE}, //5_GAIN
+	{0xd2, 0x19, BURST_TYPE}, //5_HUE
+	{0xd3, 0x1b, BURST_TYPE}, //5_CENTER
+	{0xd4, 0x13, BURST_TYPE}, //5_DELTA
+	//MCMC_01
+	{0xd5, 0x80, BURST_TYPE},//GLB_GAIN
+	{0xd6, 0x00, BURST_TYPE}, //GLB_HUE
+	{0xd7, 0x80, BURST_TYPE}, //0_GAIN
+	{0xd8, 0x80, BURST_TYPE}, //0_HUE
+	{0xd9, 0x32, BURST_TYPE}, //0_CENTER
+	{0xda, 0x13, BURST_TYPE}, //0_DELTA
+	{0xdb, 0x80, BURST_TYPE}, //1_GAIN
+	{0xdc, 0x87, BURST_TYPE}, //1_HUE
+	{0xdd, 0x4c, BURST_TYPE}, //1_CENTER
+	{0xde, 0x13, BURST_TYPE}, //1_DELTA
+	{0xdf, 0x80, BURST_TYPE}, //2_GAIN
+	{0xe0, 0x07, BURST_TYPE}, //2_HUE
+	{0xe1, 0x70, BURST_TYPE}, //2_CENTER
+	{0xe2, 0x1e, BURST_TYPE}, //2_DELTA
+	{0xe3, 0x80, BURST_TYPE}, //3_GAIN
+	{0xe4, 0x00, BURST_TYPE}, //3_HUE
+	{0xe5, 0x8f, BURST_TYPE}, //3_CENTER
+	{0xe6, 0x0e, BURST_TYPE}, //3_DELTA
+	{0xe7, 0x80, BURST_TYPE}, //4_GAIN
+	{0xe8, 0x84, BURST_TYPE}, //4_HUE
+	{0xe9, 0xa5, BURST_TYPE}, //4_CENTER
+	{0xea, 0x18, BURST_TYPE}, //4_DELTA
+	{0xeb, 0x80, BURST_TYPE}, //5_GAIN
+	{0xec, 0x19, BURST_TYPE}, //5_HUE
+	{0xed, 0x1b, BURST_TYPE}, //5_CENTER
+	{0xee, 0x13, BURST_TYPE}, //5_DELTA
+	//MCMC_02
+	{0xef, 0x80, BURST_TYPE},//GLB_GAIN
+	{0xf0, 0x00, BURST_TYPE}, //GLB_HUE
+	{0xf1, 0x80, BURST_TYPE}, //0_GAIN
+	{0xf2, 0x06, BURST_TYPE}, //0_HUE
+	{0xf3, 0x32, BURST_TYPE}, //0_CENTER
+	{0xf4, 0x13, BURST_TYPE}, //0_DELTA
+	{0xf5, 0x80, BURST_TYPE}, //1_GAIN
+	{0xf6, 0x16, BURST_TYPE}, //1_HUE
+	{0xf7, 0x4c, BURST_TYPE}, //1_CENTER
+	{0xf8, 0x13, BURST_TYPE}, //1_DELTA
+	{0xf9, 0x80, BURST_TYPE}, //2_GAIN
+	{0xfa, 0x8c, BURST_TYPE}, //2_HUE
+	{0xfb, 0x70, BURST_TYPE}, //2_CENTER
+	{0xfc, 0x1e, BURST_TYPE}, //2_DELTA
+	{0xfd, 0x80, BURST_TYPE_ED}, //3_GAIN
+
+	{0x03, 0xd2, BYTE_LEN},//Page d2
+	{0x10, 0x00, BURST_TYPE}, //3_HUE
+	{0x11, 0x8f, BURST_TYPE}, //3_CENTER
+	{0x12, 0x0e, BURST_TYPE}, //3_DELTA
+	{0x13, 0x80, BURST_TYPE}, //4_GAIN
+	{0x14, 0x88, BURST_TYPE}, //4_HUE
+	{0x15, 0xa5, BURST_TYPE}, //4_CENTER
+	{0x16, 0x18, BURST_TYPE}, //4_DELTA
+	{0x17, 0x80, BURST_TYPE}, //5_GAIN
+	{0x18, 0x09, BURST_TYPE}, //5_HUE
+	{0x19, 0x22, BURST_TYPE}, //5_CENTER
+	{0x1a, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_03
+	{0x1b, 0x80, BURST_TYPE},//GLB_GAIN
+	{0x1c, 0x00, BURST_TYPE}, //GLB_HUE
+	{0x1d, 0x80, BURST_TYPE}, //0_GAIN
+	{0x1e, 0x80, BURST_TYPE}, //0_HUE
+	{0x1f, 0x32, BURST_TYPE}, //0_CENTER
+	{0x20, 0x13, BURST_TYPE}, //0_DELTA
+	{0x21, 0x80, BURST_TYPE}, //1_GAIN
+	{0x22, 0x87, BURST_TYPE}, //1_HUE
+	{0x23, 0x4c, BURST_TYPE}, //1_CENTER
+	{0x24, 0x13, BURST_TYPE}, //1_DELTA
+	{0x25, 0x80, BURST_TYPE}, //2_GAIN
+	{0x26, 0x07, BURST_TYPE}, //2_HUE
+	{0x27, 0x70, BURST_TYPE}, //2_CENTER
+	{0x28, 0x1e, BURST_TYPE}, //2_DELTA
+	{0x29, 0x80, BURST_TYPE}, //3_GAIN
+	{0x2a, 0x00, BURST_TYPE}, //3_HUE
+	{0x2b, 0x8f, BURST_TYPE}, //3_CENTER
+	{0x2c, 0x0e, BURST_TYPE}, //3_DELTA
+	{0x2d, 0x80, BURST_TYPE}, //4_GAIN
+	{0x2e, 0x84, BURST_TYPE}, //4_HUE
+	{0x2f, 0xa5, BURST_TYPE}, //4_CENTER
+	{0x30, 0x18, BURST_TYPE}, //4_DELTA
+	{0x31, 0x80, BURST_TYPE}, //5_GAIN
+	{0x32, 0x19, BURST_TYPE}, //5_HUE
+	{0x33, 0x1b, BURST_TYPE}, //5_CENTER
+	{0x34, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_04
+	{0x35, 0x80, BURST_TYPE},//GLB_GAIN
+	{0x36, 0x00, BURST_TYPE}, //GLB_HUE
+	{0x37, 0x80, BURST_TYPE}, //0_GAIN
+	{0x38, 0x80, BURST_TYPE}, //0_HUE
+	{0x39, 0x32, BURST_TYPE}, //0_CENTER
+	{0x3a, 0x13, BURST_TYPE}, //0_DELTA
+	{0x3b, 0x80, BURST_TYPE}, //1_GAIN
+	{0x3c, 0x87, BURST_TYPE}, //1_HUE
+	{0x3d, 0x4c, BURST_TYPE}, //1_CENTER
+	{0x3e, 0x13, BURST_TYPE}, //1_DELTA
+	{0x3f, 0x80, BURST_TYPE}, //2_GAIN
+	{0x40, 0x07, BURST_TYPE}, //2_HUE
+	{0x41, 0x70, BURST_TYPE}, //2_CENTER
+	{0x42, 0x1e, BURST_TYPE}, //2_DELTA
+	{0x43, 0x80, BURST_TYPE}, //3_GAIN
+	{0x44, 0x00, BURST_TYPE}, //3_HUE
+	{0x45, 0x8f, BURST_TYPE}, //3_CENTER
+	{0x46, 0x0e, BURST_TYPE}, //3_DELTA
+	{0x47, 0x80, BURST_TYPE}, //4_GAIN
+	{0x48, 0x84, BURST_TYPE}, //4_HUE
+	{0x49, 0xa5, BURST_TYPE}, //4_CENTER
+	{0x4a, 0x18, BURST_TYPE}, //4_DELTA
+	{0x4b, 0x80, BURST_TYPE}, //5_GAIN
+	{0x4c, 0x19, BURST_TYPE}, //5_HUE
+	{0x4d, 0x1b, BURST_TYPE}, //5_CENTER
+	{0x4e, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_05
+	{0x4f, 0x80, BURST_TYPE}, //GLB_GAIN
+	{0x50, 0x00, BURST_TYPE}, //GLB_HUE
+	{0x51, 0x80, BURST_TYPE}, //0_GAIN
+	{0x52, 0x06, BURST_TYPE}, //0_HUE
+	{0x53, 0x32, BURST_TYPE}, //0_CENTER
+	{0x54, 0x13, BURST_TYPE}, //0_DELTA
+	{0x55, 0x80, BURST_TYPE}, //1_GAIN
+	{0x56, 0x16, BURST_TYPE}, //1_HUE
+	{0x57, 0x4c, BURST_TYPE}, //1_CENTER
+	{0x58, 0x13, BURST_TYPE}, //1_DELTA
+	{0x59, 0x80, BURST_TYPE}, //2_GAIN
+	{0x5a, 0x8c, BURST_TYPE}, //2_HUE
+	{0x5b, 0x70, BURST_TYPE}, //2_CENTER
+	{0x5c, 0x1e, BURST_TYPE}, //2_DELTA
+	{0x5d, 0x80, BURST_TYPE}, //3_GAIN
+	{0x5e, 0x00, BURST_TYPE}, //3_HUE
+	{0x5f, 0x8f, BURST_TYPE}, //3_CENTER
+	{0x60, 0x0e, BURST_TYPE}, //3_DELTA
+	{0x61, 0x80, BURST_TYPE}, //4_GAIN
+	{0x62, 0x88, BURST_TYPE}, //4_HUE
+	{0x63, 0xa5, BURST_TYPE}, //4_CENTER
+	{0x64, 0x18, BURST_TYPE}, //4_DELTA
+	{0x65, 0x80, BURST_TYPE}, //5_GAIN
+	{0x66, 0x09, BURST_TYPE}, //5_HUE
+	{0x67, 0x22, BURST_TYPE}, //5_CENTER
+	{0x68, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_06
+	{0x69, 0x80, BURST_TYPE}, //GLB_GAIN
+	{0x6a, 0x00, BURST_TYPE}, //GLB_HUE
+	{0x6b, 0x80, BURST_TYPE}, //0_GAIN
+	{0x6c, 0x80, BURST_TYPE}, //0_HUE
+	{0x6d, 0x32, BURST_TYPE}, //0_CENTER
+	{0x6e, 0x13, BURST_TYPE}, //0_DELTA
+	{0x6f, 0x80, BURST_TYPE}, //1_GAIN
+	{0x70, 0x87, BURST_TYPE}, //1_HUE
+	{0x71, 0x4c, BURST_TYPE}, //1_CENTER
+	{0x72, 0x13, BURST_TYPE}, //1_DELTA
+	{0x73, 0x80, BURST_TYPE}, //2_GAIN
+	{0x74, 0x07, BURST_TYPE}, //2_HUE
+	{0x75, 0x70, BURST_TYPE}, //2_CENTER
+	{0x76, 0x1e, BURST_TYPE}, //2_DELTA
+	{0x77, 0x80, BURST_TYPE}, //3_GAIN
+	{0x78, 0x00, BURST_TYPE}, //3_HUE
+	{0x79, 0x8f, BURST_TYPE}, //3_CENTER
+	{0x7a, 0x0e, BURST_TYPE}, //3_DELTA
+	{0x7b, 0x80, BURST_TYPE}, //4_GAIN
+	{0x7c, 0x84, BURST_TYPE}, //4_HUE
+	{0x7d, 0xa5, BURST_TYPE}, //4_CENTER
+	{0x7e, 0x18, BURST_TYPE}, //4_DELTA
+	{0x7f, 0x80, BURST_TYPE}, //5_GAIN
+	{0x80, 0x19, BURST_TYPE}, //5_HUE
+	{0x81, 0x1b, BURST_TYPE}, //5_CENTER
+	{0x82, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_07
+	{0x83, 0x80, BURST_TYPE}, //GLB_GAIN
+	{0x84, 0x00, BURST_TYPE}, //GLB_HUE
+	{0x85, 0x80, BURST_TYPE}, //0_GAIN
+	{0x86, 0x80, BURST_TYPE}, //0_HUE
+	{0x87, 0x32, BURST_TYPE}, //0_CENTER
+	{0x88, 0x13, BURST_TYPE}, //0_DELTA
+	{0x89, 0x80, BURST_TYPE}, //1_GAIN
+	{0x8a, 0x87, BURST_TYPE}, //1_HUE
+	{0x8b, 0x4c, BURST_TYPE}, //1_CENTER
+	{0x8c, 0x13, BURST_TYPE}, //1_DELTA
+	{0x8d, 0x80, BURST_TYPE}, //2_GAIN
+	{0x8e, 0x07, BURST_TYPE}, //2_HUE
+	{0x8f, 0x70, BURST_TYPE}, //2_CENTER
+	{0x90, 0x1e, BURST_TYPE}, //2_DELTA
+	{0x91, 0x80, BURST_TYPE}, //3_GAIN
+	{0x92, 0x00, BURST_TYPE}, //3_HUE
+	{0x93, 0x8f, BURST_TYPE}, //3_CENTER
+	{0x94, 0x0e, BURST_TYPE}, //3_DELTA
+	{0x95, 0x80, BURST_TYPE}, //4_GAIN
+	{0x96, 0x84, BURST_TYPE}, //4_HUE
+	{0x97, 0xa5, BURST_TYPE}, //4_CENTER
+	{0x98, 0x18, BURST_TYPE}, //4_DELTA
+	{0x99, 0x80, BURST_TYPE}, //5_GAIN
+	{0x9a, 0x19, BURST_TYPE}, //5_HUE
+	{0x9b, 0x1b, BURST_TYPE}, //5_CENTER
+	{0x9c, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_08
+	{0x9d, 0x80, BURST_TYPE}, //GLB_GAIN
+	{0x9e, 0x00, BURST_TYPE}, //GLB_HUE
+	{0x9f, 0x80, BURST_TYPE}, //0_GAIN
+	{0xa0, 0x06, BURST_TYPE}, //0_HUE
+	{0xa1, 0x32, BURST_TYPE}, //0_CENTER
+	{0xa2, 0x13, BURST_TYPE}, //0_DELTA
+	{0xa3, 0x80, BURST_TYPE}, //1_GAIN
+	{0xa4, 0x16, BURST_TYPE}, //1_HUE
+	{0xa5, 0x4c, BURST_TYPE}, //1_CENTER
+	{0xa6, 0x13, BURST_TYPE}, //1_DELTA
+	{0xa7, 0x80, BURST_TYPE}, //2_GAIN
+	{0xa8, 0x8c, BURST_TYPE}, //2_HUE
+	{0xa9, 0x70, BURST_TYPE}, //2_CENTER
+	{0xaa, 0x1e, BURST_TYPE}, //2_DELTA
+	{0xab, 0x80, BURST_TYPE}, //3_GAIN
+	{0xac, 0x00, BURST_TYPE}, //3_HUE
+	{0xad, 0x8f, BURST_TYPE}, //3_CENTER
+	{0xae, 0x0e, BURST_TYPE}, //3_DELTA
+	{0xaf, 0x80, BURST_TYPE}, //4_GAIN
+	{0xb0, 0x88, BURST_TYPE}, //4_HUE
+	{0xb1, 0xa5, BURST_TYPE}, //4_CENTER
+	{0xb2, 0x18, BURST_TYPE}, //4_DELTA
+	{0xb3, 0x80, BURST_TYPE}, //5_GAIN
+	{0xb4, 0x09, BURST_TYPE}, //5_HUE
+	{0xb5, 0x22, BURST_TYPE}, //5_CENTER
+	{0xb6, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_09
+	{0xb7, 0x80, BURST_TYPE}, //GLB_GAIN
+	{0xb8, 0x00, BURST_TYPE}, //GLB_HUE
+	{0xb9, 0x80, BURST_TYPE}, //0_GAIN
+	{0xba, 0x80, BURST_TYPE}, //0_HUE
+	{0xbb, 0x32, BURST_TYPE}, //0_CENTER
+	{0xbc, 0x13, BURST_TYPE}, //0_DELTA
+	{0xbd, 0x80, BURST_TYPE}, //1_GAIN
+	{0xbe, 0x87, BURST_TYPE}, //1_HUE
+	{0xbf, 0x4c, BURST_TYPE}, //1_CENTER
+	{0xc0, 0x13, BURST_TYPE}, //1_DELTA
+	{0xc1, 0x80, BURST_TYPE}, //2_GAIN
+	{0xc2, 0x07, BURST_TYPE}, //2_HUE
+	{0xc3, 0x70, BURST_TYPE}, //2_CENTER
+	{0xc4, 0x1e, BURST_TYPE}, //2_DELTA
+	{0xc5, 0x80, BURST_TYPE}, //3_GAIN
+	{0xc6, 0x00, BURST_TYPE}, //3_HUE
+	{0xc7, 0x8f, BURST_TYPE}, //3_CENTER
+	{0xc8, 0x0e, BURST_TYPE}, //3_DELTA
+	{0xc9, 0x80, BURST_TYPE}, //4_GAIN
+	{0xca, 0x84, BURST_TYPE}, //4_HUE
+	{0xcb, 0xa5, BURST_TYPE}, //4_CENTER
+	{0xcc, 0x18, BURST_TYPE}, //4_DELTA
+	{0xcd, 0x80, BURST_TYPE}, //5_GAIN
+	{0xce, 0x19, BURST_TYPE}, //5_HUE
+	{0xcf, 0x1b, BURST_TYPE}, //5_CENTER
+	{0xd0, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_10
+	{0xd1, 0x80, BURST_TYPE}, //GLB_GAIN
+	{0xd2, 0x00, BURST_TYPE}, //GLB_HUE
+	{0xd3, 0x80, BURST_TYPE}, //0_GAIN
+	{0xd4, 0x80, BURST_TYPE}, //0_HUE
+	{0xd5, 0x32, BURST_TYPE}, //0_CENTER
+	{0xd6, 0x13, BURST_TYPE}, //0_DELTA
+	{0xd7, 0x80, BURST_TYPE}, //1_GAIN
+	{0xd8, 0x87, BURST_TYPE}, //1_HUE
+	{0xd9, 0x4c, BURST_TYPE}, //1_CENTER
+	{0xda, 0x13, BURST_TYPE}, //1_DELTA
+	{0xdb, 0x80, BURST_TYPE}, //2_GAIN
+	{0xdc, 0x07, BURST_TYPE}, //2_HUE
+	{0xdd, 0x70, BURST_TYPE}, //2_CENTER
+	{0xde, 0x1e, BURST_TYPE}, //2_DELTA
+	{0xdf, 0x80, BURST_TYPE}, //3_GAIN
+	{0xe0, 0x00, BURST_TYPE}, //3_HUE
+	{0xe1, 0x8f, BURST_TYPE}, //3_CENTER
+	{0xe2, 0x0e, BURST_TYPE}, //3_DELTA
+	{0xe3, 0x80, BURST_TYPE}, //4_GAIN
+	{0xe4, 0x84, BURST_TYPE}, //4_HUE
+	{0xe5, 0xa5, BURST_TYPE}, //4_CENTER
+	{0xe6, 0x18, BURST_TYPE}, //4_DELTA
+	{0xe7, 0x80, BURST_TYPE}, //5_GAIN
+	{0xe8, 0x19, BURST_TYPE}, //5_HUE
+	{0xe9, 0x1b, BURST_TYPE}, //5_CENTER
+	{0xea, 0x13, BURST_TYPE}, //5_DELTA
+
+	//MCMC_11
+	{0xeb, 0x80, BURST_TYPE}, //GLB_GAIN
+	{0xec, 0x00, BURST_TYPE}, //GLB_HUE
+	{0xed, 0x80, BURST_TYPE}, //0_GAIN
+	{0xee, 0x06, BURST_TYPE}, //0_HUE
+	{0xef, 0x32, BURST_TYPE}, //0_CENTER
+	{0xf0, 0x13, BURST_TYPE}, //0_DELTA
+	{0xf1, 0x80, BURST_TYPE}, //1_GAIN
+	{0xf2, 0x16, BURST_TYPE}, //1_HUE
+	{0xf3, 0x4c, BURST_TYPE}, //1_CENTER
+	{0xf4, 0x13, BURST_TYPE}, //1_DELTA
+	{0xf5, 0x80, BURST_TYPE}, //2_GAIN
+	{0xf6, 0x8c, BURST_TYPE}, //2_HUE
+	{0xf7, 0x70, BURST_TYPE}, //2_CENTER
+	{0xf8, 0x1e, BURST_TYPE}, //2_DELTA
+	{0xf9, 0x80, BURST_TYPE}, //3_GAIN
+	{0xfa, 0x00, BURST_TYPE}, //3_HUE
+	{0xfb, 0x8f, BURST_TYPE}, //3_CENTER
+	{0xfc, 0x0e, BURST_TYPE}, //3_DELTA
+	{0xfd, 0x80, BURST_TYPE_ED}, //4_GAIN
+
+
+	{0x03, 0xd3, BYTE_LEN},//Page d3
+
+	{0x10, 0x88, BURST_TYPE}, //4_HUE
+	{0x11, 0xa5, BURST_TYPE}, //4_CENTER
+	{0x12, 0x18, BURST_TYPE}, //4_DELTA
+	{0x13, 0x80, BURST_TYPE}, //5_GAIN
+	{0x14, 0x09, BURST_TYPE}, //5_HUE
+	{0x15, 0x22, BURST_TYPE}, //5_CENTER
+	{0x16, 0x13, BURST_TYPE}, //5_DELTA
+
+	///////////////////////////////////////////
+	// D3 Page Adaptive LSC
+	///////////////////////////////////////////
+
+	{0x17, 0x00, BURST_TYPE}, //LSC 00 ofs GB
+	{0x18, 0x00, BURST_TYPE}, //LSC 00 ofs B
+	{0x19, 0x00, BURST_TYPE}, //LSC 00 ofs R
+	{0x1a, 0x00, BURST_TYPE}, //LSC 00 ofs GR
+
+	{0x1b, 0x40, BURST_TYPE}, //LSC 00 Gain GB
+	{0x1c, 0x40, BURST_TYPE}, //LSC 00 Gain B
+	{0x1d, 0x40, BURST_TYPE}, //LSC 00 Gain R
+	{0x1e, 0x40, BURST_TYPE}, //LSC 00 Gain GR
+
+	{0x1f, 0x00, BURST_TYPE}, //LSC 01 ofs GB
+	{0x20, 0x00, BURST_TYPE}, //LSC 01 ofs B
+	{0x21, 0x00, BURST_TYPE}, //LSC 01 ofs R
+	{0x22, 0x00, BURST_TYPE}, //LSC 01 ofs GR
+	{0x23, 0x40, BURST_TYPE}, //LSC 01 Gain GB
+	{0x24, 0x40, BURST_TYPE}, //LSC 01 Gain B
+	{0x25, 0x40, BURST_TYPE}, //LSC 01 Gain R
+	{0x26, 0x40, BURST_TYPE}, //LSC 01 Gain GR
+
+	{0x27, 0x00, BURST_TYPE}, //LSC 02 ofs GB
+	{0x28, 0x00, BURST_TYPE}, //LSC 02 ofs B
+	{0x29, 0x00, BURST_TYPE}, //LSC 02 ofs R
+	{0x2a, 0x00, BURST_TYPE}, //LSC 02 ofs GR
+	{0x2b, 0x40, BURST_TYPE}, //LSC 02 Gain GB
+	{0x2c, 0x38, BURST_TYPE}, //LSC 02 Gain B
+	{0x2d, 0x48, BURST_TYPE}, //LSC 02 Gain R
+	{0x2e, 0x40, BURST_TYPE}, //LSC 02 Gain GR
+
+	{0x2f, 0x00, BURST_TYPE}, //LSC 03 ofs GB
+	{0x30, 0x00, BURST_TYPE}, //LSC 03 ofs B
+	{0x31, 0x00, BURST_TYPE}, //LSC 03 ofs R
+	{0x32, 0x00, BURST_TYPE}, //LSC 03 ofs GR
+	{0x33, 0x80, BURST_TYPE}, //LSC 03 Gain GB
+	{0x34, 0x80, BURST_TYPE}, //LSC 03 Gain B
+	{0x35, 0x80, BURST_TYPE}, //LSC 03 Gain R
+	{0x36, 0x80, BURST_TYPE}, //LSC 03 Gain GR
+
+	{0x37, 0x00, BURST_TYPE}, //LSC 04 ofs GB
+	{0x38, 0x00, BURST_TYPE}, //LSC 04 ofs B
+	{0x39, 0x00, BURST_TYPE}, //LSC 04 ofs R
+	{0x3a, 0x00, BURST_TYPE}, //LSC 04 ofs GR
+	{0x3b, 0x80, BURST_TYPE}, //LSC 04 Gain GB
+	{0x3c, 0x80, BURST_TYPE}, //LSC 04 Gain B
+	{0x3d, 0x80, BURST_TYPE}, //LSC 04 Gain R
+	{0x3e, 0x80, BURST_TYPE}, //LSC 04 Gain GR
+
+	{0x3f, 0x00, BURST_TYPE}, //LSC 05 ofs GB
+	{0x40, 0x00, BURST_TYPE}, //LSC 05 ofs B
+	{0x41, 0x00, BURST_TYPE}, //LSC 05 ofs R
+	{0x42, 0x00, BURST_TYPE}, //LSC 05 ofs GR
+	{0x43, 0x80, BURST_TYPE},//LSC 05 Gain GB
+	{0x44, 0x78, BURST_TYPE},//LSC 05 Gain B
+	{0x45, 0xA0, BURST_TYPE}, //LSC 05 Gain R
+	{0x46, 0x80, BURST_TYPE},//LSC 05 Gain GR
+
+	{0x47, 0x00, BURST_TYPE}, //LSC 06 ofs GB
+	{0x48, 0x00, BURST_TYPE}, //LSC 06 ofs B
+	{0x49, 0x00, BURST_TYPE}, //LSC 06 ofs R
+	{0x4a, 0x00, BURST_TYPE}, //LSC 06 ofs GR
+	{0x4b, 0x80, BURST_TYPE},//78 LSC 06 Gain GB
+	{0x4c, 0x80, BURST_TYPE},//7c LSC 06 Gain B
+	{0x4d, 0x80, BURST_TYPE},//80 LSC 06 Gain R
+	{0x4e, 0x80, BURST_TYPE},//78 LSC 06 Gain GR
+
+	{0x4f, 0x00, BURST_TYPE}, //LSC 07 ofs GB
+	{0x50, 0x00, BURST_TYPE}, //LSC 07 ofs B
+	{0x51, 0x00, BURST_TYPE}, //LSC 07 ofs R
+	{0x52, 0x00, BURST_TYPE}, //LSC 07 ofs GR
+	{0x53, 0x80, BURST_TYPE},//78 LSC 07 Gain GB
+	{0x54, 0x80, BURST_TYPE},//7c LSC 07 Gain B
+	{0x55, 0x80, BURST_TYPE},//80 LSC 07 Gain R
+	{0x56, 0x80, BURST_TYPE},//78 LSC 07 Gain GR
+
+	{0x57, 0x00, BURST_TYPE}, //LSC 08 ofs GB
+	{0x58, 0x00, BURST_TYPE}, //LSC 08 ofs B
+	{0x59, 0x00, BURST_TYPE}, //LSC 08 ofs R
+	{0x5a, 0x00, BURST_TYPE}, //LSC 08 ofs GR
+	{0x5b, 0x80, BURST_TYPE}, //78 LSC 08 Gain GB
+	{0x5c, 0x78, BURST_TYPE}, //7c LSC 08 Gain B
+	{0x5d, 0xA0, BURST_TYPE}, //80 LSC 08 Gain R
+	{0x5e, 0x80, BURST_TYPE}, //78 LSC 08 Gain GR
+
+	{0x5f, 0x00, BURST_TYPE}, //LSC 09 ofs GB
+	{0x60, 0x00, BURST_TYPE}, //LSC 09 ofs B
+	{0x61, 0x00, BURST_TYPE}, //LSC 09 ofs R
+	{0x62, 0x00, BURST_TYPE}, //LSC 09 ofs GR
+	{0x63, 0x80, BURST_TYPE}, //78 LSC 09 Gain GB
+	{0x64, 0x80, BURST_TYPE}, //7c LSC 09 Gain B
+	{0x65, 0x80, BURST_TYPE}, //80 LSC 09 Gain R
+	{0x66, 0x80, BURST_TYPE}, //78 LSC 09 Gain GR
+
+	{0x67, 0x00, BURST_TYPE}, //LSC 10 ofs GB
+	{0x68, 0x00, BURST_TYPE}, //LSC 10 ofs B
+	{0x69, 0x00, BURST_TYPE}, //LSC 10 ofs R
+	{0x6a, 0x00, BURST_TYPE}, //LSC 10 ofs GR
+	{0x6b, 0x80, BURST_TYPE}, //78 LSC 10 Gain GB
+	{0x6c, 0x80, BURST_TYPE}, //7c LSC 10 Gain B
+	{0x6d, 0x80, BURST_TYPE}, //80 LSC 10 Gain R
+	{0x6e, 0x80, BURST_TYPE}, //78 LSC 10 Gain GR
+
+	{0x6f, 0x00, BURST_TYPE}, //LSC 11 ofs GB
+	{0x70, 0x00, BURST_TYPE}, //LSC 11 ofs B
+	{0x71, 0x00, BURST_TYPE}, //LSC 11 ofs R
+	{0x72, 0x00, BURST_TYPE}, //LSC 11 ofs GR
+	{0x73, 0x80, BURST_TYPE}, //78 LSC 11 Gain GB
+	{0x74, 0x80, BURST_TYPE}, //7c LSC 11 Gain B
+	{0x75, 0x80, BURST_TYPE}, //80 LSC 11 Gain R
+	{0x76, 0x80, BURST_TYPE}, //78 LSC 11 Gain GR
+
+	//_CHANGE_E
+	///////////////////////////////////////////
+	// D3 Page OTP, ROM Select TH
+	///////////////////////////////////////////
+	{0x77, 0x60, BURST_TYPE}, //2 ROM High
+	{0x78, 0x20, BURST_TYPE}, //2 ROM Low
+	{0x79, 0x60, BURST_TYPE}, //3 OTP High
+	{0x7a, 0x40, BURST_TYPE}, //3 OTP Mid
+	{0x7b, 0x20, BURST_TYPE}, //3 OTP Low
+	///////////////////////////////////////////
+	// D3 Page Adaptive DNP
+	///////////////////////////////////////////
+	{0x7c, 0x00, BURST_TYPE}, //LSC EV max
+	{0x7d, 0x00, BURST_TYPE},
+	{0x7e, 0x07, BURST_TYPE},
+	{0x7f, 0xf1, BURST_TYPE},
+
+	{0x80, 0x00, BURST_TYPE}, //LSC EV min
+	{0x81, 0x00, BURST_TYPE},
+	{0x82, 0x07, BURST_TYPE},
+	{0x83, 0xf1, BURST_TYPE},
+	{0x84, 0x20, BURST_TYPE}, //CTEM max
+	{0x85, 0x20, BURST_TYPE}, //CTEM min
+	{0x86, 0x20, BURST_TYPE}, //Y STD max
+	{0x87, 0x20, BURST_TYPE}, //Y STD min
+
+	{0x88, 0x00, BURST_TYPE}, //LSC offset
+	{0x89, 0x00, BURST_TYPE},
+	{0x8a, 0x00, BURST_TYPE},
+	{0x8b, 0x00, BURST_TYPE},
+	{0x8c, 0x80, BURST_TYPE}, //LSC gain
+	{0x8d, 0x80, BURST_TYPE},
+	{0x8e, 0x80, BURST_TYPE},
+	{0x8f, 0x80, BURST_TYPE},
+
+	{0x90, 0x80, BURST_TYPE}, //DNP CB
+	{0x91, 0x80, BURST_TYPE_ED}, //DNP CR
+
+	///////////////////////////////////
+	//Page 0xD9 DMA EXTRA
+	///////////////////////////////////
+
+	{0x03, 0xd9, BYTE_LEN},
+
+	{0x10, 0x03, BURST_TYPE},
+	{0x11, 0x10, BURST_TYPE},//Page 10
+	{0x12, 0x61, BURST_TYPE},
+	{0x13, 0x80, BURST_TYPE},
+	{0x14, 0x62, BURST_TYPE},
+	{0x15, 0x80, BURST_TYPE},
+	{0x16, 0x40, BURST_TYPE},
+	{0x17, 0x00, BURST_TYPE},
+
+	{0x18, 0x48, BURST_TYPE},
+	{0x19, 0x80, BURST_TYPE},
+	{0x1a, 0x03, BURST_TYPE},//Page 16
+	{0x1b, 0x16, BURST_TYPE},
+	{0x1c, 0x30, BURST_TYPE},
+	{0x1d, 0x7f, BURST_TYPE},
+	{0x1e, 0x31, BURST_TYPE},
+	{0x1f, 0x42, BURST_TYPE},
+
+	{0x20, 0x32, BURST_TYPE},
+	{0x21, 0x03, BURST_TYPE},
+	{0x22, 0x33, BURST_TYPE},
+	{0x23, 0x22, BURST_TYPE},
+	{0x24, 0x34, BURST_TYPE},
+	{0x25, 0x7b, BURST_TYPE},
+	{0x26, 0x35, BURST_TYPE},
+	{0x27, 0x19, BURST_TYPE},
+	{0x28, 0x36, BURST_TYPE},
+	{0x29, 0x01, BURST_TYPE},
+	{0x2a, 0x37, BURST_TYPE},
+	{0x2b, 0x43, BURST_TYPE},
+	{0x2c, 0x38, BURST_TYPE},
+	{0x2d, 0x84, BURST_TYPE},
+	{0x2e, 0x70, BURST_TYPE},
+	{0x2f, 0x80, BURST_TYPE},
+
+	{0x30, 0x71, BURST_TYPE},
+	{0x31, 0x00, BURST_TYPE},
+	{0x32, 0x72, BURST_TYPE},
+	{0x33, 0x9b, BURST_TYPE},
+	{0x34, 0x73, BURST_TYPE},
+	{0x35, 0x05, BURST_TYPE},
+	{0x36, 0x74, BURST_TYPE},
+	{0x37, 0x34, BURST_TYPE},
+
+	{0x38, 0x75, BURST_TYPE},
+	{0x39, 0x1e, BURST_TYPE},
+	{0x3a, 0x76, BURST_TYPE},
+	{0x3b, 0xa6, BURST_TYPE},
+	{0x3c, 0x77, BURST_TYPE},
+	{0x3d, 0x10, BURST_TYPE},
+	{0x3e, 0x78, BURST_TYPE},
+	{0x3f, 0x69, BURST_TYPE},
+
+	{0x40, 0x79, BURST_TYPE},
+	{0x41, 0x1e, BURST_TYPE},
+	{0x42, 0x7a, BURST_TYPE},
+	{0x43, 0x80, BURST_TYPE},
+	{0x44, 0x7b, BURST_TYPE},
+	{0x45, 0x80, BURST_TYPE},
+	{0x46, 0x7c, BURST_TYPE},
+	{0x47, 0xad, BURST_TYPE},
+
+	{0x48, 0x7d, BURST_TYPE},
+	{0x49, 0x1e, BURST_TYPE},
+	{0x4a, 0x7e, BURST_TYPE},
+	{0x4b, 0x98, BURST_TYPE},
+	{0x4c, 0x7f, BURST_TYPE},
+	{0x4d, 0x80, BURST_TYPE},
+	{0x4e, 0x80, BURST_TYPE},
+	{0x4f, 0x51, BURST_TYPE},
+
+	{0x50, 0x81, BURST_TYPE},
+	{0x51, 0x1e, BURST_TYPE},
+	{0x52, 0x82, BURST_TYPE},
+	{0x53, 0x80, BURST_TYPE},
+	{0x54, 0x83, BURST_TYPE},
+	{0x55, 0x0c, BURST_TYPE},
+	{0x56, 0x84, BURST_TYPE},
+	{0x57, 0x23, BURST_TYPE},
+
+	{0x58, 0x85, BURST_TYPE},
+	{0x59, 0x1e, BURST_TYPE},
+	{0x5a, 0x86, BURST_TYPE},
+	{0x5b, 0xb3, BURST_TYPE},
+	{0x5c, 0x87, BURST_TYPE},
+	{0x5d, 0x8a, BURST_TYPE},
+	{0x5e, 0x88, BURST_TYPE},
+	{0x5f, 0x52, BURST_TYPE},
+
+	{0x60, 0x89, BURST_TYPE},
+	{0x61, 0x1e, BURST_TYPE},
+	{0x62, 0x03, BURST_TYPE},//Page 17 Gamma
+	{0x63, 0x17, BURST_TYPE},
+	{0x64, 0x20, BURST_TYPE},
+	{0x65, 0x00, BURST_TYPE},
+	{0x66, 0x21, BURST_TYPE},
+	{0x67, 0x02, BURST_TYPE},
+
+	{0x68, 0x22, BURST_TYPE},
+	{0x69, 0x04, BURST_TYPE},
+	{0x6a, 0x23, BURST_TYPE},
+	{0x6b, 0x09, BURST_TYPE},
+	{0x6c, 0x24, BURST_TYPE},
+	{0x6d, 0x12, BURST_TYPE},
+	{0x6e, 0x25, BURST_TYPE},
+	{0x6f, 0x23, BURST_TYPE},
+
+	{0x70, 0x26, BURST_TYPE},
+	{0x71, 0x37, BURST_TYPE},
+	{0x72, 0x27, BURST_TYPE},
+	{0x73, 0x47, BURST_TYPE},
+	{0x74, 0x28, BURST_TYPE},
+	{0x75, 0x57, BURST_TYPE},
+	{0x76, 0x29, BURST_TYPE},
+	{0x77, 0x61, BURST_TYPE},
+
+	{0x78, 0x2a, BURST_TYPE},
+	{0x79, 0x6b, BURST_TYPE},
+	{0x7a, 0x2b, BURST_TYPE},
+	{0x7b, 0x71, BURST_TYPE},
+	{0x7c, 0x2c, BURST_TYPE},
+	{0x7d, 0x76, BURST_TYPE},
+	{0x7e, 0x2d, BURST_TYPE},
+	{0x7f, 0x7a, BURST_TYPE},
+
+	{0x80, 0x2e, BURST_TYPE},
+	{0x81, 0x7f, BURST_TYPE},
+	{0x82, 0x2f, BURST_TYPE},
+	{0x83, 0x84, BURST_TYPE},
+	{0x84, 0x30, BURST_TYPE},
+	{0x85, 0x88, BURST_TYPE},
+	{0x86, 0x31, BURST_TYPE},
+	{0x87, 0x8c, BURST_TYPE},
+
+	{0x88, 0x32, BURST_TYPE},
+	{0x89, 0x91, BURST_TYPE},
+	{0x8a, 0x33, BURST_TYPE},
+	{0x8b, 0x94, BURST_TYPE},
+	{0x8c, 0x34, BURST_TYPE},
+	{0x8d, 0x98, BURST_TYPE},
+	{0x8e, 0x35, BURST_TYPE},
+	{0x8f, 0x9f, BURST_TYPE},
+
+	{0x90, 0x36, BURST_TYPE},
+	{0x91, 0xa6, BURST_TYPE},
+	{0x92, 0x37, BURST_TYPE},
+	{0x93, 0xae, BURST_TYPE},
+	{0x94, 0x38, BURST_TYPE},
+	{0x95, 0xbb, BURST_TYPE},
+	{0x96, 0x39, BURST_TYPE},
+	{0x97, 0xc9, BURST_TYPE},
+
+	{0x98, 0x3a, BURST_TYPE},
+	{0x99, 0xd3, BURST_TYPE},
+	{0x9a, 0x3b, BURST_TYPE},
+	{0x9b, 0xdc, BURST_TYPE},
+	{0x9c, 0x3c, BURST_TYPE},
+	{0x9d, 0xe2, BURST_TYPE},
+	{0x9e, 0x3d, BURST_TYPE},
+	{0x9f, 0xe8, BURST_TYPE},
+
+	{0xa0, 0x3e, BURST_TYPE},
+	{0xa1, 0xed, BURST_TYPE},
+	{0xa2, 0x3f, BURST_TYPE},
+	{0xa3, 0xf4, BURST_TYPE},
+	{0xa4, 0x40, BURST_TYPE},
+	{0xa5, 0xfa, BURST_TYPE},
+	{0xa6, 0x41, BURST_TYPE},
+	{0xa7, 0xff, BURST_TYPE},
+
+	{0xa8, 0x03, BURST_TYPE},//page 20 AE
+	{0xa9, 0x20, BURST_TYPE},
+	{0xaa, 0x39, BURST_TYPE},
+	{0xab, 0x40, BURST_TYPE},
+	{0xac, 0x03, BURST_TYPE},//Page 15 SHD
+	{0xad, 0x15, BURST_TYPE},
+	{0xae, 0x24, BURST_TYPE},
+	{0xaf, 0x00, BURST_TYPE},
+
+	{0xb0, 0x25, BURST_TYPE},
+	{0xb1, 0x00, BURST_TYPE},
+	{0xb2, 0x26, BURST_TYPE},
+	{0xb3, 0x00, BURST_TYPE},
+	{0xb4, 0x27, BURST_TYPE},
+	{0xb5, 0x00, BURST_TYPE},
+	{0xb6, 0x28, BURST_TYPE},
+	{0xb7, 0x80, BURST_TYPE},
+
+	{0xb8, 0x29, BURST_TYPE},
+	{0xb9, 0x80, BURST_TYPE},
+	{0xba, 0x2a, BURST_TYPE},
+	{0xbb, 0x7a, BURST_TYPE},
+	{0xbc, 0x2b, BURST_TYPE},
+	{0xbd, 0x80, BURST_TYPE},
+	{0xbe, 0x11, BURST_TYPE},
+	{0xbf, 0x40, BURST_TYPE_ED},
+	///////////////////////////////////
+	// Page 0xDA(DMA Outdoor)
+	///////////////////////////////////
+	{0x03, 0xda, BYTE_LEN},
+
+	{0x10, 0x03, BURST_TYPE},
+	{0x11, 0x11, BURST_TYPE},//11 page
+	{0x12, 0x10, BURST_TYPE},
+	{0x13, 0x1f, BURST_TYPE},
+	{0x14, 0x11, BURST_TYPE},
+	{0x15, 0x25, BURST_TYPE},
+	{0x16, 0x12, BURST_TYPE},
+	{0x17, 0x22, BURST_TYPE},
+
+	{0x18, 0x13, BURST_TYPE},
+	{0x19, 0x11, BURST_TYPE},
+	{0x1a, 0x14, BURST_TYPE},
+	{0x1b, 0x3a, BURST_TYPE},
+	{0x1c, 0x30, BURST_TYPE},
+	{0x1d, 0x20, BURST_TYPE},
+	{0x1e, 0x31, BURST_TYPE},
+	{0x1f, 0x20, BURST_TYPE},
+
+	{0x20, 0x32, BURST_TYPE}, //outdoor 0x1132 //STEVE Lum. Level. in DLPF
+	{0x21, 0x8b, BURST_TYPE}, //52
+	{0x22, 0x33, BURST_TYPE}, //outdoor 0x1133
+	{0x23, 0x54, BURST_TYPE}, //3b
+	{0x24, 0x34, BURST_TYPE}, //outdoor 0x1134
+	{0x25, 0x2c, BURST_TYPE}, //1d
+	{0x26, 0x35, BURST_TYPE}, //outdoor 0x1135
+	{0x27, 0x29, BURST_TYPE},	//21
+	{0x28, 0x36, BURST_TYPE}, //outdoor 0x1136
+	{0x29, 0x18, BURST_TYPE}, //1b
+	{0x2a, 0x37, BURST_TYPE}, //outdoor 0x1137
+	{0x2b, 0x1e, BURST_TYPE}, //21
+	{0x2c, 0x38, BURST_TYPE}, //outdoor 0x1138
+	{0x2d, 0x17, BURST_TYPE}, //18
+
+	{0x2e, 0x39, BURST_TYPE},
+	{0x2f, 0x28, BURST_TYPE},
+	{0x30, 0x3a, BURST_TYPE},
+	{0x31, 0x28, BURST_TYPE},
+	{0x32, 0x3b, BURST_TYPE},
+	{0x33, 0x28, BURST_TYPE},
+	{0x34, 0x3c, BURST_TYPE},
+	{0x35, 0x28, BURST_TYPE},
+	{0x36, 0x3d, BURST_TYPE},
+	{0x37, 0x28, BURST_TYPE},
+
+	{0x38, 0x3e, BURST_TYPE},
+	{0x39, 0x34, BURST_TYPE},
+	{0x3a, 0x3f, BURST_TYPE},
+	{0x3b, 0x38, BURST_TYPE},
+	{0x3c, 0x40, BURST_TYPE},
+	{0x3d, 0x3c, BURST_TYPE},
+	{0x3e, 0x41, BURST_TYPE},
+	{0x3f, 0x28, BURST_TYPE},
+
+	{0x40, 0x42, BURST_TYPE},
+	{0x41, 0x28, BURST_TYPE},
+	{0x42, 0x43, BURST_TYPE},
+	{0x43, 0x28, BURST_TYPE},
+	{0x44, 0x44, BURST_TYPE},
+	{0x45, 0x28, BURST_TYPE},
+	{0x46, 0x45, BURST_TYPE},
+	{0x47, 0x28, BURST_TYPE},
+
+	{0x48, 0x46, BURST_TYPE},
+	{0x49, 0x28, BURST_TYPE},
+	{0x4a, 0x47, BURST_TYPE},
+	{0x4b, 0x28, BURST_TYPE},
+	{0x4c, 0x48, BURST_TYPE},
+	{0x4d, 0x28, BURST_TYPE},
+	{0x4e, 0x49, BURST_TYPE},
+	{0x4f, 0xf0, BURST_TYPE},
+
+	{0x50, 0x4a, BURST_TYPE},
+	{0x51, 0xf0, BURST_TYPE},
+	{0x52, 0x4b, BURST_TYPE},
+	{0x53, 0xf0, BURST_TYPE},
+	{0x54, 0x4c, BURST_TYPE},
+	{0x55, 0xf0, BURST_TYPE},
+	{0x56, 0x4d, BURST_TYPE},
+	{0x57, 0xf0, BURST_TYPE},
+
+	{0x58, 0x4e, BURST_TYPE},
+	{0x59, 0xf0, BURST_TYPE},
+	{0x5a, 0x4f, BURST_TYPE},
+	{0x5b, 0xf0, BURST_TYPE},
+	{0x5c, 0x50, BURST_TYPE},
+	{0x5d, 0xf0, BURST_TYPE},
+	{0x5e, 0x51, BURST_TYPE},
+	{0x5f, 0xf0, BURST_TYPE},
+
+	{0x60, 0x52, BURST_TYPE},
+	{0x61, 0xf0, BURST_TYPE},
+	{0x62, 0x53, BURST_TYPE},
+	{0x63, 0xf0, BURST_TYPE},
+	{0x64, 0x54, BURST_TYPE},
+	{0x65, 0xf0, BURST_TYPE},
+	{0x66, 0x55, BURST_TYPE},
+	{0x67, 0xf0, BURST_TYPE},
+
+	{0x68, 0x56, BURST_TYPE},
+	{0x69, 0xf0, BURST_TYPE},
+	{0x6a, 0x57, BURST_TYPE},
+	{0x6b, 0xe8, BURST_TYPE},
+	{0x6c, 0x58, BURST_TYPE},
+	{0x6d, 0xe0, BURST_TYPE},
+	{0x6e, 0x59, BURST_TYPE},
+	{0x6f, 0xfc, BURST_TYPE},
+
+	{0x70, 0x5a, BURST_TYPE},
+	{0x71, 0xf8, BURST_TYPE},
+	{0x72, 0x5b, BURST_TYPE},
+	{0x73, 0xf2, BURST_TYPE},
+	{0x74, 0x5c, BURST_TYPE},
+	{0x75, 0xf0, BURST_TYPE},
+	{0x76, 0x5d, BURST_TYPE},
+	{0x77, 0xf0, BURST_TYPE},
+
+	{0x78, 0x5e, BURST_TYPE},
+	{0x79, 0xec, BURST_TYPE},
+	{0x7a, 0x5f, BURST_TYPE},
+	{0x7b, 0xe8, BURST_TYPE},
+	{0x7c, 0x60, BURST_TYPE},
+	{0x7d, 0xe4, BURST_TYPE},
+	{0x7e, 0x61, BURST_TYPE},
+	{0x7f, 0xf0, BURST_TYPE},
+
+	{0x80, 0x62, BURST_TYPE},
+	{0x81, 0xfc, BURST_TYPE},
+	{0x82, 0x63, BURST_TYPE},
+	{0x83, 0x60, BURST_TYPE},
+	{0x84, 0x64, BURST_TYPE},
+	{0x85, 0x20, BURST_TYPE},
+	{0x86, 0x65, BURST_TYPE},
+	{0x87, 0x30, BURST_TYPE},
+
+	{0x88, 0x66, BURST_TYPE},
+	{0x89, 0x24, BURST_TYPE},
+	{0x8a, 0x67, BURST_TYPE},
+	{0x8b, 0x1a, BURST_TYPE},
+	{0x8c, 0x68, BURST_TYPE},
+	{0x8d, 0x5a, BURST_TYPE},
+	{0x8e, 0x69, BURST_TYPE},
+	{0x8f, 0x24, BURST_TYPE},
+
+	{0x90, 0x6a, BURST_TYPE},
+	{0x91, 0x30, BURST_TYPE},
+	{0x92, 0x6b, BURST_TYPE},
+	{0x93, 0x24, BURST_TYPE},
+	{0x94, 0x6c, BURST_TYPE},
+	{0x95, 0x1a, BURST_TYPE},
+	{0x96, 0x6d, BURST_TYPE},
+	{0x97, 0x5c, BURST_TYPE},
+
+	{0x98, 0x6e, BURST_TYPE},
+	{0x99, 0x20, BURST_TYPE},
+	{0x9a, 0x6f, BURST_TYPE},
+	{0x9b, 0x34, BURST_TYPE},
+	{0x9c, 0x70, BURST_TYPE},
+	{0x9d, 0x28, BURST_TYPE},
+	{0x9e, 0x71, BURST_TYPE},
+	{0x9f, 0x20, BURST_TYPE},
+
+	{0xa0, 0x72, BURST_TYPE},
+	{0xa1, 0x5c, BURST_TYPE},
+	{0xa2, 0x73, BURST_TYPE},
+	{0xa3, 0x20, BURST_TYPE},
+	{0xa4, 0x74, BURST_TYPE},
+	{0xa5, 0x64, BURST_TYPE},
+	{0xa6, 0x75, BURST_TYPE},
+	{0xa7, 0x60, BURST_TYPE},
+
+	{0xa8, 0x76, BURST_TYPE},
+	{0xa9, 0x42, BURST_TYPE},
+	{0xaa, 0x77, BURST_TYPE},
+	{0xab, 0x40, BURST_TYPE},
+	{0xac, 0x78, BURST_TYPE},
+	{0xad, 0x26, BURST_TYPE},
+	{0xae, 0x79, BURST_TYPE},
+	{0xaf, 0x88, BURST_TYPE},
+
+	{0xb0, 0x7a, BURST_TYPE},
+	{0xb1, 0x80, BURST_TYPE},
+	{0xb2, 0x7b, BURST_TYPE},
+	{0xb3, 0x30, BURST_TYPE},
+	{0xb4, 0x7c, BURST_TYPE},
+	{0xb5, 0x38, BURST_TYPE},
+	{0xb6, 0x7d, BURST_TYPE},
+	{0xb7, 0x1c, BURST_TYPE},
+
+	{0xb8, 0x7e, BURST_TYPE},
+	{0xb9, 0x38, BURST_TYPE},
+	{0xba, 0x7f, BURST_TYPE},
+	{0xbb, 0x34, BURST_TYPE},
+	{0xbc, 0x80, BURST_TYPE},
+	{0xbd, 0x30, BURST_TYPE},
+	{0xbe, 0x81, BURST_TYPE},
+	{0xbf, 0x32, BURST_TYPE},
+
+	{0xc0, 0x82, BURST_TYPE},
+	{0xc1, 0x10, BURST_TYPE},
+	{0xc2, 0x83, BURST_TYPE},
+	{0xc3, 0x18, BURST_TYPE},
+	{0xc4, 0x84, BURST_TYPE},
+	{0xc5, 0x14, BURST_TYPE},
+	{0xc6, 0x85, BURST_TYPE},
+	{0xc7, 0x10, BURST_TYPE},
+
+	{0xc8, 0x86, BURST_TYPE},
+	{0xc9, 0x1c, BURST_TYPE},
+	{0xca, 0x87, BURST_TYPE},
+	{0xcb, 0x08, BURST_TYPE},
+	{0xcc, 0x88, BURST_TYPE},
+	{0xcd, 0x38, BURST_TYPE},
+	{0xce, 0x89, BURST_TYPE},
+	{0xcf, 0x34, BURST_TYPE},
+
+	{0xd0, 0x8a, BURST_TYPE},
+	{0xd1, 0x30, BURST_TYPE},
+	{0xd2, 0x90, BURST_TYPE},
+	{0xd3, 0x02, BURST_TYPE},
+	{0xd4, 0x91, BURST_TYPE},
+	{0xd5, 0x48, BURST_TYPE},
+	{0xd6, 0x92, BURST_TYPE},
+	{0xd7, 0x00, BURST_TYPE},
+
+	{0xd8, 0x93, BURST_TYPE},
+	{0xd9, 0x04, BURST_TYPE},
+	{0xda, 0x94, BURST_TYPE},
+	{0xdb, 0x02, BURST_TYPE},
+	{0xdc, 0x95, BURST_TYPE},
+	{0xdd, 0x64, BURST_TYPE},
+	{0xde, 0x96, BURST_TYPE},
+	{0xdf, 0x14, BURST_TYPE},
+
+	{0xe0, 0x97, BURST_TYPE},
+	{0xe1, 0x90, BURST_TYPE},
+	{0xe2, 0xb0, BURST_TYPE},
+	{0xe3, 0x60, BURST_TYPE},
+	{0xe4, 0xb1, BURST_TYPE},
+	{0xe5, 0x90, BURST_TYPE},
+	{0xe6, 0xb2, BURST_TYPE},
+	{0xe7, 0x10, BURST_TYPE},
+
+	{0xe8, 0xb3, BURST_TYPE},
+	{0xe9, 0x08, BURST_TYPE},
+	{0xea, 0xb4, BURST_TYPE},
+	{0xeb, 0x04, BURST_TYPE},
+	{0xec, 0x03, BURST_TYPE},//12 page
+	{0xed, 0x12, BURST_TYPE},
+	{0xee, 0x10, BURST_TYPE},
+	{0xef, 0x57, BURST_TYPE}, //steve 1210 57
+
+	{0xf0, 0x11, BURST_TYPE},
+	{0xf1, 0x29, BURST_TYPE},
+	{0xf2, 0x12, BURST_TYPE},
+	{0xf3, 0x08, BURST_TYPE},
+	{0xf4, 0x40, BURST_TYPE},
+	{0xf5, 0x33, BURST_TYPE},
+	{0xf6, 0x41, BURST_TYPE},
+	{0xf7, 0x0a, BURST_TYPE},
+
+	{0xf8, 0x42, BURST_TYPE},
+	{0xf9, 0x6a, BURST_TYPE},
+	{0xfa, 0x43, BURST_TYPE},
+	{0xfb, 0x80, BURST_TYPE},
+	{0xfc, 0x44, BURST_TYPE},
+	{0xfd, 0x02, BURST_TYPE_ED},
+	//{0xfe, 0x45, BURST_TYPE}, // STEVE deleted
+	//{0xff, 0x0a, BURST_TYPE}, // STEVE deleted
+
+	// Page 0xdb
+	{0x03, 0xdb, BYTE_LEN},
+
+	{0x10, 0x45, BURST_TYPE},
+	{0x11, 0x0a, BURST_TYPE},
+	{0x12, 0x46, BURST_TYPE},
+	{0x13, 0x80, BURST_TYPE},
+	{0x14, 0x60, BURST_TYPE},
+	{0x15, 0x02, BURST_TYPE},
+	{0x16, 0x61, BURST_TYPE},
+	{0x17, 0x04, BURST_TYPE},
+
+	{0x18, 0x62, BURST_TYPE},
+	{0x19, 0x4b, BURST_TYPE},
+	{0x1a, 0x63, BURST_TYPE},
+	{0x1b, 0x41, BURST_TYPE},
+	{0x1c, 0x64, BURST_TYPE},
+	{0x1d, 0x14, BURST_TYPE},
+	{0x1e, 0x65, BURST_TYPE},
+	{0x1f, 0x00, BURST_TYPE},
+
+	{0x20, 0x68, BURST_TYPE},
+	{0x21, 0x0a, BURST_TYPE},
+	{0x22, 0x69, BURST_TYPE},
+	{0x23, 0x04, BURST_TYPE},
+	{0x24, 0x6a, BURST_TYPE},
+	{0x25, 0x0a, BURST_TYPE},
+	{0x26, 0x6b, BURST_TYPE},
+	{0x27, 0x0a, BURST_TYPE},
+
+	{0x28, 0x6c, BURST_TYPE},
+	{0x29, 0x24, BURST_TYPE},
+	{0x2a, 0x6d, BURST_TYPE},
+	{0x2b, 0x01, BURST_TYPE},
+	{0x2c, 0x70, BURST_TYPE},
+	{0x2d, 0x29, BURST_TYPE}, //1270 29
+	{0x2e, 0x71, BURST_TYPE},
+	{0x2f, 0x7f, BURST_TYPE}, //1271 7f
+
+	{0x30, 0x80, BURST_TYPE},
+	{0x31, 0x30, BURST_TYPE},
+	{0x32, 0x81, BURST_TYPE},
+	{0x33, 0xa0, BURST_TYPE},
+	{0x34, 0x82, BURST_TYPE},
+	{0x35, 0xa0, BURST_TYPE},
+	{0x36, 0x83, BURST_TYPE},
+	{0x37, 0x00, BURST_TYPE},
+
+	{0x38, 0x84, BURST_TYPE},
+	{0x39, 0x30, BURST_TYPE},
+	{0x3a, 0x85, BURST_TYPE},
+	{0x3b, 0xa0, BURST_TYPE},
+	{0x3c, 0x86, BURST_TYPE},
+	{0x3d, 0xa0, BURST_TYPE},
+	{0x3e, 0x87, BURST_TYPE},
+	{0x3f, 0x00, BURST_TYPE},
+
+	{0x40, 0x88, BURST_TYPE},
+	{0x41, 0x30, BURST_TYPE},
+	{0x42, 0x89, BURST_TYPE},
+	{0x43, 0xc0, BURST_TYPE},
+	{0x44, 0x8a, BURST_TYPE},
+	{0x45, 0xb0, BURST_TYPE},
+	{0x46, 0x8b, BURST_TYPE},
+	{0x47, 0x08, BURST_TYPE},
+
+	{0x48, 0x8c, BURST_TYPE},
+	{0x49, 0x05, BURST_TYPE},
+	{0x4a, 0x8d, BURST_TYPE},
+	{0x4b, 0x03, BURST_TYPE},
+	{0x4c, 0xe6, BURST_TYPE},
+	{0x4d, 0xff, BURST_TYPE},
+	{0x4e, 0xe7, BURST_TYPE},
+	{0x4f, 0x18, BURST_TYPE},
+
+	{0x50, 0xe8, BURST_TYPE},
+	{0x51, 0x0a, BURST_TYPE},
+	{0x52, 0xe9, BURST_TYPE},
+	{0x53, 0x04, BURST_TYPE},
+	{0x54, 0x03, BURST_TYPE},
+	{0x55, 0x13, BURST_TYPE},//13 page
+	{0x56, 0x10, BURST_TYPE},
+	{0x57, 0x3f, BURST_TYPE},
+
+	{0x58, 0x20, BURST_TYPE},
+	{0x59, 0x20, BURST_TYPE},
+	{0x5a, 0x21, BURST_TYPE},
+	{0x5b, 0x30, BURST_TYPE},
+	{0x5c, 0x22, BURST_TYPE},
+	{0x5d, 0x36, BURST_TYPE},
+	{0x5e, 0x23, BURST_TYPE},
+	{0x5f, 0x6a, BURST_TYPE},
+
+	{0x60, 0x24, BURST_TYPE},
+	{0x61, 0xa0, BURST_TYPE},
+	{0x62, 0x25, BURST_TYPE},
+	{0x63, 0xc0, BURST_TYPE},
+	{0x64, 0x26, BURST_TYPE},
+	{0x65, 0xe0, BURST_TYPE},
+	{0x66, 0x27, BURST_TYPE},
+	{0x67, 0x02, BURST_TYPE},
+
+	{0x68, 0x28, BURST_TYPE},
+	{0x69, 0x03, BURST_TYPE},
+	{0x6a, 0x29, BURST_TYPE},
+	{0x6b, 0x03, BURST_TYPE},
+	{0x6c, 0x2a, BURST_TYPE},
+	{0x6d, 0x03, BURST_TYPE},
+	{0x6e, 0x2b, BURST_TYPE},
+	{0x6f, 0x03, BURST_TYPE},
+
+	{0x70, 0x2c, BURST_TYPE},
+	{0x71, 0x03, BURST_TYPE},
+	{0x72, 0x2d, BURST_TYPE},
+	{0x73, 0x03, BURST_TYPE},
+	{0x74, 0x2e, BURST_TYPE},
+	{0x75, 0x03, BURST_TYPE},
+	{0x76, 0x2f, BURST_TYPE},
+	{0x77, 0x04, BURST_TYPE},
+
+	{0x78, 0x30, BURST_TYPE},
+	{0x79, 0x02, BURST_TYPE},
+	{0x7a, 0x31, BURST_TYPE},
+	{0x7b, 0x78, BURST_TYPE},
+	{0x7c, 0x32, BURST_TYPE},
+	{0x7d, 0x01, BURST_TYPE},
+	{0x7e, 0x33, BURST_TYPE},
+	{0x7f, 0x40, BURST_TYPE},
+
+	{0x80, 0x34, BURST_TYPE},
+	{0x81, 0x80, BURST_TYPE},
+	{0x82, 0x35, BURST_TYPE},
+	{0x83, 0x00, BURST_TYPE},
+	{0x84, 0x36, BURST_TYPE},
+	{0x85, 0xf0, BURST_TYPE},
+	{0x86, 0xa0, BURST_TYPE},
+	{0x87, 0x07, BURST_TYPE},
+
+	{0x88, 0xa8, BURST_TYPE},
+	{0x89, 0x20, BURST_TYPE},
+	{0x8a, 0xa9, BURST_TYPE},
+	{0x8b, 0x20, BURST_TYPE},
+	{0x8c, 0xaa, BURST_TYPE},
+	{0x8d, 0x0a, BURST_TYPE},
+	{0x8e, 0xab, BURST_TYPE},
+	{0x8f, 0x02, BURST_TYPE},
+
+	{0x90, 0xc0, BURST_TYPE},
+	{0x91, 0x27, BURST_TYPE},
+	{0x92, 0xc2, BURST_TYPE},
+	{0x93, 0x08, BURST_TYPE},
+	{0x94, 0xc3, BURST_TYPE},
+	{0x95, 0x08, BURST_TYPE},
+	{0x96, 0xc4, BURST_TYPE},
+	{0x97, 0x46, BURST_TYPE},
+
+	{0x98, 0xc5, BURST_TYPE},
+	{0x99, 0x78, BURST_TYPE},
+	{0x9a, 0xc6, BURST_TYPE},
+	{0x9b, 0xf0, BURST_TYPE},
+	{0x9c, 0xc7, BURST_TYPE},
+	{0x9d, 0x10, BURST_TYPE},
+	{0x9e, 0xc8, BURST_TYPE},
+	{0x9f, 0x44, BURST_TYPE},
+
+	{0xa0, 0xc9, BURST_TYPE},
+	{0xa1, 0x87, BURST_TYPE},
+	{0xa2, 0xca, BURST_TYPE},
+	{0xa3, 0xff, BURST_TYPE},
+	{0xa4, 0xcb, BURST_TYPE},
+	{0xa5, 0x20, BURST_TYPE},
+	{0xa6, 0xcc, BURST_TYPE},
+	{0xa7, 0x61, BURST_TYPE},
+
+	{0xa8, 0xcd, BURST_TYPE},
+	{0xa9, 0x87, BURST_TYPE},
+	{0xaa, 0xce, BURST_TYPE},
+	{0xab, 0x8a, BURST_TYPE},
+	{0xac, 0xcf, BURST_TYPE},
+	{0xad, 0xa5, BURST_TYPE},
+	{0xae, 0x03, BURST_TYPE},//14 page
+	{0xaf, 0x14, BURST_TYPE},
+
+	{0xb0, 0x10, BURST_TYPE},
+	{0xb1, 0x27, BURST_TYPE},
+	{0xb2, 0x11, BURST_TYPE},
+	{0xb3, 0x02, BURST_TYPE},
+	{0xb4, 0x12, BURST_TYPE},
+	{0xb5, 0x50, BURST_TYPE},
+	{0xb6, 0x13, BURST_TYPE},
+	{0xb7, 0x88, BURST_TYPE},
+	{0xb8, 0x14, BURST_TYPE},
+	{0xb9, 0x28, BURST_TYPE},
+	{0xba, 0x15, BURST_TYPE},
+	{0xbb, 0x32, BURST_TYPE},
+	{0xbc, 0x16, BURST_TYPE},
+	{0xbd, 0x30, BURST_TYPE},
+	{0xbe, 0x17, BURST_TYPE},
+	{0xbf, 0x2d, BURST_TYPE},
+	{0xc0, 0x18, BURST_TYPE},
+	{0xc1, 0x60, BURST_TYPE},
+	{0xc2, 0x19, BURST_TYPE},
+	{0xc3, 0x62, BURST_TYPE},
+	{0xc4, 0x1a, BURST_TYPE},
+	{0xc5, 0x62, BURST_TYPE},
+	{0xc6, 0x20, BURST_TYPE},
+	{0xc7, 0x82, BURST_TYPE},
+	{0xc8, 0x21, BURST_TYPE},
+	{0xc9, 0x03, BURST_TYPE},
+	{0xca, 0x22, BURST_TYPE},
+	{0xcb, 0x05, BURST_TYPE},
+	{0xcc, 0x23, BURST_TYPE},
+	{0xcd, 0x06, BURST_TYPE},
+	{0xce, 0x24, BURST_TYPE},
+	{0xcf, 0x08, BURST_TYPE},
+	{0xd0, 0x25, BURST_TYPE},
+	{0xd1, 0x38, BURST_TYPE},
+	{0xd2, 0x26, BURST_TYPE},
+	{0xd3, 0x30, BURST_TYPE},
+	{0xd4, 0x27, BURST_TYPE},
+	{0xd5, 0x20, BURST_TYPE},
+	{0xd6, 0x28, BURST_TYPE},
+	{0xd7, 0x10, BURST_TYPE},
+	{0xd8, 0x29, BURST_TYPE},
+	{0xd9, 0x00, BURST_TYPE},
+	{0xda, 0x2a, BURST_TYPE},
+	{0xdb, 0x16, BURST_TYPE},
+	{0xdc, 0x2b, BURST_TYPE},
+	{0xdd, 0x16, BURST_TYPE},
+	{0xde, 0x2c, BURST_TYPE},
+	{0xdf, 0x16, BURST_TYPE},
+	{0xe0, 0x2d, BURST_TYPE},
+	{0xe1, 0x4c, BURST_TYPE},
+	{0xe2, 0x2e, BURST_TYPE},
+	{0xe3, 0x4e, BURST_TYPE},
+	{0xe4, 0x2f, BURST_TYPE},
+	{0xe5, 0x50, BURST_TYPE},
+	{0xe6, 0x30, BURST_TYPE},
+	{0xe7, 0x82, BURST_TYPE},
+	{0xe8, 0x31, BURST_TYPE},
+	{0xe9, 0x02, BURST_TYPE},
+	{0xea, 0x32, BURST_TYPE},
+	{0xeb, 0x04, BURST_TYPE},
+	{0xec, 0x33, BURST_TYPE},
+	{0xed, 0x04, BURST_TYPE},
+	{0xee, 0x34, BURST_TYPE},
+	{0xef, 0x0a, BURST_TYPE},
+
+	{0xf0, 0x35, BURST_TYPE},
+	{0xf1, 0x46, BURST_TYPE},
+	{0xf2, 0x36, BURST_TYPE},
+	{0xf3, 0x32, BURST_TYPE},
+	{0xf4, 0x37, BURST_TYPE},
+	{0xf5, 0x2c, BURST_TYPE},
+	{0xf6, 0x38, BURST_TYPE},
+	{0xf7, 0x18, BURST_TYPE},
+	{0xf8, 0x39, BURST_TYPE},
+	{0xf9, 0x00, BURST_TYPE},
+	{0xfa, 0x3a, BURST_TYPE},
+	{0xfb, 0x28, BURST_TYPE},
+	{0xfc, 0x3b, BURST_TYPE},
+	{0xfd, 0x28, BURST_TYPE_ED},
+	//{0xfe, 0x3c, BURST_TYPE}, // STEVE deleted
+	//{0xff, 0x28, BURST_TYPE}, // STEVE deleted
+
+	{0x03, 0xdc, BYTE_LEN},
+	{0x10, 0x3c, BURST_TYPE},
+	{0x11, 0x28, BURST_TYPE},
+	{0x12, 0x3d, BURST_TYPE},
+	{0x13, 0x10, BURST_TYPE},
+	{0x14, 0x3e, BURST_TYPE},
+	{0x15, 0x22, BURST_TYPE},
+	{0x16, 0x3f, BURST_TYPE},
+	{0x17, 0x20, BURST_TYPE},
+	{0x18, 0x40, BURST_TYPE},
+	{0x19, 0x84, BURST_TYPE},
+	{0x1a, 0x41, BURST_TYPE},
+	{0x1b, 0x28, BURST_TYPE},
+	{0x1c, 0x42, BURST_TYPE},
+	{0x1d, 0xa0, BURST_TYPE},
+	{0x1e, 0x43, BURST_TYPE},
+	{0x1f, 0x28, BURST_TYPE},
+	{0x20, 0x44, BURST_TYPE},
+	{0x21, 0x20, BURST_TYPE},
+	{0x22, 0x45, BURST_TYPE},
+	{0x23, 0x16, BURST_TYPE},
+	{0x24, 0x46, BURST_TYPE},
+	{0x25, 0x1a, BURST_TYPE},
+	{0x26, 0x47, BURST_TYPE},
+	{0x27, 0x0a, BURST_TYPE},
+	{0x28, 0x48, BURST_TYPE},
+	{0x29, 0x0a, BURST_TYPE},
+	{0x2a, 0x49, BURST_TYPE},
+	{0x2b, 0x0a, BURST_TYPE},
+	{0x2c, 0x50, BURST_TYPE},
+	{0x2d, 0x84, BURST_TYPE},
+	{0x2e, 0x51, BURST_TYPE},
+	{0x2f, 0x34, BURST_TYPE},
+	{0x30, 0x52, BURST_TYPE},
+	{0x31, 0x50, BURST_TYPE},
+	{0x32, 0x53, BURST_TYPE},
+	{0x33, 0x24, BURST_TYPE},
+	{0x34, 0x54, BURST_TYPE},
+	{0x35, 0x32, BURST_TYPE},
+	{0x36, 0x55, BURST_TYPE},
+	{0x37, 0x32, BURST_TYPE},
+	{0x38, 0x56, BURST_TYPE},
+	{0x39, 0x32, BURST_TYPE},
+	{0x3a, 0x57, BURST_TYPE},
+	{0x3b, 0x10, BURST_TYPE},
+	{0x3c, 0x58, BURST_TYPE},
+	{0x3d, 0x14, BURST_TYPE},
+	{0x3e, 0x59, BURST_TYPE},
+	{0x3f, 0x12, BURST_TYPE},
+	{0x40, 0x60, BURST_TYPE},
+	{0x41, 0x03, BURST_TYPE},
+	{0x42, 0x61, BURST_TYPE},
+	{0x43, 0xa0, BURST_TYPE},
+	{0x44, 0x62, BURST_TYPE},
+	{0x45, 0x98, BURST_TYPE},
+	{0x46, 0x63, BURST_TYPE},
+	{0x47, 0xe4, BURST_TYPE},
+
+	{0x48, 0x64, BURST_TYPE},
+	{0x49, 0xa4, BURST_TYPE},
+	{0x4a, 0x65, BURST_TYPE},
+	{0x4b, 0x7d, BURST_TYPE},
+	{0x4c, 0x66, BURST_TYPE},
+	{0x4d, 0x4b, BURST_TYPE},
+	{0x4e, 0x70, BURST_TYPE},
+	{0x4f, 0x10, BURST_TYPE},
+
+	{0x50, 0x71, BURST_TYPE},
+	{0x51, 0x10, BURST_TYPE},
+	{0x52, 0x72, BURST_TYPE},
+	{0x53, 0x10, BURST_TYPE},
+	{0x54, 0x73, BURST_TYPE},
+	{0x55, 0x10, BURST_TYPE},
+	{0x56, 0x74, BURST_TYPE},
+	{0x57, 0x10, BURST_TYPE},
+
+	{0x58, 0x75, BURST_TYPE},
+	{0x59, 0x10, BURST_TYPE},
+	{0x5a, 0x76, BURST_TYPE},
+	{0x5b, 0x60, BURST_TYPE},
+	{0x5c, 0x77, BURST_TYPE},
+	{0x5d, 0x58, BURST_TYPE},
+	{0x5e, 0x78, BURST_TYPE},
+	{0x5f, 0x5a, BURST_TYPE},
+
+	{0x60, 0x79, BURST_TYPE},
+	{0x61, 0x60, BURST_TYPE},
+	{0x62, 0x7a, BURST_TYPE},
+	{0x63, 0x5a, BURST_TYPE},
+	{0x64, 0x7b, BURST_TYPE},
+	{0x65, 0x50, BURST_TYPE},
+
+	// STEVE Saturation control
+	// CB/CR vs sat
+	//_CHANGE_S ADD INTO MR ver. for low light condition
+	{0x66, 0x03, BURST_TYPE}, //page 10
+	{0x67, 0x10, BURST_TYPE}, //
+	{0x68, 0x70, BURST_TYPE}, //outdoor 0x1070
+	{0x69, 0x08, BURST_TYPE}, //
+	{0x6a, 0x71, BURST_TYPE}, //outdoor 0x1071
+	{0x6b, 0x00, BURST_TYPE}, //
+	{0x6c, 0x72, BURST_TYPE}, //outdoor 0x1072
+	{0x6d, 0x62, BURST_TYPE}, //
+	{0x6e, 0x73, BURST_TYPE}, //outdoor 0x1073
+	{0x6f, 0x6d, BURST_TYPE}, //
+	{0x70, 0x74, BURST_TYPE}, //outdoor 0x1074
+	{0x71, 0x36, BURST_TYPE}, //
+	{0x72, 0x75, BURST_TYPE}, //outdoor 0x1075
+	{0x73, 0x00, BURST_TYPE}, //
+	{0x74, 0x76, BURST_TYPE}, //outdoor 0x1076
+	{0x75, 0x2e, BURST_TYPE}, //
+	{0x76, 0x77, BURST_TYPE}, //outdoor 0x1077
+	{0x77, 0x35, BURST_TYPE}, //
+	{0x78, 0x78, BURST_TYPE}, //outdoor 0x1078
+	{0x79, 0xc2, BURST_TYPE}, //
+	{0x7a, 0x79, BURST_TYPE}, //outdoor 0x1079
+	{0x7b, 0x3a, BURST_TYPE}, //
+	{0x7c, 0x7a, BURST_TYPE}, //outdoor 0x107a
+	{0x7d, 0xe1, BURST_TYPE}, //
+	{0x7e, 0x7b, BURST_TYPE}, //outdoor 0x107b
+	{0x7f, 0x40, BURST_TYPE}, //
+	{0x80, 0x7c, BURST_TYPE}, //outdoor 0x107c
+	{0x81, 0x00, BURST_TYPE}, //
+	{0x82, 0x7d, BURST_TYPE}, //outdoor 0x107d
+	{0x83, 0x14, BURST_TYPE}, //
+	{0x84, 0x7e, BURST_TYPE}, //outdoor 0x107e
+	{0x85, 0x20, BURST_TYPE}, //
+	{0x86, 0x7f, BURST_TYPE}, //outdoor 0x107f
+	{0x87, 0x38, BURST_TYPE}, //
+
+	// Lum Vs Sat
+	{0x88, 0x03, BURST_TYPE}, // page 16
+	{0x89, 0x16, BURST_TYPE}, //
+	{0x8A, 0x8a, BURST_TYPE}, // outdoor 0x168a
+	{0x8B, 0x6d, BURST_TYPE}, //
+	{0x8C, 0x8b, BURST_TYPE}, // outdoor 0x168b
+	{0x8D, 0x78, BURST_TYPE}, //
+	{0x8E, 0x8c, BURST_TYPE}, // outdoor 0x168c
+	{0x8F, 0x7d, BURST_TYPE}, //
+	{0x90, 0x8d, BURST_TYPE}, // outdoor 0x168d
+	{0x91, 0x7f, BURST_TYPE}, //
+	{0x92, 0x8e, BURST_TYPE}, // outdoor 0x168e
+	{0x93, 0x7f, BURST_TYPE}, //
+	{0x94, 0x8f, BURST_TYPE}, // outdoor 0x168f
+	{0x95, 0x7f, BURST_TYPE}, //
+	{0x96, 0x90, BURST_TYPE}, // outdoor 0x1690
+	{0x97, 0x7f, BURST_TYPE}, //
+	{0x98, 0x91, BURST_TYPE}, // outdoor 0x1691
+	{0x99, 0x7f, BURST_TYPE}, //
+	{0x9A, 0x92, BURST_TYPE}, // outdoor 0x1692
+	{0x9B, 0x7f, BURST_TYPE}, //
+	{0x9C, 0x93, BURST_TYPE}, // outdoor 0x1693
+	{0x9D, 0x7f, BURST_TYPE}, //
+	{0x9E, 0x94, BURST_TYPE}, // outdoor 0x1694
+	{0x9F, 0x7f, BURST_TYPE}, //
+	{0xA0, 0x95, BURST_TYPE}, // outdoor 0x1695
+	{0xA1, 0x7f, BURST_TYPE}, //
+	{0xA2, 0x96, BURST_TYPE}, // outdoor 0x1696
+	{0xA3, 0x7f, BURST_TYPE}, //
+	{0xA4, 0x97, BURST_TYPE}, // outdoor 0x1697
+	{0xA5, 0x7f, BURST_TYPE}, //
+	{0xA6, 0x98, BURST_TYPE}, // outdoor 0x1698
+	{0xA7, 0x7f, BURST_TYPE}, //
+	{0xA8, 0x99, BURST_TYPE}, // outdoor 0x1699
+	{0xA9, 0x7c, BURST_TYPE}, //
+	{0xAA, 0x9a, BURST_TYPE}, // outdoor 0x169a
+	{0xAB, 0x78, BURST_TYPE_ED}, //
+	//_CHANGE_E ADD INTO MR ver. for low light condition
+
+	//////////////////
+	// dd Page (DMA Indoor)
+	//////////////////
+	{0x03, 0xdd, BYTE_LEN},
+	{0x10, 0x03, BURST_TYPE},//Indoor Page11
+	{0x11, 0x11, BURST_TYPE},
+	{0x12, 0x10, BURST_TYPE},//Indoor 0x1110
+	{0x13, 0x13, BURST_TYPE},
+	{0x14, 0x11, BURST_TYPE},//Indoor 0x1111
+	{0x15, 0x0c, BURST_TYPE},
+	{0x16, 0x12, BURST_TYPE},//Indoor 0x1112
+	{0x17, 0x22, BURST_TYPE},
+	{0x18, 0x13, BURST_TYPE},//Indoor 0x1113
+	{0x19, 0x22, BURST_TYPE},
+	{0x1a, 0x14, BURST_TYPE},//Indoor 0x1114
+	{0x1b, 0x3a, BURST_TYPE},
+	{0x1c, 0x30, BURST_TYPE},//Indoor 0x1130
+	{0x1d, 0x20, BURST_TYPE},
+	{0x1e, 0x31, BURST_TYPE},//Indoor 0x1131
+	{0x1f, 0x20, BURST_TYPE},
+
+	{0x20, 0x32, BURST_TYPE}, //Indoor 0x1132 //STEVE Lum. Level. in DLPF
+	{0x21, 0x8b, BURST_TYPE}, //52
+	{0x22, 0x33, BURST_TYPE}, //Indoor 0x1133
+	{0x23, 0x54, BURST_TYPE}, //3b
+	{0x24, 0x34, BURST_TYPE}, //Indoor 0x1134
+	{0x25, 0x2c, BURST_TYPE}, //1d
+	{0x26, 0x35, BURST_TYPE}, //Indoor 0x1135
+	{0x27, 0x29, BURST_TYPE}, //21
+	{0x28, 0x36, BURST_TYPE}, //Indoor 0x1136
+	{0x29, 0x18, BURST_TYPE}, //1b
+	{0x2a, 0x37, BURST_TYPE}, //Indoor 0x1137
+	{0x2b, 0x1e, BURST_TYPE}, //21
+	{0x2c, 0x38, BURST_TYPE}, //Indoor 0x1138
+	{0x2d, 0x17, BURST_TYPE}, //18
+
+	{0x2e, 0x39, BURST_TYPE},//Indoor 0x1139 gain 1
+	{0x2f, 0x34, BURST_TYPE},    //r2 1
+	{0x30, 0x3a, BURST_TYPE},//Indoor 0x113a
+	{0x31, 0x38, BURST_TYPE},
+	{0x32, 0x3b, BURST_TYPE},//Indoor 0x113b
+	{0x33, 0x3a, BURST_TYPE},
+	{0x34, 0x3c, BURST_TYPE},//Indoor 0x113c
+	{0x35, 0x38, BURST_TYPE},   //18
+	{0x36, 0x3d, BURST_TYPE},//Indoor 0x113d
+	{0x37, 0x2a, BURST_TYPE},   //18
+	{0x38, 0x3e, BURST_TYPE},//Indoor 0x113e
+	{0x39, 0x26, BURST_TYPE},   //18
+	{0x3a, 0x3f, BURST_TYPE},//Indoor 0x113f
+	{0x3b, 0x22, BURST_TYPE},
+	{0x3c, 0x40, BURST_TYPE},//Indoor 0x1140 gain 8
+	{0x3d, 0x20, BURST_TYPE},
+	{0x3e, 0x41, BURST_TYPE},//Indoor 0x1141
+	{0x3f, 0x50, BURST_TYPE},
+	{0x40, 0x42, BURST_TYPE},//Indoor 0x1142
+	{0x41, 0x50, BURST_TYPE},
+	{0x42, 0x43, BURST_TYPE},//Indoor 0x1143
+	{0x43, 0x50, BURST_TYPE},
+	{0x44, 0x44, BURST_TYPE},//Indoor 0x1144
+	{0x45, 0x80, BURST_TYPE},
+	{0x46, 0x45, BURST_TYPE},//Indoor 0x1145
+	{0x47, 0x80, BURST_TYPE},
+	{0x48, 0x46, BURST_TYPE},//Indoor 0x1146
+	{0x49, 0x80, BURST_TYPE},
+	{0x4a, 0x47, BURST_TYPE},//Indoor 0x1147
+	{0x4b, 0x80, BURST_TYPE},
+	{0x4c, 0x48, BURST_TYPE},//Indoor 0x1148
+	{0x4d, 0x80, BURST_TYPE},
+	{0x4e, 0x49, BURST_TYPE},//Indoor 0x1149
+	{0x4f, 0xfc, BURST_TYPE}, //high_clip_start
+	{0x50, 0x4a, BURST_TYPE},//Indoor 0x114a
+	{0x51, 0xfc, BURST_TYPE},
+	{0x52, 0x4b, BURST_TYPE},//Indoor 0x114b
+	{0x53, 0xfc, BURST_TYPE},
+	{0x54, 0x4c, BURST_TYPE},//Indoor 0x114c
+	{0x55, 0xfc, BURST_TYPE},
+	{0x56, 0x4d, BURST_TYPE},//Indoor 0x114d
+	{0x57, 0xfc, BURST_TYPE},
+	{0x58, 0x4e, BURST_TYPE},//Indoor 0x114e
+	{0x59, 0xf0, BURST_TYPE},   //Lv 6 h_clip
+	{0x5a, 0x4f, BURST_TYPE},//Indoor 0x114f
+	{0x5b, 0xf0, BURST_TYPE},   //Lv 7 h_clip
+	{0x5c, 0x50, BURST_TYPE},//Indoor 0x1150 clip 8
+	{0x5d, 0xf0, BURST_TYPE},
+	{0x5e, 0x51, BURST_TYPE},//Indoor 0x1151
+	{0x5f, 0x08, BURST_TYPE}, //color gain start
+	{0x60, 0x52, BURST_TYPE},//Indoor 0x1152
+	{0x61, 0x08, BURST_TYPE},
+	{0x62, 0x53, BURST_TYPE},//Indoor 0x1153
+	{0x63, 0x08, BURST_TYPE},
+	{0x64, 0x54, BURST_TYPE},//Indoor 0x1154
+	{0x65, 0x08, BURST_TYPE},
+	{0x66, 0x55, BURST_TYPE},//Indoor 0x1155
+	{0x67, 0x08, BURST_TYPE},
+	{0x68, 0x56, BURST_TYPE},//Indoor 0x1156
+	{0x69, 0x08, BURST_TYPE},
+	{0x6a, 0x57, BURST_TYPE},//Indoor 0x1157
+	{0x6b, 0x08, BURST_TYPE},
+	{0x6c, 0x58, BURST_TYPE},//Indoor 0x1158
+	{0x6d, 0x08, BURST_TYPE}, //color gain end
+	{0x6e, 0x59, BURST_TYPE},//Indoor 0x1159
+	{0x6f, 0x10, BURST_TYPE}, //color ofs lmt start
+	{0x70, 0x5a, BURST_TYPE},//Indoor 0x115a
+	{0x71, 0x10, BURST_TYPE},
+	{0x72, 0x5b, BURST_TYPE},//Indoor 0x115b
+	{0x73, 0x10, BURST_TYPE},
+	{0x74, 0x5c, BURST_TYPE},//Indoor 0x115c
+	{0x75, 0x10, BURST_TYPE},
+	{0x76, 0x5d, BURST_TYPE},//Indoor 0x115d
+	{0x77, 0x10, BURST_TYPE},
+	{0x78, 0x5e, BURST_TYPE},//Indoor 0x115e
+	{0x79, 0x10, BURST_TYPE},
+	{0x7a, 0x5f, BURST_TYPE},//Indoor 0x115f
+	{0x7b, 0x10, BURST_TYPE},
+	{0x7c, 0x60, BURST_TYPE},//Indoor 0x1160
+	{0x7d, 0x10, BURST_TYPE},//color ofs lmt end
+	{0x7e, 0x61, BURST_TYPE},//Indoor 0x1161
+	{0x7f, 0xc0, BURST_TYPE},
+	{0x80, 0x62, BURST_TYPE},//Indoor 0x1162
+	{0x81, 0xf0, BURST_TYPE},
+	{0x82, 0x63, BURST_TYPE},//Indoor 0x1163
+	{0x83, 0x80, BURST_TYPE},
+	{0x84, 0x64, BURST_TYPE},//Indoor 0x1164
+	{0x85, 0x40, BURST_TYPE},
+	{0x86, 0x65, BURST_TYPE},//Indoor 0x1165
+	{0x87, 0x60, BURST_TYPE},
+	{0x88, 0x66, BURST_TYPE},//Indoor 0x1166
+	{0x89, 0x60, BURST_TYPE},
+	{0x8a, 0x67, BURST_TYPE},//Indoor 0x1167
+	{0x8b, 0x60, BURST_TYPE},
+	{0x8c, 0x68, BURST_TYPE},//Indoor 0x1168
+	{0x8d, 0x80, BURST_TYPE},
+	{0x8e, 0x69, BURST_TYPE},//Indoor 0x1169
+	{0x8f, 0x40, BURST_TYPE},
+	{0x90, 0x6a, BURST_TYPE},//Indoor 0x116a	 //Imp Lv2 High Gain
+	{0x91, 0x60, BURST_TYPE},
+	{0x92, 0x6b, BURST_TYPE},//Indoor 0x116b	 //Imp Lv2 Middle Gain
+	{0x93, 0x60, BURST_TYPE},
+	{0x94, 0x6c, BURST_TYPE},//Indoor 0x116c	 //Imp Lv2 Low Gain
+	{0x95, 0x60, BURST_TYPE},
+	{0x96, 0x6d, BURST_TYPE},//Indoor 0x116d
+	{0x97, 0x80, BURST_TYPE},
+	{0x98, 0x6e, BURST_TYPE},//Indoor 0x116e
+	{0x99, 0x40, BURST_TYPE},
+	{0x9a, 0x6f, BURST_TYPE},//Indoor 0x116f	//Imp Lv3 Hi Gain
+	{0x9b, 0x60, BURST_TYPE},
+	{0x9c, 0x70, BURST_TYPE},//Indoor 0x1170	//Imp Lv3 Middle Gain
+	{0x9d, 0x60, BURST_TYPE},
+	{0x9e, 0x71, BURST_TYPE},//Indoor 0x1171	//Imp Lv3 Low Gain
+	{0x9f, 0x60, BURST_TYPE},
+	{0xa0, 0x72, BURST_TYPE},//Indoor 0x1172
+	{0xa1, 0x6e, BURST_TYPE},
+	{0xa2, 0x73, BURST_TYPE},//Indoor 0x1173
+	{0xa3, 0x3a, BURST_TYPE},
+	{0xa4, 0x74, BURST_TYPE},//Indoor 0x1174	//Imp Lv4 Hi Gain
+	{0xa5, 0x60, BURST_TYPE},
+	{0xa6, 0x75, BURST_TYPE},//Indoor 0x1175	//Imp Lv4 Middle Gain
+	{0xa7, 0x60, BURST_TYPE},
+	{0xa8, 0x76, BURST_TYPE},//Indoor 0x1176	//Imp Lv4 Low Gain
+	{0xa9, 0x60, BURST_TYPE},//18
+	{0xaa, 0x77, BURST_TYPE},//Indoor 0x1177	//Imp Lv5 Hi Th
+	{0xab, 0x6e, BURST_TYPE},
+	{0xac, 0x78, BURST_TYPE},//Indoor 0x1178	//Imp Lv5 Middle Th
+	{0xad, 0x66, BURST_TYPE},
+	{0xae, 0x79, BURST_TYPE},//Indoor 0x1179	//Imp Lv5 Hi Gain
+	{0xaf, 0x50, BURST_TYPE},
+	{0xb0, 0x7a, BURST_TYPE},//Indoor 0x117a	//Imp Lv5 Middle Gain
+	{0xb1, 0x50, BURST_TYPE},
+	{0xb2, 0x7b, BURST_TYPE},//Indoor 0x117b	//Imp Lv5 Low Gain
+	{0xb3, 0x50, BURST_TYPE},
+	{0xb4, 0x7c, BURST_TYPE},//Indoor 0x117c	//Imp Lv6 Hi Th
+	{0xb5, 0x5c, BURST_TYPE},
+	{0xb6, 0x7d, BURST_TYPE},//Indoor 0x117d	//Imp Lv6 Middle Th
+	{0xb7, 0x30, BURST_TYPE},
+	{0xb8, 0x7e, BURST_TYPE},//Indoor 0x117e	//Imp Lv6 Hi Gain
+	{0xb9, 0x44, BURST_TYPE},
+	{0xba, 0x7f, BURST_TYPE},//Indoor 0x117f	//Imp Lv6 Middle Gain
+	{0xbb, 0x44, BURST_TYPE},
+	{0xbc, 0x80, BURST_TYPE},//Indoor 0x1180	//Imp Lv6 Low Gain
+	{0xbd, 0x44, BURST_TYPE},
+	{0xbe, 0x81, BURST_TYPE},//Indoor 0x1181
+	{0xbf, 0x62, BURST_TYPE},
+	{0xc0, 0x82, BURST_TYPE},//Indoor 0x1182
+	{0xc1, 0x26, BURST_TYPE},
+	{0xc2, 0x83, BURST_TYPE},//Indoor 0x1183	//Imp Lv7 Hi Gain
+	{0xc3, 0x3e, BURST_TYPE},
+	{0xc4, 0x84, BURST_TYPE},//Indoor 0x1184	//Imp Lv7 Middle Gain
+	{0xc5, 0x3e, BURST_TYPE},
+	{0xc6, 0x85, BURST_TYPE},//Indoor 0x1185	//Imp Lv7 Low Gain
+	{0xc7, 0x3e, BURST_TYPE},
+	{0xc8, 0x86, BURST_TYPE},//Indoor 0x1186
+	{0xc9, 0x62, BURST_TYPE},
+	{0xca, 0x87, BURST_TYPE},//Indoor 0x1187
+	{0xcb, 0x26, BURST_TYPE},
+	{0xcc, 0x88, BURST_TYPE},//Indoor 0x1188
+	{0xcd, 0x30, BURST_TYPE},
+	{0xce, 0x89, BURST_TYPE},//Indoor 0x1189
+	{0xcf, 0x30, BURST_TYPE},
+	{0xd0, 0x8a, BURST_TYPE},//Indoor 0x118a
+	{0xd1, 0x30, BURST_TYPE},
+	{0xd2, 0x90, BURST_TYPE},//Indoor 0x1190
+	{0xd3, 0x00, BURST_TYPE},
+	{0xd4, 0x91, BURST_TYPE},//Indoor 0x1191
+	{0xd5, 0x4e, BURST_TYPE},
+	{0xd6, 0x92, BURST_TYPE},//Indoor 0x1192
+	{0xd7, 0x00, BURST_TYPE},
+	{0xd8, 0x93, BURST_TYPE},//Indoor 0x1193
+	{0xd9, 0x16, BURST_TYPE},
+	{0xda, 0x94, BURST_TYPE},//Indoor 0x1194
+	{0xdb, 0x01, BURST_TYPE},
+	{0xdc, 0x95, BURST_TYPE},//Indoor 0x1195
+	{0xdd, 0x80, BURST_TYPE},
+	{0xde, 0x96, BURST_TYPE},//Indoor 0x1196
+	{0xdf, 0x55, BURST_TYPE},
+	{0xe0, 0x97, BURST_TYPE},//Indoor 0x1197
+	{0xe1, 0x8d, BURST_TYPE},
+	{0xe2, 0xb0, BURST_TYPE},//Indoor 0x11b0
+	{0xe3, 0x60, BURST_TYPE},
+	{0xe4, 0xb1, BURST_TYPE},//Indoor 0x11b1
+	{0xe5, 0x99, BURST_TYPE},
+	{0xe6, 0xb2, BURST_TYPE},//Indoor 0x11b2
+	{0xe7, 0x19, BURST_TYPE},
+	{0xe8, 0xb3, BURST_TYPE},//Indoor 0x11b3
+	{0xe9, 0x00, BURST_TYPE},
+	{0xea, 0xb4, BURST_TYPE},//Indoor 0x11b4
+	{0xeb, 0x00, BURST_TYPE},
+	{0xec, 0x03, BURST_TYPE}, //12 page
+	{0xed, 0x12, BURST_TYPE},
+	{0xee, 0x10, BURST_TYPE}, //Indoor 0x1210
+	{0xef, 0x03, BURST_TYPE},
+	{0xf0, 0x11, BURST_TYPE}, //Indoor 0x1211
+	{0xf1, 0x29, BURST_TYPE},
+	{0xf2, 0x12, BURST_TYPE}, //Indoor 0x1212
+	{0xf3, 0x08, BURST_TYPE},
+	{0xf4, 0x40, BURST_TYPE},//Indoor 0x1240
+	{0xf5, 0x33, BURST_TYPE}, //07
+	{0xf6, 0x41, BURST_TYPE},//Indoor 0x1241
+	{0xf7, 0x0a, BURST_TYPE}, //32
+	{0xf8, 0x42, BURST_TYPE},//Indoor 0x1242
+	{0xf9, 0x6a, BURST_TYPE}, //8c
+	{0xfa, 0x43, BURST_TYPE},//Indoor 0x1243
+	{0xfb, 0x80, BURST_TYPE},
+	{0xfc, 0x44, BURST_TYPE}, //Indoor 0x1244
+	{0xfd, 0x02, BURST_TYPE_ED},
+
+	{0x03, 0xde, BYTE_LEN},
+	{0x10, 0x45, BURST_TYPE}, //Indoor 0x1245
+	{0x11, 0x0a, BURST_TYPE},
+	{0x12, 0x46, BURST_TYPE}, //Indoor 0x1246
+	{0x13, 0x80, BURST_TYPE},
+	{0x14, 0x60, BURST_TYPE}, //Indoor 0x1260
+	{0x15, 0x02, BURST_TYPE},
+	{0x16, 0x61, BURST_TYPE}, //Indoor 0x1261
+	{0x17, 0x04, BURST_TYPE},
+	{0x18, 0x62, BURST_TYPE}, //Indoor 0x1262
+	{0x19, 0x4b, BURST_TYPE},
+	{0x1a, 0x63, BURST_TYPE}, //Indoor 0x1263
+	{0x1b, 0x41, BURST_TYPE},
+	{0x1c, 0x64, BURST_TYPE}, //Indoor 0x1264
+	{0x1d, 0x14, BURST_TYPE},
+	{0x1e, 0x65, BURST_TYPE}, //Indoor 0x1265
+	{0x1f, 0x00, BURST_TYPE},
+	{0x20, 0x68, BURST_TYPE}, //Indoor 0x1268
+	{0x21, 0x0a, BURST_TYPE},
+	{0x22, 0x69, BURST_TYPE}, //Indoor 0x1269
+	{0x23, 0x04, BURST_TYPE},
+	{0x24, 0x6a, BURST_TYPE}, //Indoor 0x126a
+	{0x25, 0x0a, BURST_TYPE},
+	{0x26, 0x6b, BURST_TYPE}, //Indoor 0x126b
+	{0x27, 0x0a, BURST_TYPE},
+	{0x28, 0x6c, BURST_TYPE}, //Indoor 0x126c
+	{0x29, 0x24, BURST_TYPE},
+	{0x2a, 0x6d, BURST_TYPE}, //Indoor 0x126d
+	{0x2b, 0x01, BURST_TYPE},
+	{0x2c, 0x70, BURST_TYPE}, //Indoor 0x1270
+	{0x2d, 0x29, BURST_TYPE},
+	{0x2e, 0x71, BURST_TYPE},//Indoor 0x1271
+	{0x2f, 0x7f, BURST_TYPE},
+	{0x30, 0x80, BURST_TYPE},//Indoor 0x1280
+	{0x31, 0x30, BURST_TYPE},//88
+	{0x32, 0x81, BURST_TYPE},//Indoor 0x1281
+	{0x33, 0xa0, BURST_TYPE}, //05
+	{0x34, 0x82, BURST_TYPE},//Indoor 0x1282
+	{0x35, 0xa0, BURST_TYPE},//13
+	{0x36, 0x83, BURST_TYPE},//Indoor 0x1283
+	{0x37, 0x00, BURST_TYPE},//40
+	{0x38, 0x84, BURST_TYPE},//Indoor 0x1284
+	{0x39, 0x30, BURST_TYPE},
+	{0x3a, 0x85, BURST_TYPE},//Indoor 0x1285
+	{0x3b, 0xa0, BURST_TYPE},
+	{0x3c, 0x86, BURST_TYPE},//Indoor 0x1286
+	{0x3d, 0xa0, BURST_TYPE},//15
+	{0x3e, 0x87, BURST_TYPE},//Indoor 0x1287
+	{0x3f, 0x00, BURST_TYPE},
+	{0x40, 0x88, BURST_TYPE},//Indoor 0x1288
+	{0x41, 0x30, BURST_TYPE},
+	{0x42, 0x89, BURST_TYPE},//Indoor 0x1289
+	{0x43, 0xc0, BURST_TYPE},//c0
+	{0x44, 0x8a, BURST_TYPE},//Indoor 0x128a
+	{0x45, 0xb0, BURST_TYPE},//18
+	{0x46, 0x8b, BURST_TYPE}, //Indoor 0x128b
+	{0x47, 0x08, BURST_TYPE},//05
+	{0x48, 0x8c, BURST_TYPE}, //Indoor 0x128c
+	{0x49, 0x05, BURST_TYPE},
+	{0x4a, 0x8d, BURST_TYPE}, //Indoor 0x128d
+	{0x4b, 0x03, BURST_TYPE},
+	{0x4c, 0xe6, BURST_TYPE}, //Indoor 0x12e6
+	{0x4d, 0xff, BURST_TYPE},
+	{0x4e, 0xe7, BURST_TYPE}, //Indoor 0x12e7
+	{0x4f, 0x18, BURST_TYPE},
+	{0x50, 0xe8, BURST_TYPE}, //Indoor 0x12e8
+	{0x51, 0x0a, BURST_TYPE},
+	{0x52, 0xe9, BURST_TYPE}, //Indoor 0x12e9
+	{0x53, 0x04, BURST_TYPE},
+	{0x54, 0x03, BURST_TYPE},//Indoor Page13
+	{0x55, 0x13, BURST_TYPE},
+	{0x56, 0x10, BURST_TYPE},//Indoor 0x1310
+	{0x57, 0x3f, BURST_TYPE},
+	{0x58, 0x20, BURST_TYPE},//Indoor 0x1320
+	{0x59, 0x20, BURST_TYPE},
+	{0x5a, 0x21, BURST_TYPE},//Indoor 0x1321
+	{0x5b, 0x30, BURST_TYPE},
+	{0x5c, 0x22, BURST_TYPE},//Indoor 0x1322
+	{0x5d, 0x36, BURST_TYPE},
+	{0x5e, 0x23, BURST_TYPE},//Indoor 0x1323
+	{0x5f, 0x6a, BURST_TYPE},
+	{0x60, 0x24, BURST_TYPE},//Indoor 0x1324
+	{0x61, 0xa0, BURST_TYPE},
+	{0x62, 0x25, BURST_TYPE},//Indoor 0x1325
+	{0x63, 0xc0, BURST_TYPE},
+	{0x64, 0x26, BURST_TYPE},//Indoor 0x1326
+	{0x65, 0xe0, BURST_TYPE},
+	{0x66, 0x27, BURST_TYPE},//Indoor 0x1327
+	{0x67, 0x02, BURST_TYPE},
+	{0x68, 0x28, BURST_TYPE},//Indoor 0x1328
+	{0x69, 0x03, BURST_TYPE},
+	{0x6a, 0x29, BURST_TYPE},//Indoor 0x1329
+	{0x6b, 0x03, BURST_TYPE},
+	{0x6c, 0x2a, BURST_TYPE},//Indoor 0x132a
+	{0x6d, 0x03, BURST_TYPE},
+	{0x6e, 0x2b, BURST_TYPE},//Indoor 0x132b
+	{0x6f, 0x03, BURST_TYPE},
+	{0x70, 0x2c, BURST_TYPE},//Indoor 0x132c
+	{0x71, 0x03, BURST_TYPE},
+	{0x72, 0x2d, BURST_TYPE},//Indoor 0x132d
+	{0x73, 0x03, BURST_TYPE},
+	{0x74, 0x2e, BURST_TYPE},//Indoor 0x132e
+	{0x75, 0x03, BURST_TYPE},
+	{0x76, 0x2f, BURST_TYPE},//Indoor 0x132f
+	{0x77, 0x03, BURST_TYPE},
+	{0x78, 0x30, BURST_TYPE},//Indoor 0x1330
+	{0x79, 0x03, BURST_TYPE},
+	{0x7a, 0x31, BURST_TYPE},//Indoor 0x1331
+	{0x7b, 0x03, BURST_TYPE},
+	{0x7c, 0x32, BURST_TYPE},//Indoor 0x1332
+	{0x7d, 0x03, BURST_TYPE},
+	{0x7e, 0x33, BURST_TYPE},//Indoor 0x1333
+	{0x7f, 0x40, BURST_TYPE},
+	{0x80, 0x34, BURST_TYPE},//Indoor 0x1334
+	{0x81, 0x80, BURST_TYPE},
+	{0x82, 0x35, BURST_TYPE},//Indoor 0x1335
+	{0x83, 0x00, BURST_TYPE},
+	{0x84, 0x36, BURST_TYPE},//Indoor 0x1336
+	{0x85, 0xf0, BURST_TYPE},
+	{0x86, 0xa0, BURST_TYPE},//Indoor 0x13a0
+	{0x87, 0x0f, BURST_TYPE},
+	{0x88, 0xa8, BURST_TYPE},//Indoor 0x13a8
+	{0x89, 0x10, BURST_TYPE},
+	{0x8a, 0xa9, BURST_TYPE},//Indoor 0x13a9
+	{0x8b, 0x16, BURST_TYPE},
+	{0x8c, 0xaa, BURST_TYPE},//Indoor 0x13aa
+	{0x8d, 0x0a, BURST_TYPE},
+	{0x8e, 0xab, BURST_TYPE},//Indoor 0x13ab
+	{0x8f, 0x02, BURST_TYPE},
+	{0x90, 0xc0, BURST_TYPE},//Indoor 0x13c0
+	{0x91, 0x27, BURST_TYPE},
+	{0x92, 0xc2, BURST_TYPE},//Indoor 0x13c2
+	{0x93, 0x08, BURST_TYPE},
+	{0x94, 0xc3, BURST_TYPE},//Indoor 0x13c3
+	{0x95, 0x08, BURST_TYPE},
+	{0x96, 0xc4, BURST_TYPE},//Indoor 0x13c4
+	{0x97, 0x40, BURST_TYPE},
+	{0x98, 0xc5, BURST_TYPE},//Indoor 0x13c5
+	{0x99, 0x38, BURST_TYPE},
+	{0x9a, 0xc6, BURST_TYPE},//Indoor 0x13c6
+	{0x9b, 0xf0, BURST_TYPE},
+	{0x9c, 0xc7, BURST_TYPE},//Indoor 0x13c7
+	{0x9d, 0x10, BURST_TYPE},
+	{0x9e, 0xc8, BURST_TYPE},//Indoor 0x13c8
+	{0x9f, 0x44, BURST_TYPE},
+	{0xa0, 0xc9, BURST_TYPE},//Indoor 0x13c9
+	{0xa1, 0x87, BURST_TYPE},
+	{0xa2, 0xca, BURST_TYPE},//Indoor 0x13ca
+	{0xa3, 0xff, BURST_TYPE},
+	{0xa4, 0xcb, BURST_TYPE},//Indoor 0x13cb
+	{0xa5, 0x20, BURST_TYPE},
+	{0xa6, 0xcc, BURST_TYPE},//Indoor 0x13cc
+	{0xa7, 0x61, BURST_TYPE},
+	{0xa8, 0xcd, BURST_TYPE},//Indoor 0x13cd
+	{0xa9, 0x87, BURST_TYPE},
+	{0xaa, 0xce, BURST_TYPE},//Indoor 0x13ce
+	{0xab, 0x8a, BURST_TYPE},//07
+	{0xac, 0xcf, BURST_TYPE},//Indoor 0x13cf
+	{0xad, 0xa5, BURST_TYPE},//07
+	{0xae, 0x03, BURST_TYPE},//Indoor Page14
+	{0xaf, 0x14, BURST_TYPE},
+	{0xb0, 0x10, BURST_TYPE},//Indoor 0x1410
+	{0xb1, 0x27, BURST_TYPE},
+	{0xb2, 0x11, BURST_TYPE},//Indoor 0x1411
+	{0xb3, 0x02, BURST_TYPE},
+	{0xb4, 0x12, BURST_TYPE},//Indoor 0x1412
+	{0xb5, 0x40, BURST_TYPE},
+	{0xb6, 0x13, BURST_TYPE},//Indoor 0x1413
+	{0xb7, 0x98, BURST_TYPE},
+	{0xb8, 0x14, BURST_TYPE},//Indoor 0x1414
+	{0xb9, 0x3a, BURST_TYPE},
+	{0xba, 0x15, BURST_TYPE},//Indoor 0x1415
+	{0xbb, 0x24, BURST_TYPE},
+	{0xbc, 0x16, BURST_TYPE},//Indoor 0x1416
+	{0xbd, 0x1a, BURST_TYPE},
+	{0xbe, 0x17, BURST_TYPE},//Indoor 0x1417
+	{0xbf, 0x1a, BURST_TYPE},
+	{0xc0, 0x18, BURST_TYPE},//Indoor 0x1418	Negative High Gain
+	{0xc1, 0x60, BURST_TYPE},//3a
+	{0xc2, 0x19, BURST_TYPE},//Indoor 0x1419	Negative Middle Gain
+	{0xc3, 0x68, BURST_TYPE},//3a
+	{0xc4, 0x1a, BURST_TYPE},//Indoor 0x141a	Negative Low Gain
+	{0xc5, 0x68, BURST_TYPE}, //
+	{0xc6, 0x20, BURST_TYPE},//Indoor 0x1420
+	{0xc7, 0x82, BURST_TYPE},  // s_diff L_clip
+	{0xc8, 0x21, BURST_TYPE},//Indoor 0x1421
+	{0xc9, 0x03, BURST_TYPE},
+	{0xca, 0x22, BURST_TYPE},//Indoor 0x1422
+	{0xcb, 0x05, BURST_TYPE},
+	{0xcc, 0x23, BURST_TYPE},//Indoor 0x1423
+	{0xcd, 0x07, BURST_TYPE},
+	{0xce, 0x24, BURST_TYPE},//Indoor 0x1424
+	{0xcf, 0x0a, BURST_TYPE},
+	{0xd0, 0x25, BURST_TYPE},//Indoor 0x1425
+	{0xd1, 0x46, BURST_TYPE}, //19
+	{0xd2, 0x26, BURST_TYPE},//Indoor 0x1426
+	{0xd3, 0x32, BURST_TYPE},
+	{0xd4, 0x27, BURST_TYPE},//Indoor 0x1427
+	{0xd5, 0x1e, BURST_TYPE},
+	{0xd6, 0x28, BURST_TYPE},//Indoor 0x1428
+	{0xd7, 0x10, BURST_TYPE},
+	{0xd8, 0x29, BURST_TYPE},//Indoor 0x1429
+	{0xd9, 0x00, BURST_TYPE},
+	{0xda, 0x2a, BURST_TYPE},//Indoor 0x142a
+	{0xdb, 0x18, BURST_TYPE},//40
+	{0xdc, 0x2b, BURST_TYPE},//Indoor 0x142b
+	{0xdd, 0x18, BURST_TYPE},
+	{0xde, 0x2c, BURST_TYPE},//Indoor 0x142c
+	{0xdf, 0x18, BURST_TYPE},
+	{0xe0, 0x2d, BURST_TYPE},//Indoor 0x142d
+	{0xe1, 0x30, BURST_TYPE},
+	{0xe2, 0x2e, BURST_TYPE},//Indoor 0x142e
+	{0xe3, 0x30, BURST_TYPE},
+	{0xe4, 0x2f, BURST_TYPE},//Indoor 0x142f
+	{0xe5, 0x30, BURST_TYPE},
+	{0xe6, 0x30, BURST_TYPE},//Indoor 0x1430
+	{0xe7, 0x82, BURST_TYPE},   //Ldiff_L_cip
+	{0xe8, 0x31, BURST_TYPE},//Indoor 0x1431
+	{0xe9, 0x02, BURST_TYPE},
+	{0xea, 0x32, BURST_TYPE},//Indoor 0x1432
+	{0xeb, 0x04, BURST_TYPE},
+	{0xec, 0x33, BURST_TYPE},//Indoor 0x1433
+	{0xed, 0x04, BURST_TYPE},
+	{0xee, 0x34, BURST_TYPE},//Indoor 0x1434
+	{0xef, 0x0a, BURST_TYPE},
+	{0xf0, 0x35, BURST_TYPE},//Indoor 0x1435
+	{0xf1, 0x46, BURST_TYPE},//12
+	{0xf2, 0x36, BURST_TYPE},//Indoor 0x1436
+	{0xf3, 0x32, BURST_TYPE},
+	{0xf4, 0x37, BURST_TYPE},//Indoor 0x1437
+	{0xf5, 0x32, BURST_TYPE},
+	{0xf6, 0x38, BURST_TYPE},//Indoor 0x1438
+	{0xf7, 0x22, BURST_TYPE},
+	{0xf8, 0x39, BURST_TYPE},//Indoor 0x1439
+	{0xf9, 0x00, BURST_TYPE},
+	{0xfa, 0x3a, BURST_TYPE},//Indoor 0x143a
+	{0xfb, 0x48, BURST_TYPE},
+	{0xfc, 0x3b, BURST_TYPE},//Indoor 0x143b
+	{0xfd, 0x30, BURST_TYPE_ED},
+
+	{0x03, 0xdf, BYTE_LEN},
+	{0x10, 0x3c, BURST_TYPE},//Indoor 0x143c
+	{0x11, 0x30, BURST_TYPE},
+	{0x12, 0x3d, BURST_TYPE},//Indoor 0x143d
+	{0x13, 0x20, BURST_TYPE},
+	{0x14, 0x3e, BURST_TYPE},//Indoor 0x143e
+	{0x15, 0x22, BURST_TYPE},//12
+	{0x16, 0x3f, BURST_TYPE},//Indoor 0x143f
+	{0x17, 0x10, BURST_TYPE},
+	{0x18, 0x40, BURST_TYPE},//Indoor 0x1440
+	{0x19, 0x84, BURST_TYPE},
+	{0x1a, 0x41, BURST_TYPE},//Indoor 0x1441
+	{0x1b, 0x10, BURST_TYPE},//20
+	{0x1c, 0x42, BURST_TYPE},//Indoor 0x1442
+	{0x1d, 0xb0, BURST_TYPE},//20
+	{0x1e, 0x43, BURST_TYPE},//Indoor 0x1443
+	{0x1f, 0x40, BURST_TYPE},//20
+	{0x20, 0x44, BURST_TYPE},//Indoor 0x1444
+	{0x21, 0x14, BURST_TYPE},
+	{0x22, 0x45, BURST_TYPE},//Indoor 0x1445
+	{0x23, 0x10, BURST_TYPE},
+	{0x24, 0x46, BURST_TYPE},//Indoor 0x1446
+	{0x25, 0x14, BURST_TYPE},
+	{0x26, 0x47, BURST_TYPE},//Indoor 0x1447
+	{0x27, 0x04, BURST_TYPE},
+	{0x28, 0x48, BURST_TYPE},//Indoor 0x1448
+	{0x29, 0x04, BURST_TYPE},
+	{0x2a, 0x49, BURST_TYPE},//Indoor 0x1449
+	{0x2b, 0x04, BURST_TYPE},
+	{0x2c, 0x50, BURST_TYPE},//Indoor 0x1450
+	{0x2d, 0x84, BURST_TYPE},//19
+	{0x2e, 0x51, BURST_TYPE},//Indoor 0x1451
+	{0x2f, 0x30, BURST_TYPE},//60
+	{0x30, 0x52, BURST_TYPE},//Indoor 0x1452
+	{0x31, 0xb0, BURST_TYPE},
+	{0x32, 0x53, BURST_TYPE},//Indoor 0x1453
+	{0x33, 0x37, BURST_TYPE},//58
+	{0x34, 0x54, BURST_TYPE},//Indoor 0x1454
+	{0x35, 0x44, BURST_TYPE},
+	{0x36, 0x55, BURST_TYPE},//Indoor 0x1455
+	{0x37, 0x44, BURST_TYPE},
+	{0x38, 0x56, BURST_TYPE},//Indoor 0x1456
+	{0x39, 0x44, BURST_TYPE},
+	{0x3a, 0x57, BURST_TYPE},//Indoor 0x1457
+	{0x3b, 0x10, BURST_TYPE},//03
+	{0x3c, 0x58, BURST_TYPE},//Indoor 0x1458
+	{0x3d, 0x14, BURST_TYPE},
+	{0x3e, 0x59, BURST_TYPE},//Indoor 0x1459
+	{0x3f, 0x14, BURST_TYPE},
+	{0x40, 0x60, BURST_TYPE},//Indoor 0x1460
+	{0x41, 0x03, BURST_TYPE},
+	{0x42, 0x61, BURST_TYPE},//Indoor 0x1461
+	{0x43, 0xa0, BURST_TYPE},
+	{0x44, 0x62, BURST_TYPE},//Indoor 0x1462
+	{0x45, 0x98, BURST_TYPE},
+	{0x46, 0x63, BURST_TYPE},//Indoor 0x1463
+	{0x47, 0xe4, BURST_TYPE},
+	{0x48, 0x64, BURST_TYPE},//Indoor 0x1464
+	{0x49, 0xa4, BURST_TYPE},
+	{0x4a, 0x65, BURST_TYPE},//Indoor 0x1465
+	{0x4b, 0x7d, BURST_TYPE},
+	{0x4c, 0x66, BURST_TYPE},//Indoor 0x1466
+	{0x4d, 0x4b, BURST_TYPE},
+	{0x4e, 0x70, BURST_TYPE},//Indoor 0x1470
+	{0x4f, 0x10, BURST_TYPE},
+	{0x50, 0x71, BURST_TYPE},//Indoor 0x1471
+	{0x51, 0x10, BURST_TYPE},
+	{0x52, 0x72, BURST_TYPE},//Indoor 0x1472
+	{0x53, 0x10, BURST_TYPE},
+	{0x54, 0x73, BURST_TYPE},//Indoor 0x1473
+	{0x55, 0x10, BURST_TYPE},
+	{0x56, 0x74, BURST_TYPE},//Indoor 0x1474
+	{0x57, 0x10, BURST_TYPE},
+	{0x58, 0x75, BURST_TYPE},//Indoor 0x1475
+	{0x59, 0x10, BURST_TYPE},
+	{0x5a, 0x76, BURST_TYPE},//Indoor 0x1476	  //green sharp pos High
+	{0x5b, 0x10, BURST_TYPE},
+	{0x5c, 0x77, BURST_TYPE},//Indoor 0x1477	  //green sharp pos Middle
+	{0x5d, 0x20, BURST_TYPE},
+	{0x5e, 0x78, BURST_TYPE},//Indoor 0x1478	  //green sharp pos Low
+	{0x5f, 0x18, BURST_TYPE},
+	{0x60, 0x79, BURST_TYPE},//Indoor 0x1479	   //green sharp nega High
+	{0x61, 0x60, BURST_TYPE},
+	{0x62, 0x7a, BURST_TYPE},//Indoor 0x147a	   //green sharp nega Middle
+	{0x63, 0x60, BURST_TYPE},
+	{0x64, 0x7b, BURST_TYPE},//Indoor 0x147b	   //green sharp nega Low
+	{0x65, 0x60, BURST_TYPE},
+
+	// STEVE Saturation control
+	// CB/CR vs sat
+	//_CHANGE_S ADD INTO MR ver. for low light condition
+	{0x66, 0x03, BURST_TYPE}, //page 10
+	{0x67, 0x10, BURST_TYPE}, //
+	{0x68, 0x70, BURST_TYPE}, //indoor 0x1070
+	{0x69, 0x08, BURST_TYPE}, //
+	{0x6a, 0x71, BURST_TYPE}, //indoor 0x1071
+	{0x6b, 0x00, BURST_TYPE}, //
+	{0x6c, 0x72, BURST_TYPE}, //indoor 0x1072
+	{0x6d, 0x62, BURST_TYPE}, //
+	{0x6e, 0x73, BURST_TYPE}, //indoor 0x1073
+	{0x6f, 0x6d, BURST_TYPE}, //
+	{0x70, 0x74, BURST_TYPE}, //indoor 0x1074
+	{0x71, 0x36, BURST_TYPE}, //
+	{0x72, 0x75, BURST_TYPE}, //indoor 0x1075
+	{0x73, 0x00, BURST_TYPE}, //
+	{0x74, 0x76, BURST_TYPE}, //indoor 0x1076
+	{0x75, 0x2e, BURST_TYPE}, //
+	{0x76, 0x77, BURST_TYPE}, //indoor 0x1077
+	{0x77, 0x35, BURST_TYPE}, //
+	{0x78, 0x78, BURST_TYPE}, //indoor 0x1078
+	{0x79, 0xc2, BURST_TYPE}, //
+	{0x7a, 0x79, BURST_TYPE}, //indoor 0x1079
+	{0x7b, 0x3a, BURST_TYPE}, //
+	{0x7c, 0x7a, BURST_TYPE}, //indoor 0x107a
+	{0x7d, 0xe1, BURST_TYPE}, //
+	{0x7e, 0x7b, BURST_TYPE}, //indoor 0x107b
+	{0x7f, 0x40, BURST_TYPE}, //
+	{0x80, 0x7c, BURST_TYPE}, //indoor 0x107c
+	{0x81, 0x00, BURST_TYPE}, //
+	{0x82, 0x7d, BURST_TYPE}, //indoor 0x107d
+	{0x83, 0x14, BURST_TYPE}, //
+	{0x84, 0x7e, BURST_TYPE}, //indoor 0x107e
+	{0x85, 0x20, BURST_TYPE}, //
+	{0x86, 0x7f, BURST_TYPE}, //indoor 0x107f
+	{0x87, 0x38, BURST_TYPE}, //
+
+	// Lum Vs Sat
+	{0x88, 0x03, BURST_TYPE}, // page 16
+	{0x89, 0x16, BURST_TYPE}, //
+	{0x8A, 0x8a, BURST_TYPE}, // indoor 0x168a
+	{0x8B, 0x6d, BURST_TYPE}, //
+	{0x8C, 0x8b, BURST_TYPE}, // indoor 0x168b
+	{0x8D, 0x78, BURST_TYPE}, //
+	{0x8E, 0x8c, BURST_TYPE}, // indoor 0x168c
+	{0x8F, 0x7d, BURST_TYPE}, //
+	{0x90, 0x8d, BURST_TYPE}, // indoor 0x168d
+	{0x91, 0x7f, BURST_TYPE}, //
+	{0x92, 0x8e, BURST_TYPE}, // indoor 0x168e
+	{0x93, 0x7f, BURST_TYPE}, //
+	{0x94, 0x8f, BURST_TYPE}, // indoor 0x168f
+	{0x95, 0x7f, BURST_TYPE}, //
+	{0x96, 0x90, BURST_TYPE}, // indoor 0x1690
+	{0x97, 0x7f, BURST_TYPE}, //
+	{0x98, 0x91, BURST_TYPE}, // indoor 0x1691
+	{0x99, 0x7f, BURST_TYPE}, //
+	{0x9A, 0x92, BURST_TYPE}, // indoor 0x1692
+	{0x9B, 0x7f, BURST_TYPE}, //
+	{0x9C, 0x93, BURST_TYPE}, // indoor 0x1693
+	{0x9D, 0x7f, BURST_TYPE}, //
+	{0x9E, 0x94, BURST_TYPE}, // indoor 0x1694
+	{0x9F, 0x7f, BURST_TYPE}, //
+	{0xA0, 0x95, BURST_TYPE}, // indoor 0x1695
+	{0xA1, 0x7f, BURST_TYPE}, //
+	{0xA2, 0x96, BURST_TYPE}, // indoor 0x1696
+	{0xA3, 0x7f, BURST_TYPE}, //
+	{0xA4, 0x97, BURST_TYPE}, // indoor 0x1697
+	{0xA5, 0x7f, BURST_TYPE}, //
+	{0xA6, 0x98, BURST_TYPE}, // indoor 0x1698
+	{0xA7, 0x7f, BURST_TYPE}, //
+	{0xA8, 0x99, BURST_TYPE}, // indoor 0x1699
+	{0xA9, 0x7c, BURST_TYPE}, //
+	{0xAA, 0x9a, BURST_TYPE}, // indoor 0x169a
+	{0xAB, 0x78, BURST_TYPE_ED}, //
+	//_CHANGE_E ADD INTO MR ver. for low light condition
+
+	//////////////////
+	// e0 Page (DMA Dark1)
+	//////////////////
+
+	//Page 0xe0
+	{0x03, 0xe0, BYTE_LEN},
+	{0x10, 0x03, BURST_TYPE},
+	{0x11, 0x11, BURST_TYPE}, //11 page
+	{0x12, 0x10, BURST_TYPE}, //Dark1 0x1110
+	{0x13, 0x1f, BURST_TYPE},
+	{0x14, 0x11, BURST_TYPE}, //Dark1 0x1111
+	{0x15, 0x3f, BURST_TYPE},
+	{0x16, 0x12, BURST_TYPE}, //Dark1 0x1112
+	{0x17, 0x32, BURST_TYPE},
+	{0x18, 0x13, BURST_TYPE}, //Dark1 0x1113
+	{0x19, 0x21, BURST_TYPE},
+	{0x1a, 0x14, BURST_TYPE}, //Dark1 0x1114
+	{0x1b, 0x3a, BURST_TYPE},
+	{0x1c, 0x30, BURST_TYPE}, //Dark1 0x1130
+	{0x1d, 0x20, BURST_TYPE}, //20
+	{0x1e, 0x31, BURST_TYPE}, //Dark1 0x1131
+	{0x1f, 0x24, BURST_TYPE}, //20
+
+	{0x20, 0x32, BURST_TYPE}, //Dark1 0x1132 //STEVE Lum. Level. in DLPF
+	{0x21, 0x8b, BURST_TYPE}, //52
+	{0x22, 0x33, BURST_TYPE}, //Dark1 0x1133
+	{0x23, 0x54, BURST_TYPE}, //3b
+	{0x24, 0x34, BURST_TYPE}, //Dark1 0x1134
+	{0x25, 0x2c, BURST_TYPE}, //1d
+	{0x26, 0x35, BURST_TYPE}, //Dark1 0x1135
+	{0x27, 0x29, BURST_TYPE}, //21
+	{0x28, 0x36, BURST_TYPE}, //Dark1 0x1136
+	{0x29, 0x18, BURST_TYPE}, //1b
+	{0x2a, 0x37, BURST_TYPE}, //Dark1 0x1137
+	{0x2b, 0x1e, BURST_TYPE}, //21
+	{0x2c, 0x38, BURST_TYPE}, //Dark1 0x1138
+	{0x2d, 0x17, BURST_TYPE}, //18
+
+	{0x2e, 0x39, BURST_TYPE}, //Dark1 0x1139
+	{0x2f, 0x84, BURST_TYPE},
+	{0x30, 0x3a, BURST_TYPE}, //Dark1 0x113a
+	{0x31, 0x84, BURST_TYPE},
+	{0x32, 0x3b, BURST_TYPE}, //Dark1 0x113b
+	{0x33, 0x84, BURST_TYPE},
+	{0x34, 0x3c, BURST_TYPE}, //Dark1 0x113c
+	{0x35, 0x84, BURST_TYPE},
+	{0x36, 0x3d, BURST_TYPE}, //Dark1 0x113d
+	{0x37, 0x84, BURST_TYPE},
+	{0x38, 0x3e, BURST_TYPE}, //Dark1 0x113e
+	{0x39, 0x84, BURST_TYPE},
+	{0x3a, 0x3f, BURST_TYPE}, //Dark1 0x113f
+	{0x3b, 0x84, BURST_TYPE},
+	{0x3c, 0x40, BURST_TYPE}, //Dark1 0x1140
+	{0x3d, 0x84, BURST_TYPE},
+	{0x3e, 0x41, BURST_TYPE}, //Dark1 0x1141
+	{0x3f, 0x3a, BURST_TYPE},
+	{0x40, 0x42, BURST_TYPE}, //Dark1 0x1142
+	{0x41, 0x3a, BURST_TYPE},
+	{0x42, 0x43, BURST_TYPE}, //Dark1 0x1143
+	{0x43, 0x3a, BURST_TYPE},
+	{0x44, 0x44, BURST_TYPE}, //Dark1 0x1144
+	{0x45, 0x3a, BURST_TYPE},
+	{0x46, 0x45, BURST_TYPE}, //Dark1 0x1145
+	{0x47, 0x3a, BURST_TYPE},
+	{0x48, 0x46, BURST_TYPE}, //Dark1 0x1146
+	{0x49, 0x3a, BURST_TYPE},
+	{0x4a, 0x47, BURST_TYPE}, //Dark1 0x1147
+	{0x4b, 0x3a, BURST_TYPE},
+	{0x4c, 0x48, BURST_TYPE}, //Dark1 0x1148
+	{0x4d, 0x3a, BURST_TYPE},
+	{0x4e, 0x49, BURST_TYPE}, //Dark1 0x1149
+	{0x4f, 0x80, BURST_TYPE},
+	{0x50, 0x4a, BURST_TYPE}, //Dark1 0x114a
+	{0x51, 0x80, BURST_TYPE},
+	{0x52, 0x4b, BURST_TYPE}, //Dark1 0x114b
+	{0x53, 0x80, BURST_TYPE},
+	{0x54, 0x4c, BURST_TYPE}, //Dark1 0x114c
+	{0x55, 0x80, BURST_TYPE},
+	{0x56, 0x4d, BURST_TYPE}, //Dark1 0x114d
+	{0x57, 0x80, BURST_TYPE},
+	{0x58, 0x4e, BURST_TYPE}, //Dark1 0x114e
+	{0x59, 0x80, BURST_TYPE},
+	{0x5a, 0x4f, BURST_TYPE}, //Dark1 0x114f
+	{0x5b, 0x80, BURST_TYPE},
+	{0x5c, 0x50, BURST_TYPE}, //Dark1 0x1150
+	{0x5d, 0x80, BURST_TYPE},
+	{0x5e, 0x51, BURST_TYPE}, //Dark1 0x1151
+	{0x5f, 0xd8, BURST_TYPE},
+	{0x60, 0x52, BURST_TYPE}, //Dark1 0x1152
+	{0x61, 0xd8, BURST_TYPE},
+	{0x62, 0x53, BURST_TYPE}, //Dark1 0x1153
+	{0x63, 0xd8, BURST_TYPE},
+	{0x64, 0x54, BURST_TYPE}, //Dark1 0x1154
+	{0x65, 0xd0, BURST_TYPE},
+	{0x66, 0x55, BURST_TYPE}, //Dark1 0x1155
+	{0x67, 0xd0, BURST_TYPE},
+	{0x68, 0x56, BURST_TYPE}, //Dark1 0x1156
+	{0x69, 0xc8, BURST_TYPE},
+	{0x6a, 0x57, BURST_TYPE}, //Dark1 0x1157
+	{0x6b, 0xc0, BURST_TYPE},
+	{0x6c, 0x58, BURST_TYPE}, //Dark1 0x1158
+	{0x6d, 0xc0, BURST_TYPE},
+	{0x6e, 0x59, BURST_TYPE}, //Dark1 0x1159
+	{0x6f, 0xf0, BURST_TYPE},
+	{0x70, 0x5a, BURST_TYPE}, //Dark1 0x115a
+	{0x71, 0xf0, BURST_TYPE},
+	{0x72, 0x5b, BURST_TYPE}, //Dark1 0x115b
+	{0x73, 0xf0, BURST_TYPE},
+	{0x74, 0x5c, BURST_TYPE}, //Dark1 0x115c
+	{0x75, 0xe8, BURST_TYPE},
+	{0x76, 0x5d, BURST_TYPE}, //Dark1 0x115d
+	{0x77, 0xe8, BURST_TYPE},
+	{0x78, 0x5e, BURST_TYPE}, //Dark1 0x115e
+	{0x79, 0xe0, BURST_TYPE},
+	{0x7a, 0x5f, BURST_TYPE}, //Dark1 0x115f
+	{0x7b, 0xe0, BURST_TYPE},
+	{0x7c, 0x60, BURST_TYPE}, //Dark1 0x1160
+	{0x7d, 0xe0, BURST_TYPE},
+	{0x7e, 0x61, BURST_TYPE}, //Dark1 0x1161
+	{0x7f, 0xf0, BURST_TYPE},
+	{0x80, 0x62, BURST_TYPE}, //Dark1 0x1162
+	{0x81, 0xf0, BURST_TYPE},
+	{0x82, 0x63, BURST_TYPE}, //Dark1 0x1163
+	{0x83, 0x80, BURST_TYPE},
+	{0x84, 0x64, BURST_TYPE}, //Dark1 0x1164
+	{0x85, 0x40, BURST_TYPE},
+	{0x86, 0x65, BURST_TYPE}, //Dark1 0x1165
+	{0x87, 0x08, BURST_TYPE},
+	{0x88, 0x66, BURST_TYPE}, //Dark1 0x1166
+	{0x89, 0x08, BURST_TYPE},
+	{0x8a, 0x67, BURST_TYPE}, //Dark1 0x1167
+	{0x8b, 0x08, BURST_TYPE},
+	{0x8c, 0x68, BURST_TYPE}, //Dark1 0x1168
+	{0x8d, 0x80, BURST_TYPE},
+	{0x8e, 0x69, BURST_TYPE}, //Dark1 0x1169
+	{0x8f, 0x40, BURST_TYPE},
+	{0x90, 0x6a, BURST_TYPE}, //Dark1 0x116a
+	{0x91, 0x08, BURST_TYPE},
+	{0x92, 0x6b, BURST_TYPE}, //Dark1 0x116b
+	{0x93, 0x08, BURST_TYPE},
+	{0x94, 0x6c, BURST_TYPE}, //Dark1 0x116c
+	{0x95, 0x08, BURST_TYPE},
+	{0x96, 0x6d, BURST_TYPE}, //Dark1 0x116d
+	{0x97, 0x80, BURST_TYPE},
+	{0x98, 0x6e, BURST_TYPE}, //Dark1 0x116e
+	{0x99, 0x40, BURST_TYPE},
+	{0x9a, 0x6f, BURST_TYPE}, //Dark1 0x116f
+	{0x9b, 0x02, BURST_TYPE},
+	{0x9c, 0x70, BURST_TYPE}, //Dark1 0x1170
+	{0x9d, 0x02, BURST_TYPE},
+	{0x9e, 0x71, BURST_TYPE}, //Dark1 0x1171
+	{0x9f, 0x02, BURST_TYPE},
+	{0xa0, 0x72, BURST_TYPE}, //Dark1 0x1172
+	{0xa1, 0x6e, BURST_TYPE},
+	{0xa2, 0x73, BURST_TYPE}, //Dark1 0x1173
+	{0xa3, 0x3a, BURST_TYPE},
+	{0xa4, 0x74, BURST_TYPE}, //Dark1 0x1174
+	{0xa5, 0x02, BURST_TYPE},
+	{0xa6, 0x75, BURST_TYPE}, //Dark1 0x1175
+	{0xa7, 0x02, BURST_TYPE},
+	{0xa8, 0x76, BURST_TYPE}, //Dark1 0x1176
+	{0xa9, 0x02, BURST_TYPE},
+	{0xaa, 0x77, BURST_TYPE}, //Dark1 0x1177
+	{0xab, 0x6e, BURST_TYPE},
+	{0xac, 0x78, BURST_TYPE}, //Dark1 0x1178
+	{0xad, 0x3a, BURST_TYPE},
+	{0xae, 0x79, BURST_TYPE}, //Dark1 0x1179
+	{0xaf, 0x02, BURST_TYPE},
+	{0xb0, 0x7a, BURST_TYPE}, //Dark1 0x117a
+	{0xb1, 0x02, BURST_TYPE},
+	{0xb2, 0x7b, BURST_TYPE}, //Dark1 0x117b
+	{0xb3, 0x02, BURST_TYPE},
+	{0xb4, 0x7c, BURST_TYPE}, //Dark1 0x117c
+	{0xb5, 0x5c, BURST_TYPE},
+	{0xb6, 0x7d, BURST_TYPE}, //Dark1 0x117d
+	{0xb7, 0x30, BURST_TYPE},
+	{0xb8, 0x7e, BURST_TYPE}, //Dark1 0x117e
+	{0xb9, 0x02, BURST_TYPE},
+	{0xba, 0x7f, BURST_TYPE}, //Dark1 0x117f
+	{0xbb, 0x02, BURST_TYPE},
+	{0xbc, 0x80, BURST_TYPE}, //Dark1 0x1180
+	{0xbd, 0x02, BURST_TYPE},
+	{0xbe, 0x81, BURST_TYPE}, //Dark1 0x1181
+	{0xbf, 0x62, BURST_TYPE},
+	{0xc0, 0x82, BURST_TYPE}, //Dark1 0x1182
+	{0xc1, 0x26, BURST_TYPE},
+	{0xc2, 0x83, BURST_TYPE}, //Dark1 0x1183
+	{0xc3, 0x02, BURST_TYPE},
+	{0xc4, 0x84, BURST_TYPE}, //Dark1 0x1184
+	{0xc5, 0x02, BURST_TYPE},
+	{0xc6, 0x85, BURST_TYPE}, //Dark1 0x1185
+	{0xc7, 0x02, BURST_TYPE},
+	{0xc8, 0x86, BURST_TYPE}, //Dark1 0x1186
+	{0xc9, 0x62, BURST_TYPE},
+	{0xca, 0x87, BURST_TYPE}, //Dark1 0x1187
+	{0xcb, 0x26, BURST_TYPE},
+	{0xcc, 0x88, BURST_TYPE}, //Dark1 0x1188
+	{0xcd, 0x02, BURST_TYPE},
+	{0xce, 0x89, BURST_TYPE}, //Dark1 0x1189
+	{0xcf, 0x02, BURST_TYPE},
+	{0xd0, 0x8a, BURST_TYPE}, //Dark1 0x118a
+	{0xd1, 0x02, BURST_TYPE},
+	{0xd2, 0x90, BURST_TYPE}, //Dark1 0x1190
+	{0xd3, 0x03, BURST_TYPE},
+	{0xd4, 0x91, BURST_TYPE}, //Dark1 0x1191
+	{0xd5, 0xff, BURST_TYPE},
+	{0xd6, 0x92, BURST_TYPE}, //Dark1 0x1192
+	{0xd7, 0x0a, BURST_TYPE},
+	{0xd8, 0x93, BURST_TYPE}, //Dark1 0x1193
+	{0xd9, 0x80, BURST_TYPE},
+	{0xda, 0x94, BURST_TYPE}, //Dark1 0x1194
+	{0xdb, 0x03, BURST_TYPE},
+	{0xdc, 0x95, BURST_TYPE}, //Dark1 0x1195
+	{0xdd, 0x64, BURST_TYPE},
+	{0xde, 0x96, BURST_TYPE}, //Dark1 0x1196
+	{0xdf, 0x90, BURST_TYPE},
+	{0xe0, 0x97, BURST_TYPE}, //Dark1 0x1197
+	{0xe1, 0xa0, BURST_TYPE},
+	{0xe2, 0xb0, BURST_TYPE}, //Dark1 0x11b0
+	{0xe3, 0x64, BURST_TYPE},
+	{0xe4, 0xb1, BURST_TYPE}, //Dark1 0x11b1
+	{0xe5, 0xd8, BURST_TYPE},
+	{0xe6, 0xb2, BURST_TYPE}, //Dark1 0x11b2
+	{0xe7, 0x50, BURST_TYPE},
+	{0xe8, 0xb3, BURST_TYPE}, //Dark1 0x11b3
+	{0xe9, 0x10, BURST_TYPE},
+	{0xea, 0xb4, BURST_TYPE}, //Dark1 0x11b4
+	{0xeb, 0x03, BURST_TYPE},
+
+	{0xec, 0x03, BURST_TYPE},
+	{0xed, 0x12, BURST_TYPE},//12 page
+	{0xee, 0x10, BURST_TYPE}, //Dark1 0x1210
+	{0xef, 0x03, BURST_TYPE},
+	{0xf0, 0x11, BURST_TYPE}, //Dark1 0x1211
+	{0xf1, 0x29, BURST_TYPE},
+	{0xf2, 0x12, BURST_TYPE}, //Dark1 0x1212
+	{0xf3, 0x08, BURST_TYPE},
+	{0xf4, 0x40, BURST_TYPE}, //Dark1 0x1240
+	{0xf5, 0x33, BURST_TYPE}, //07
+	{0xf6, 0x41, BURST_TYPE}, //Dark1 0x1241
+	{0xf7, 0x0a, BURST_TYPE}, //32
+	{0xf8, 0x42, BURST_TYPE}, //Dark1 0x1242
+	{0xf9, 0x6a, BURST_TYPE}, //8c
+	{0xfa, 0x43, BURST_TYPE}, //Dark1 0x1243
+	{0xfb, 0x80, BURST_TYPE},
+	{0xfc, 0x44, BURST_TYPE}, //Dark1 0x1244
+	{0xfd, 0x02, BURST_TYPE_ED},
+
+	{0x03, 0xe1, BYTE_LEN},
+	{0x10, 0x45, BURST_TYPE}, //Dark1 0x1245
+	{0x11, 0x0a, BURST_TYPE},
+	{0x12, 0x46, BURST_TYPE}, //Dark1 0x1246
+	{0x13, 0x80, BURST_TYPE},
+	{0x14, 0x60, BURST_TYPE}, //Dark1 0x1260
+	{0x15, 0x02, BURST_TYPE},
+	{0x16, 0x61, BURST_TYPE}, //Dark1 0x1261
+	{0x17, 0x04, BURST_TYPE},
+	{0x18, 0x62, BURST_TYPE}, //Dark1 0x1262
+	{0x19, 0x4b, BURST_TYPE},
+	{0x1a, 0x63, BURST_TYPE}, //Dark1 0x1263
+	{0x1b, 0x41, BURST_TYPE},
+	{0x1c, 0x64, BURST_TYPE}, //Dark1 0x1264
+	{0x1d, 0x14, BURST_TYPE},
+	{0x1e, 0x65, BURST_TYPE}, //Dark1 0x1265
+	{0x1f, 0x00, BURST_TYPE},
+	{0x20, 0x68, BURST_TYPE}, //Dark1 0x1268
+	{0x21, 0x0a, BURST_TYPE},
+	{0x22, 0x69, BURST_TYPE}, //Dark1 0x1269
+	{0x23, 0x04, BURST_TYPE},
+	{0x24, 0x6a, BURST_TYPE}, //Dark1 0x126a
+	{0x25, 0x0a, BURST_TYPE},
+	{0x26, 0x6b, BURST_TYPE}, //Dark1 0x126b
+	{0x27, 0x0a, BURST_TYPE},
+	{0x28, 0x6c, BURST_TYPE}, //Dark1 0x126c
+	{0x29, 0x24, BURST_TYPE},
+	{0x2a, 0x6d, BURST_TYPE}, //Dark1 0x126d
+	{0x2b, 0x01, BURST_TYPE},
+	{0x2c, 0x70, BURST_TYPE}, //Dark1 0x1270
+	{0x2d, 0x29, BURST_TYPE},
+	{0x2e, 0x71, BURST_TYPE}, //Dark1 0x1271
+	{0x2f, 0x7f, BURST_TYPE},
+	{0x30, 0x80, BURST_TYPE}, //Dark1 0x1280
+	{0x31, 0x30, BURST_TYPE},
+	{0x32, 0x81, BURST_TYPE}, //Dark1 0x1281
+	{0x33, 0xa0, BURST_TYPE},
+	{0x34, 0x82, BURST_TYPE}, //Dark1 0x1282
+	{0x35, 0xa0, BURST_TYPE},
+	{0x36, 0x83, BURST_TYPE}, //Dark1 0x1283
+	{0x37, 0x00, BURST_TYPE},
+	{0x38, 0x84, BURST_TYPE}, //Dark1 0x1284
+	{0x39, 0x30, BURST_TYPE},
+	{0x3a, 0x85, BURST_TYPE}, //Dark1 0x1285
+	{0x3b, 0xa0, BURST_TYPE},
+	{0x3c, 0x86, BURST_TYPE}, //Dark1 0x1286
+	{0x3d, 0xa0, BURST_TYPE},
+	{0x3e, 0x87, BURST_TYPE}, //Dark1 0x1287
+	{0x3f, 0x00, BURST_TYPE},
+	{0x40, 0x88, BURST_TYPE}, //Dark1 0x1288
+	{0x41, 0x30, BURST_TYPE},
+	{0x42, 0x89, BURST_TYPE}, //Dark1 0x1289
+	{0x43, 0xc0, BURST_TYPE},
+	{0x44, 0x8a, BURST_TYPE}, //Dark1 0x128a
+	{0x45, 0xb0, BURST_TYPE},
+	{0x46, 0x8b, BURST_TYPE}, //Dark1 0x128b
+	{0x47, 0x08, BURST_TYPE},
+	{0x48, 0x8c, BURST_TYPE}, //Dark1 0x128c
+	{0x49, 0x05, BURST_TYPE},
+	{0x4a, 0x8d, BURST_TYPE}, //Dark1 0x128d
+	{0x4b, 0x03, BURST_TYPE},
+	{0x4c, 0xe6, BURST_TYPE}, //Dark1 0x12e6
+	{0x4d, 0xff, BURST_TYPE},
+	{0x4e, 0xe7, BURST_TYPE}, //Dark1 0x12e7
+	{0x4f, 0x18, BURST_TYPE},
+	{0x50, 0xe8, BURST_TYPE}, //Dark1 0x12e8
+	{0x51, 0x0a, BURST_TYPE},
+	{0x52, 0xe9, BURST_TYPE}, //Dark1 0x12e9
+	{0x53, 0x04, BURST_TYPE},
+	{0x54, 0x03, BURST_TYPE},
+	{0x55, 0x13, BURST_TYPE},//13 page
+	{0x56, 0x10, BURST_TYPE}, //Dark1 0x1310
+	{0x57, 0x3f, BURST_TYPE},
+	{0x58, 0x20, BURST_TYPE}, //Dark1 0x1320
+	{0x59, 0x20, BURST_TYPE},
+	{0x5a, 0x21, BURST_TYPE}, //Dark1 0x1321
+	{0x5b, 0x30, BURST_TYPE},
+	{0x5c, 0x22, BURST_TYPE}, //Dark1 0x1322
+	{0x5d, 0x36, BURST_TYPE},
+	{0x5e, 0x23, BURST_TYPE}, //Dark1 0x1323
+	{0x5f, 0x6a, BURST_TYPE},
+	{0x60, 0x24, BURST_TYPE}, //Dark1 0x1324
+	{0x61, 0xa0, BURST_TYPE},
+	{0x62, 0x25, BURST_TYPE}, //Dark1 0x1325
+	{0x63, 0xc0, BURST_TYPE},
+	{0x64, 0x26, BURST_TYPE}, //Dark1 0x1326
+	{0x65, 0xe0, BURST_TYPE},
+	{0x66, 0x27, BURST_TYPE}, //Dark1 0x1327
+	{0x67, 0x04, BURST_TYPE},
+	{0x68, 0x28, BURST_TYPE}, //Dark1 0x1328
+	{0x69, 0x05, BURST_TYPE},
+	{0x6a, 0x29, BURST_TYPE}, //Dark1 0x1329
+	{0x6b, 0x06, BURST_TYPE},
+	{0x6c, 0x2a, BURST_TYPE}, //Dark1 0x132a
+	{0x6d, 0x08, BURST_TYPE},
+	{0x6e, 0x2b, BURST_TYPE}, //Dark1 0x132b
+	{0x6f, 0x0a, BURST_TYPE},
+	{0x70, 0x2c, BURST_TYPE}, //Dark1 0x132c
+	{0x71, 0x0c, BURST_TYPE},
+	{0x72, 0x2d, BURST_TYPE}, //Dark1 0x132d
+	{0x73, 0x12, BURST_TYPE},
+	{0x74, 0x2e, BURST_TYPE}, //Dark1 0x132e
+	{0x75, 0x16, BURST_TYPE},
+	{0x76, 0x2f, BURST_TYPE}, //Dark1 0x132f	   //weight skin
+	{0x77, 0x04, BURST_TYPE},
+	{0x78, 0x30, BURST_TYPE}, //Dark1 0x1330	   //weight blue
+	{0x79, 0x04, BURST_TYPE},
+	{0x7a, 0x31, BURST_TYPE}, //Dark1 0x1331	   //weight green
+	{0x7b, 0x04, BURST_TYPE},
+	{0x7c, 0x32, BURST_TYPE}, //Dark1 0x1332	   //weight strong color
+	{0x7d, 0x04, BURST_TYPE},
+	{0x7e, 0x33, BURST_TYPE}, //Dark1 0x1333
+	{0x7f, 0x40, BURST_TYPE},
+	{0x80, 0x34, BURST_TYPE}, //Dark1 0x1334
+	{0x81, 0x80, BURST_TYPE},
+	{0x82, 0x35, BURST_TYPE}, //Dark1 0x1335
+	{0x83, 0x00, BURST_TYPE},
+	{0x84, 0x36, BURST_TYPE}, //Dark1 0x1336
+	{0x85, 0x80, BURST_TYPE},
+	{0x86, 0xa0, BURST_TYPE}, //Dark1 0x13a0
+	{0x87, 0x07, BURST_TYPE},
+	{0x88, 0xa8, BURST_TYPE}, //Dark1 0x13a8	   //Dark1 Cb-filter 0x20
+	{0x89, 0x30, BURST_TYPE},
+	{0x8a, 0xa9, BURST_TYPE}, //Dark1 0x13a9	   //Dark1 Cr-filter 0x20
+	{0x8b, 0x30, BURST_TYPE},
+	{0x8c, 0xaa, BURST_TYPE}, //Dark1 0x13aa
+	{0x8d, 0x30, BURST_TYPE},
+	{0x8e, 0xab, BURST_TYPE}, //Dark1 0x13ab
+	{0x8f, 0x02, BURST_TYPE},
+	{0x90, 0xc0, BURST_TYPE}, //Dark1 0x13c0
+	{0x91, 0x27, BURST_TYPE},
+	{0x92, 0xc2, BURST_TYPE}, //Dark1 0x13c2
+	{0x93, 0x08, BURST_TYPE},
+	{0x94, 0xc3, BURST_TYPE}, //Dark1 0x13c3
+	{0x95, 0x08, BURST_TYPE},
+	{0x96, 0xc4, BURST_TYPE}, //Dark1 0x13c4
+	{0x97, 0x46, BURST_TYPE},
+	{0x98, 0xc5, BURST_TYPE}, //Dark1 0x13c5
+	{0x99, 0x78, BURST_TYPE},
+	{0x9a, 0xc6, BURST_TYPE}, //Dark1 0x13c6
+	{0x9b, 0xf0, BURST_TYPE},
+	{0x9c, 0xc7, BURST_TYPE}, //Dark1 0x13c7
+	{0x9d, 0x10, BURST_TYPE},
+	{0x9e, 0xc8, BURST_TYPE}, //Dark1 0x13c8
+	{0x9f, 0x44, BURST_TYPE},
+	{0xa0, 0xc9, BURST_TYPE}, //Dark1 0x13c9
+	{0xa1, 0x87, BURST_TYPE},
+	{0xa2, 0xca, BURST_TYPE}, //Dark1 0x13ca
+	{0xa3, 0xff, BURST_TYPE},
+	{0xa4, 0xcb, BURST_TYPE}, //Dark1 0x13cb
+	{0xa5, 0x20, BURST_TYPE},
+	{0xa6, 0xcc, BURST_TYPE}, //Dark1 0x13cc	   //skin range_cb_l
+	{0xa7, 0x61, BURST_TYPE},
+	{0xa8, 0xcd, BURST_TYPE}, //Dark1 0x13cd	   //skin range_cb_h
+	{0xa9, 0x87, BURST_TYPE},
+	{0xaa, 0xce, BURST_TYPE}, //Dark1 0x13ce	   //skin range_cr_l
+	{0xab, 0x8a, BURST_TYPE},
+	{0xac, 0xcf, BURST_TYPE}, //Dark1 0x13cf	   //skin range_cr_h
+	{0xad, 0xa5, BURST_TYPE},
+	{0xae, 0x03, BURST_TYPE}, //14 page
+	{0xaf, 0x14, BURST_TYPE},
+	{0xb0, 0x10, BURST_TYPE}, //Dark1 0x1410
+	{0xb1, 0x27, BURST_TYPE},
+	{0xb2, 0x11, BURST_TYPE}, //Dark1 0x1411
+	{0xb3, 0x00, BURST_TYPE},
+	{0xb4, 0x12, BURST_TYPE}, //Dark1 0x1412
+	{0xb5, 0x40, BURST_TYPE}, //Top H_Clip
+	{0xb6, 0x13, BURST_TYPE}, //Dark1 0x1413
+	{0xb7, 0xc8, BURST_TYPE},
+	{0xb8, 0x14, BURST_TYPE}, //Dark1 0x1414
+	{0xb9, 0x50, BURST_TYPE},
+	{0xba, 0x15, BURST_TYPE}, //Dark1 0x1415	   //sharp positive hi
+	{0xbb, 0x19, BURST_TYPE},
+	{0xbc, 0x16, BURST_TYPE}, //Dark1 0x1416	   //sharp positive mi
+	{0xbd, 0x19, BURST_TYPE},
+	{0xbe, 0x17, BURST_TYPE}, //Dark1 0x1417	   //sharp positive low
+	{0xbf, 0x19, BURST_TYPE},
+	{0xc0, 0x18, BURST_TYPE}, //Dark1 0x1418	   //sharp negative hi
+	{0xc1, 0x33, BURST_TYPE},
+	{0xc2, 0x19, BURST_TYPE}, //Dark1 0x1419	   //sharp negative mi
+	{0xc3, 0x33, BURST_TYPE},
+	{0xc4, 0x1a, BURST_TYPE}, //Dark1 0x141a	   //sharp negative low
+	{0xc5, 0x33, BURST_TYPE},
+	{0xc6, 0x20, BURST_TYPE}, //Dark1 0x1420
+	{0xc7, 0x80, BURST_TYPE},
+	{0xc8, 0x21, BURST_TYPE}, //Dark1 0x1421
+	{0xc9, 0x03, BURST_TYPE},
+	{0xca, 0x22, BURST_TYPE}, //Dark1 0x1422
+	{0xcb, 0x05, BURST_TYPE},
+	{0xcc, 0x23, BURST_TYPE}, //Dark1 0x1423
+	{0xcd, 0x07, BURST_TYPE},
+	{0xce, 0x24, BURST_TYPE}, //Dark1 0x1424
+	{0xcf, 0x0a, BURST_TYPE},
+	{0xd0, 0x25, BURST_TYPE}, //Dark1 0x1425
+	{0xd1, 0x46, BURST_TYPE},
+	{0xd2, 0x26, BURST_TYPE}, //Dark1 0x1426
+	{0xd3, 0x32, BURST_TYPE},
+	{0xd4, 0x27, BURST_TYPE}, //Dark1 0x1427
+	{0xd5, 0x1e, BURST_TYPE},
+	{0xd6, 0x28, BURST_TYPE}, //Dark1 0x1428
+	{0xd7, 0x19, BURST_TYPE},
+	{0xd8, 0x29, BURST_TYPE}, //Dark1 0x1429
+	{0xd9, 0x00, BURST_TYPE},
+	{0xda, 0x2a, BURST_TYPE}, //Dark1 0x142a
+	{0xdb, 0x10, BURST_TYPE},
+	{0xdc, 0x2b, BURST_TYPE}, //Dark1 0x142b
+	{0xdd, 0x10, BURST_TYPE},
+	{0xde, 0x2c, BURST_TYPE}, //Dark1 0x142c
+	{0xdf, 0x10, BURST_TYPE},
+	{0xe0, 0x2d, BURST_TYPE}, //Dark1 0x142d
+	{0xe1, 0x80, BURST_TYPE},
+	{0xe2, 0x2e, BURST_TYPE}, //Dark1 0x142e
+	{0xe3, 0x80, BURST_TYPE},
+	{0xe4, 0x2f, BURST_TYPE}, //Dark1 0x142f
+	{0xe5, 0x80, BURST_TYPE},
+	{0xe6, 0x30, BURST_TYPE}, //Dark1 0x1430
+	{0xe7, 0x80, BURST_TYPE},
+	{0xe8, 0x31, BURST_TYPE}, //Dark1 0x1431
+	{0xe9, 0x02, BURST_TYPE},
+	{0xea, 0x32, BURST_TYPE}, //Dark1 0x1432
+	{0xeb, 0x04, BURST_TYPE},
+	{0xec, 0x33, BURST_TYPE}, //Dark1 0x1433
+	{0xed, 0x04, BURST_TYPE},
+	{0xee, 0x34, BURST_TYPE}, //Dark1 0x1434
+	{0xef, 0x0a, BURST_TYPE},
+	{0xf0, 0x35, BURST_TYPE}, //Dark1 0x1435
+	{0xf1, 0x46, BURST_TYPE},
+	{0xf2, 0x36, BURST_TYPE}, //Dark1 0x1436
+	{0xf3, 0x32, BURST_TYPE},
+	{0xf4, 0x37, BURST_TYPE}, //Dark1 0x1437
+	{0xf5, 0x28, BURST_TYPE},
+	{0xf6, 0x38, BURST_TYPE}, //Dark1 0x1438
+	{0xf7, 0x12, BURST_TYPE},//2d
+	{0xf8, 0x39, BURST_TYPE}, //Dark1 0x1439
+	{0xf9, 0x00, BURST_TYPE},//23
+	{0xfa, 0x3a, BURST_TYPE}, //Dark1 0x143a
+	{0xfb, 0x18, BURST_TYPE}, //dr gain
+	{0xfc, 0x3b, BURST_TYPE}, //Dark1 0x143b
+	{0xfd, 0x20, BURST_TYPE_ED},
+
+	{0x03, 0xe2, BYTE_LEN},
+	{0x10, 0x3c, BURST_TYPE}, //Dark1 0x143c
+	{0x11, 0x18, BURST_TYPE},
+	{0x12, 0x3d, BURST_TYPE}, //Dark1 0x143d
+	{0x13, 0x20, BURST_TYPE}, //nor gain
+	{0x14, 0x3e, BURST_TYPE}, //Dark1 0x143e
+	{0x15, 0x22, BURST_TYPE},
+	{0x16, 0x3f, BURST_TYPE}, //Dark1 0x143f
+	{0x17, 0x10, BURST_TYPE},
+	{0x18, 0x40, BURST_TYPE}, //Dark1 0x1440
+	{0x19, 0x80, BURST_TYPE},
+	{0x1a, 0x41, BURST_TYPE}, //Dark1 0x1441
+	{0x1b, 0x12, BURST_TYPE},
+	{0x1c, 0x42, BURST_TYPE}, //Dark1 0x1442
+	{0x1d, 0xb0, BURST_TYPE},
+	{0x1e, 0x43, BURST_TYPE}, //Dark1 0x1443
+	{0x1f, 0x20, BURST_TYPE},
+	{0x20, 0x44, BURST_TYPE}, //Dark1 0x1444
+	{0x21, 0x20, BURST_TYPE},
+	{0x22, 0x45, BURST_TYPE}, //Dark1 0x1445
+	{0x23, 0x20, BURST_TYPE},
+	{0x24, 0x46, BURST_TYPE}, //Dark1 0x1446
+	{0x25, 0x20, BURST_TYPE},
+	{0x26, 0x47, BURST_TYPE}, //Dark1 0x1447
+	{0x27, 0x08, BURST_TYPE},
+	{0x28, 0x48, BURST_TYPE}, //Dark1 0x1448
+	{0x29, 0x08, BURST_TYPE},
+	{0x2a, 0x49, BURST_TYPE}, //Dark1 0x1449
+	{0x2b, 0x08, BURST_TYPE},
+	{0x2c, 0x50, BURST_TYPE}, //Dark1 0x1450
+	{0x2d, 0x80, BURST_TYPE},
+	{0x2e, 0x51, BURST_TYPE}, //Dark1 0x1451
+	{0x2f, 0x32, BURST_TYPE}, //
+	{0x30, 0x52, BURST_TYPE}, //Dark1 0x1452
+	{0x31, 0x40, BURST_TYPE},
+	{0x32, 0x53, BURST_TYPE}, //Dark1 0x1453
+	{0x33, 0x19, BURST_TYPE},
+	{0x34, 0x54, BURST_TYPE}, //Dark1 0x1454
+	{0x35, 0x60, BURST_TYPE},
+	{0x36, 0x55, BURST_TYPE}, //Dark1 0x1455
+	{0x37, 0x60, BURST_TYPE},
+	{0x38, 0x56, BURST_TYPE}, //Dark1 0x1456
+	{0x39, 0x60, BURST_TYPE},
+	{0x3a, 0x57, BURST_TYPE}, //Dark1 0x1457
+	{0x3b, 0x20, BURST_TYPE},
+	{0x3c, 0x58, BURST_TYPE}, //Dark1 0x1458
+	{0x3d, 0x20, BURST_TYPE},
+	{0x3e, 0x59, BURST_TYPE}, //Dark1 0x1459
+	{0x3f, 0x20, BURST_TYPE},
+	{0x40, 0x60, BURST_TYPE}, //Dark1 0x1460
+	{0x41, 0x03, BURST_TYPE}, //skin opt en
+	{0x42, 0x61, BURST_TYPE}, //Dark1 0x1461
+	{0x43, 0xa0, BURST_TYPE},
+	{0x44, 0x62, BURST_TYPE}, //Dark1 0x1462
+	{0x45, 0x98, BURST_TYPE},
+	{0x46, 0x63, BURST_TYPE}, //Dark1 0x1463
+	{0x47, 0xe4, BURST_TYPE}, //skin_std_th_h
+	{0x48, 0x64, BURST_TYPE}, //Dark1 0x1464
+	{0x49, 0xa4, BURST_TYPE}, //skin_std_th_l
+	{0x4a, 0x65, BURST_TYPE}, //Dark1 0x1465
+	{0x4b, 0x7d, BURST_TYPE}, //sharp_std_th_h
+	{0x4c, 0x66, BURST_TYPE}, //Dark1 0x1466
+	{0x4d, 0x4b, BURST_TYPE}, //sharp_std_th_l
+	{0x4e, 0x70, BURST_TYPE}, //Dark1 0x1470
+	{0x4f, 0x10, BURST_TYPE},
+	{0x50, 0x71, BURST_TYPE}, //Dark1 0x1471
+	{0x51, 0x10, BURST_TYPE},
+	{0x52, 0x72, BURST_TYPE}, //Dark1 0x1472
+	{0x53, 0x10, BURST_TYPE},
+	{0x54, 0x73, BURST_TYPE}, //Dark1 0x1473
+	{0x55, 0x10, BURST_TYPE},
+	{0x56, 0x74, BURST_TYPE}, //Dark1 0x1474
+	{0x57, 0x10, BURST_TYPE},
+	{0x58, 0x75, BURST_TYPE}, //Dark1 0x1475
+	{0x59, 0x10, BURST_TYPE},
+	{0x5a, 0x76, BURST_TYPE}, //Dark1 0x1476
+	{0x5b, 0x28, BURST_TYPE},
+	{0x5c, 0x77, BURST_TYPE}, //Dark1 0x1477
+	{0x5d, 0x28, BURST_TYPE},
+	{0x5e, 0x78, BURST_TYPE}, //Dark1 0x1478
+	{0x5f, 0x28, BURST_TYPE},
+	{0x60, 0x79, BURST_TYPE}, //Dark1 0x1479
+	{0x61, 0x28, BURST_TYPE},
+	{0x62, 0x7a, BURST_TYPE}, //Dark1 0x147a
+	{0x63, 0x28, BURST_TYPE},
+	{0x64, 0x7b, BURST_TYPE}, //Dark1 0x147b
+	{0x65, 0x28, BURST_TYPE},
+	// STEVE Saturation control
+	// CB/CR vs sat
+	//_CHANGE_S ADD INTO MR ver. for low light condition
+
+	{0x66, 0x03, BURST_TYPE}, //page 10
+	{0x67, 0x10, BURST_TYPE}, //
+	{0x68, 0x70, BURST_TYPE}, //Dark1 0x1070
+	{0x69, 0x08, BURST_TYPE}, //
+	{0x6a, 0x71, BURST_TYPE}, //Dark1 0x1071
+	{0x6b, 0x00, BURST_TYPE}, //
+	{0x6c, 0x72, BURST_TYPE}, //Dark1 0x1072
+	{0x6d, 0x62, BURST_TYPE}, //
+	{0x6e, 0x73, BURST_TYPE}, //Dark1 0x1073
+	{0x6f, 0x6d, BURST_TYPE}, //
+	{0x70, 0x74, BURST_TYPE}, //Dark1 0x1074
+	{0x71, 0x36, BURST_TYPE}, //
+	{0x72, 0x75, BURST_TYPE}, //Dark1 0x1075
+	{0x73, 0x00, BURST_TYPE}, //
+	{0x74, 0x76, BURST_TYPE}, //Dark1 0x1076
+	{0x75, 0x2e, BURST_TYPE}, //
+	{0x76, 0x77, BURST_TYPE}, //Dark1 0x1077
+	{0x77, 0x35, BURST_TYPE}, //
+	{0x78, 0x78, BURST_TYPE}, //Dark1 0x1078
+	{0x79, 0xc2, BURST_TYPE}, //
+	{0x7a, 0x79, BURST_TYPE}, //Dark1 0x1079
+	{0x7b, 0x3a, BURST_TYPE}, //
+	{0x7c, 0x7a, BURST_TYPE}, //Dark1 0x107a
+	{0x7d, 0xe1, BURST_TYPE}, //
+	{0x7e, 0x7b, BURST_TYPE}, //Dark1 0x107b
+	{0x7f, 0x40, BURST_TYPE}, //
+	{0x80, 0x7c, BURST_TYPE}, //Dark1 0x107c
+	{0x81, 0x00, BURST_TYPE}, //
+	{0x82, 0x7d, BURST_TYPE}, //Dark1 0x107d
+	{0x83, 0x14, BURST_TYPE}, //
+	{0x84, 0x7e, BURST_TYPE}, //Dark1 0x107e
+	{0x85, 0x20, BURST_TYPE}, //
+	{0x86, 0x7f, BURST_TYPE}, //Dark1 0x107f
+	{0x87, 0x38, BURST_TYPE}, //
+
+	// Lum Vs Sat
+	{0x88, 0x03, BURST_TYPE}, // page 16
+	{0x89, 0x16, BURST_TYPE}, //
+	{0x8A, 0x8a, BURST_TYPE}, // Dark1 0x168a
+	{0x8B, 0x6d, BURST_TYPE}, //
+	{0x8C, 0x8b, BURST_TYPE}, // Dark1 0x168b
+	{0x8D, 0x78, BURST_TYPE}, //
+	{0x8E, 0x8c, BURST_TYPE}, // Dark1 0x168c
+	{0x8F, 0x7d, BURST_TYPE}, //
+	{0x90, 0x8d, BURST_TYPE}, // Dark1 0x168d
+	{0x91, 0x7f, BURST_TYPE}, //
+	{0x92, 0x8e, BURST_TYPE}, // Dark1 0x168e
+	{0x93, 0x7f, BURST_TYPE}, //
+	{0x94, 0x8f, BURST_TYPE}, // Dark1 0x168f
+	{0x95, 0x7f, BURST_TYPE}, //
+	{0x96, 0x90, BURST_TYPE}, // Dark1 0x1690
+	{0x97, 0x7f, BURST_TYPE}, //
+	{0x98, 0x91, BURST_TYPE}, // Dark1 0x1691
+	{0x99, 0x7f, BURST_TYPE}, //
+	{0x9A, 0x92, BURST_TYPE}, // Dark1 0x1692
+	{0x9B, 0x7f, BURST_TYPE}, //
+	{0x9C, 0x93, BURST_TYPE}, // Dark1 0x1693
+	{0x9D, 0x7f, BURST_TYPE}, //
+	{0x9E, 0x94, BURST_TYPE}, // Dark1 0x1694
+	{0x9F, 0x7f, BURST_TYPE}, //
+	{0xA0, 0x95, BURST_TYPE}, // Dark1 0x1695
+	{0xA1, 0x7f, BURST_TYPE}, //
+	{0xA2, 0x96, BURST_TYPE}, // Dark1 0x1696
+	{0xA3, 0x7f, BURST_TYPE}, //
+	{0xA4, 0x97, BURST_TYPE}, // Dark1 0x1697
+	{0xA5, 0x7f, BURST_TYPE}, //
+	{0xA6, 0x98, BURST_TYPE}, // Dark1 0x1698
+	{0xA7, 0x7f, BURST_TYPE}, //
+	{0xA8, 0x99, BURST_TYPE}, // Dark1 0x1699
+	{0xA9, 0x7c, BURST_TYPE}, //
+	{0xAA, 0x9a, BURST_TYPE}, // Dark1 0x169a
+	{0xAB, 0x78, BURST_TYPE_ED}, //
+	//_CHANGE_E ADD INTO MR ver. for low light condition
+
+
+	//////////////////
+	// e3 Page (DMA Dark2)
+	//////////////////
+
+	{0x03, 0xe3, BYTE_LEN},
+	{0x10, 0x03, BURST_TYPE},//Dark2 Page11
+	{0x11, 0x11, BURST_TYPE},
+	{0x12, 0x10, BURST_TYPE},//Dark2 0x1110
+	{0x13, 0x1f, BURST_TYPE},
+	{0x14, 0x11, BURST_TYPE},//Dark2 0x1111
+	{0x15, 0x3f, BURST_TYPE},
+	{0x16, 0x12, BURST_TYPE},//Dark2 0x1112
+	{0x17, 0x32, BURST_TYPE},
+	{0x18, 0x13, BURST_TYPE},//Dark2 0x1113
+	{0x19, 0x21, BURST_TYPE},
+	{0x1a, 0x14, BURST_TYPE},//Dark2 0x1114
+	{0x1b, 0x39, BURST_TYPE},
+	{0x1c, 0x30, BURST_TYPE},//Dark2 0x1130
+	{0x1d, 0x20, BURST_TYPE},
+	{0x1e, 0x31, BURST_TYPE},//Dark2 0x1131
+	{0x1f, 0x20, BURST_TYPE},
+	{0x20, 0x32, BURST_TYPE},  //Dark2 0x1132 //STEVE Lum. Level. in DLPF
+	{0x21, 0x8b, BURST_TYPE},  //52                    82
+	{0x22, 0x33, BURST_TYPE},  //Dark2 0x1133
+	{0x23, 0x54, BURST_TYPE},  //3b                    5d
+	{0x24, 0x34, BURST_TYPE},  //Dark2 0x1134
+	{0x25, 0x2c, BURST_TYPE},  //1d                    37
+	{0x26, 0x35, BURST_TYPE},  //Dark2 0x1135
+	{0x27, 0x29, BURST_TYPE},  //21                    30
+	{0x28, 0x36, BURST_TYPE},  //Dark2 0x1136
+	{0x29, 0x18, BURST_TYPE},  //1b                    18
+	{0x2a, 0x37, BURST_TYPE},  //Dark2 0x1137
+	{0x2b, 0x1e, BURST_TYPE},  //21                    24
+	{0x2c, 0x38, BURST_TYPE},  //Dark2 0x1138
+	{0x2d, 0x17, BURST_TYPE},  //18                    18
+	{0x2e, 0x39, BURST_TYPE},//Dark2 0x1139 gain 1
+
+	{0x2f, 0x80, BURST_TYPE},    //r2 1
+	{0x30, 0x3a, BURST_TYPE},//Dark2 0x113a
+	{0x31, 0x82, BURST_TYPE},
+	{0x32, 0x3b, BURST_TYPE},//Dark2 0x113b
+	{0x33, 0x82, BURST_TYPE},
+	{0x34, 0x3c, BURST_TYPE},//Dark2 0x113c
+	{0x35, 0x82, BURST_TYPE},   //18
+	{0x36, 0x3d, BURST_TYPE},//Dark2 0x113d
+	{0x37, 0x82, BURST_TYPE},   //18
+	{0x38, 0x3e, BURST_TYPE},//Dark2 0x113e
+	{0x39, 0x82, BURST_TYPE},   //18
+	{0x3a, 0x3f, BURST_TYPE},//Dark2 0x113f
+	{0x3b, 0x82, BURST_TYPE},
+	{0x3c, 0x40, BURST_TYPE},//Dark2 0x1140 gain 8
+	{0x3d, 0x82, BURST_TYPE},
+	{0x3e, 0x41, BURST_TYPE},//Dark2 0x1141
+	{0x3f, 0xf0, BURST_TYPE},
+	{0x40, 0x42, BURST_TYPE},//Dark2 0x1142
+	{0x41, 0xf0, BURST_TYPE},
+	{0x42, 0x43, BURST_TYPE},//Dark2 0x1143
+	{0x43, 0xf0, BURST_TYPE},
+	{0x44, 0x44, BURST_TYPE},//Dark2 0x1144
+	{0x45, 0xf0, BURST_TYPE},
+	{0x46, 0x45, BURST_TYPE},//Dark2 0x1145
+	{0x47, 0xf0, BURST_TYPE},
+	{0x48, 0x46, BURST_TYPE},//Dark2 0x1146
+	{0x49, 0xf0, BURST_TYPE},
+	{0x4a, 0x47, BURST_TYPE},//Dark2 0x1147
+	{0x4b, 0xf0, BURST_TYPE},
+	{0x4c, 0x48, BURST_TYPE},//Dark2 0x1148
+	{0x4d, 0xf0, BURST_TYPE},
+	{0x4e, 0x49, BURST_TYPE},//Dark2 0x1149
+	{0x4f, 0x10, BURST_TYPE}, //high_clip_start
+	{0x50, 0x4a, BURST_TYPE},//Dark2 0x114a
+	{0x51, 0x10, BURST_TYPE},
+	{0x52, 0x4b, BURST_TYPE},//Dark2 0x114b
+	{0x53, 0x10, BURST_TYPE},
+	{0x54, 0x4c, BURST_TYPE},//Dark2 0x114c
+	{0x55, 0x10, BURST_TYPE},
+	{0x56, 0x4d, BURST_TYPE},//Dark2 0x114d
+	{0x57, 0x10, BURST_TYPE},
+	{0x58, 0x4e, BURST_TYPE},//Dark2 0x114e
+	{0x59, 0x10, BURST_TYPE},   //Lv 6 h_clip
+	{0x5a, 0x4f, BURST_TYPE},//Dark2 0x114f
+	{0x5b, 0x10, BURST_TYPE},   //Lv 7 h_clip
+	{0x5c, 0x50, BURST_TYPE},//Dark2 0x1150 clip 8
+	{0x5d, 0x10, BURST_TYPE},
+	{0x5e, 0x51, BURST_TYPE},//Dark2 0x1151
+	{0x5f, 0xd8, BURST_TYPE}, //color gain start
+	{0x60, 0x52, BURST_TYPE},//Dark2 0x1152
+	{0x61, 0xd8, BURST_TYPE},
+	{0x62, 0x53, BURST_TYPE},//Dark2 0x1153
+	{0x63, 0xd8, BURST_TYPE},
+	{0x64, 0x54, BURST_TYPE},//Dark2 0x1154
+	{0x65, 0xd0, BURST_TYPE},
+	{0x66, 0x55, BURST_TYPE},//Dark2 0x1155
+	{0x67, 0xd0, BURST_TYPE},
+	{0x68, 0x56, BURST_TYPE},//Dark2 0x1156
+	{0x69, 0xc8, BURST_TYPE},
+	{0x6a, 0x57, BURST_TYPE},//Dark2 0x1157
+	{0x6b, 0xc0, BURST_TYPE},
+	{0x6c, 0x58, BURST_TYPE},//Dark2 0x1158
+	{0x6d, 0xc0, BURST_TYPE}, //color gain end
+	{0x6e, 0x59, BURST_TYPE},//Dark2 0x1159
+	{0x6f, 0xf0, BURST_TYPE}, //color ofs lmt start
+	{0x70, 0x5a, BURST_TYPE},//Dark2 0x115a
+	{0x71, 0xf0, BURST_TYPE},
+	{0x72, 0x5b, BURST_TYPE},//Dark2 0x115b
+	{0x73, 0xf0, BURST_TYPE},
+	{0x74, 0x5c, BURST_TYPE},//Dark2 0x115c
+	{0x75, 0xe8, BURST_TYPE},
+	{0x76, 0x5d, BURST_TYPE},//Dark2 0x115d
+	{0x77, 0xe8, BURST_TYPE},
+	{0x78, 0x5e, BURST_TYPE},//Dark2 0x115e
+	{0x79, 0xe0, BURST_TYPE},
+	{0x7a, 0x5f, BURST_TYPE},//Dark2 0x115f
+	{0x7b, 0xe0, BURST_TYPE},
+	{0x7c, 0x60, BURST_TYPE},//Dark2 0x1160
+	{0x7d, 0xe0, BURST_TYPE},//color ofs lmt end
+	{0x7e, 0x61, BURST_TYPE},//Dark2 0x1161
+	{0x7f, 0xf0, BURST_TYPE},
+	{0x80, 0x62, BURST_TYPE},//Dark2 0x1162
+	{0x81, 0xf0, BURST_TYPE},
+	{0x82, 0x63, BURST_TYPE},//Dark2 0x1163
+	{0x83, 0x80, BURST_TYPE},
+	{0x84, 0x64, BURST_TYPE},//Dark2 0x1164
+	{0x85, 0x40, BURST_TYPE},
+	{0x86, 0x65, BURST_TYPE},//Dark2 0x1165
+	{0x87, 0x02, BURST_TYPE},
+	{0x88, 0x66, BURST_TYPE},//Dark2 0x1166
+	{0x89, 0x02, BURST_TYPE},
+	{0x8a, 0x67, BURST_TYPE},//Dark2 0x1167
+	{0x8b, 0x02, BURST_TYPE},
+	{0x8c, 0x68, BURST_TYPE},//Dark2 0x1168
+	{0x8d, 0x80, BURST_TYPE},
+	{0x8e, 0x69, BURST_TYPE},//Dark2 0x1169
+	{0x8f, 0x40, BURST_TYPE},
+	{0x90, 0x6a, BURST_TYPE},//Dark2 0x116a
+	{0x91, 0x02, BURST_TYPE},
+	{0x92, 0x6b, BURST_TYPE},//Dark2 0x116b
+	{0x93, 0x02, BURST_TYPE},
+	{0x94, 0x6c, BURST_TYPE},//Dark2 0x116c
+	{0x95, 0x02, BURST_TYPE},
+	{0x96, 0x6d, BURST_TYPE},//Dark2 0x116d
+	{0x97, 0x80, BURST_TYPE},
+	{0x98, 0x6e, BURST_TYPE},//Dark2 0x116e
+	{0x99, 0x40, BURST_TYPE},
+	{0x9a, 0x6f, BURST_TYPE},//Dark2 0x116f
+	{0x9b, 0x02, BURST_TYPE},
+	{0x9c, 0x70, BURST_TYPE},//Dark2 0x1170
+	{0x9d, 0x02, BURST_TYPE},
+	{0x9e, 0x71, BURST_TYPE},//Dark2 0x1171
+	{0x9f, 0x02, BURST_TYPE},
+	{0xa0, 0x72, BURST_TYPE},//Dark2 0x1172
+	{0xa1, 0x6e, BURST_TYPE},
+	{0xa2, 0x73, BURST_TYPE},//Dark2 0x1173
+	{0xa3, 0x3a, BURST_TYPE},
+	{0xa4, 0x74, BURST_TYPE},//Dark2 0x1174
+	{0xa5, 0x02, BURST_TYPE},
+	{0xa6, 0x75, BURST_TYPE},//Dark2 0x1175
+	{0xa7, 0x02, BURST_TYPE},
+	{0xa8, 0x76, BURST_TYPE},//Dark2 0x1176
+	{0xa9, 0x02, BURST_TYPE},//18
+	{0xaa, 0x77, BURST_TYPE},//Dark2 0x1177
+	{0xab, 0x6e, BURST_TYPE},
+	{0xac, 0x78, BURST_TYPE},//Dark2 0x1178
+	{0xad, 0x3a, BURST_TYPE},
+	{0xae, 0x79, BURST_TYPE},//Dark2 0x1179
+	{0xaf, 0x02, BURST_TYPE},
+	{0xb0, 0x7a, BURST_TYPE},//Dark2 0x117a
+	{0xb1, 0x02, BURST_TYPE},
+	{0xb2, 0x7b, BURST_TYPE},//Dark2 0x117b
+	{0xb3, 0x02, BURST_TYPE},
+	{0xb4, 0x7c, BURST_TYPE},//Dark2 0x117c
+	{0xb5, 0x5c, BURST_TYPE},
+	{0xb6, 0x7d, BURST_TYPE},//Dark2 0x117d
+	{0xb7, 0x30, BURST_TYPE},
+	{0xb8, 0x7e, BURST_TYPE},//Dark2 0x117e
+	{0xb9, 0x02, BURST_TYPE},
+	{0xba, 0x7f, BURST_TYPE},//Dark2 0x117f
+	{0xbb, 0x02, BURST_TYPE},
+	{0xbc, 0x80, BURST_TYPE},//Dark2 0x1180
+	{0xbd, 0x02, BURST_TYPE},
+	{0xbe, 0x81, BURST_TYPE},//Dark2 0x1181
+	{0xbf, 0x62, BURST_TYPE},
+	{0xc0, 0x82, BURST_TYPE},//Dark2 0x1182
+	{0xc1, 0x26, BURST_TYPE},
+	{0xc2, 0x83, BURST_TYPE},//Dark2 0x1183
+	{0xc3, 0x02, BURST_TYPE},
+	{0xc4, 0x84, BURST_TYPE},//Dark2 0x1184
+	{0xc5, 0x02, BURST_TYPE},
+	{0xc6, 0x85, BURST_TYPE},//Dark2 0x1185
+	{0xc7, 0x02, BURST_TYPE},
+	{0xc8, 0x86, BURST_TYPE},//Dark2 0x1186
+	{0xc9, 0x62, BURST_TYPE},
+	{0xca, 0x87, BURST_TYPE},//Dark2 0x1187
+	{0xcb, 0x26, BURST_TYPE},
+	{0xcc, 0x88, BURST_TYPE},//Dark2 0x1188
+	{0xcd, 0x02, BURST_TYPE},
+	{0xce, 0x89, BURST_TYPE},//Dark2 0x1189
+	{0xcf, 0x02, BURST_TYPE},
+	{0xd0, 0x8a, BURST_TYPE},//Dark2 0x118a
+	{0xd1, 0x02, BURST_TYPE},
+	{0xd2, 0x90, BURST_TYPE},//Dark2 0x1190
+	{0xd3, 0x03, BURST_TYPE},
+	{0xd4, 0x91, BURST_TYPE},//Dark2 0x1191
+	{0xd5, 0xff, BURST_TYPE},
+	{0xd6, 0x92, BURST_TYPE},//Dark2 0x1192
+	{0xd7, 0x00, BURST_TYPE},
+	{0xd8, 0x93, BURST_TYPE},//Dark2 0x1193
+	{0xd9, 0x00, BURST_TYPE},
+	{0xda, 0x94, BURST_TYPE},//Dark2 0x1194
+	{0xdb, 0x03, BURST_TYPE},
+	{0xdc, 0x95, BURST_TYPE},//Dark2 0x1195
+	{0xdd, 0x64, BURST_TYPE},
+	{0xde, 0x96, BURST_TYPE},//Dark2 0x1196
+	{0xdf, 0x00, BURST_TYPE},
+	{0xe0, 0x97, BURST_TYPE},//Dark2 0x1197
+	{0xe1, 0x00, BURST_TYPE},
+	{0xe2, 0xb0, BURST_TYPE},//Dark2 0x11b0
+	{0xe3, 0x64, BURST_TYPE},
+	{0xe4, 0xb1, BURST_TYPE},//Dark2 0x11b1
+	{0xe5, 0x80, BURST_TYPE},
+	{0xe6, 0xb2, BURST_TYPE},//Dark2 0x11b2
+	{0xe7, 0x00, BURST_TYPE},
+	{0xe8, 0xb3, BURST_TYPE},//Dark2 0x11b3
+	{0xe9, 0x00, BURST_TYPE},
+	{0xea, 0xb4, BURST_TYPE},//Dark2 0x11b4
+	{0xeb, 0x03, BURST_TYPE},
+	{0xec, 0x03, BURST_TYPE},
+	{0xed, 0x12, BURST_TYPE},//12 page
+	{0xee, 0x10, BURST_TYPE}, //Dark2 0x1210
+	{0xef, 0x03, BURST_TYPE},
+	{0xf0, 0x11, BURST_TYPE}, //Dark2 0x1211
+	{0xf1, 0x29, BURST_TYPE},
+	{0xf2, 0x12, BURST_TYPE}, //Dark2 0x1212
+	{0xf3, 0x08, BURST_TYPE},
+	{0xf4, 0x40, BURST_TYPE}, //Dark2 0x1240
+	{0xf5, 0x33, BURST_TYPE}, //07
+	{0xf6, 0x41, BURST_TYPE}, //Dark2 0x1241
+	{0xf7, 0x0a, BURST_TYPE}, //32
+	{0xf8, 0x42, BURST_TYPE}, //Dark2 0x1242
+	{0xf9, 0x6a, BURST_TYPE}, //8c
+	{0xfa, 0x43, BURST_TYPE}, //Dark2 0x1243
+	{0xfb, 0x80, BURST_TYPE},
+	{0xfc, 0x44, BURST_TYPE}, //Dark2 0x1244
+	{0xfd, 0x02, BURST_TYPE_ED},
+	//{0xfe, 0x45, BURST_TYPE}, // STEVE deleted
+	//{0xff, 0x0a, BURST_TYPE}, // STEVE deleted
+
+	{0x03, 0xe4, BYTE_LEN},
+	{0x10, 0x45, BURST_TYPE}, //Dark2 0x1245
+	{0x11, 0x0a, BURST_TYPE},
+	{0x12, 0x46, BURST_TYPE}, //Dark2 0x1246
+	{0x13, 0x80, BURST_TYPE},
+	{0x14, 0x60, BURST_TYPE}, //Dark2 0x1260
+	{0x15, 0x02, BURST_TYPE},
+	{0x16, 0x61, BURST_TYPE}, //Dark2 0x1261
+	{0x17, 0x04, BURST_TYPE},
+	{0x18, 0x62, BURST_TYPE}, //Dark2 0x1262
+	{0x19, 0x4b, BURST_TYPE},
+	{0x1a, 0x63, BURST_TYPE}, //Dark2 0x1263
+	{0x1b, 0x41, BURST_TYPE},
+	{0x1c, 0x64, BURST_TYPE}, //Dark2 0x1264
+	{0x1d, 0x14, BURST_TYPE},
+	{0x1e, 0x65, BURST_TYPE}, //Dark2 0x1265
+	{0x1f, 0x00, BURST_TYPE},
+	{0x20, 0x68, BURST_TYPE}, //Dark2 0x1268
+	{0x21, 0x0a, BURST_TYPE},
+	{0x22, 0x69, BURST_TYPE}, //Dark2 0x1269
+	{0x23, 0x04, BURST_TYPE},
+	{0x24, 0x6a, BURST_TYPE}, //Dark2 0x126a
+	{0x25, 0x0a, BURST_TYPE},
+	{0x26, 0x6b, BURST_TYPE}, //Dark2 0x126b
+	{0x27, 0x0a, BURST_TYPE},
+	{0x28, 0x6c, BURST_TYPE}, //Dark2 0x126c
+	{0x29, 0x24, BURST_TYPE},
+	{0x2a, 0x6d, BURST_TYPE}, //Dark2 0x126d
+	{0x2b, 0x01, BURST_TYPE},
+	{0x2c, 0x70, BURST_TYPE}, //Dark2 0x1270
+	{0x2d, 0x29, BURST_TYPE},
+	{0x2e, 0x71, BURST_TYPE}, //Dark2 0x1271
+	{0x2f, 0x7f, BURST_TYPE},
+	{0x30, 0x80, BURST_TYPE}, //Dark2 0x1280
+	{0x31, 0x30, BURST_TYPE},
+	{0x32, 0x81, BURST_TYPE}, //Dark2 0x1281
+	{0x33, 0xa0, BURST_TYPE},
+	{0x34, 0x82, BURST_TYPE}, //Dark2 0x1282
+	{0x35, 0xa0, BURST_TYPE},
+	{0x36, 0x83, BURST_TYPE}, //Dark2 0x1283
+	{0x37, 0x00, BURST_TYPE},
+	{0x38, 0x84, BURST_TYPE}, //Dark2 0x1284
+	{0x39, 0x30, BURST_TYPE},
+	{0x3a, 0x85, BURST_TYPE}, //Dark2 0x1285
+	{0x3b, 0xa0, BURST_TYPE},
+	{0x3c, 0x86, BURST_TYPE}, //Dark2 0x1286
+	{0x3d, 0xa0, BURST_TYPE},
+	{0x3e, 0x87, BURST_TYPE}, //Dark2 0x1287
+	{0x3f, 0x00, BURST_TYPE},
+	{0x40, 0x88, BURST_TYPE}, //Dark2 0x1288
+	{0x41, 0x30, BURST_TYPE},
+	{0x42, 0x89, BURST_TYPE}, //Dark2 0x1289
+	{0x43, 0xc0, BURST_TYPE},
+	{0x44, 0x8a, BURST_TYPE}, //Dark2 0x128a
+	{0x45, 0xb0, BURST_TYPE},
+	{0x46, 0x8b, BURST_TYPE}, //Dark2 0x128b
+	{0x47, 0x08, BURST_TYPE},
+	{0x48, 0x8c, BURST_TYPE}, //Dark2 0x128c
+	{0x49, 0x05, BURST_TYPE},
+	{0x4a, 0x8d, BURST_TYPE}, //Dark2 0x128d
+	{0x4b, 0x03, BURST_TYPE},
+	{0x4c, 0xe6, BURST_TYPE}, //Dark2 0x12e6
+	{0x4d, 0xff, BURST_TYPE},
+	{0x4e, 0xe7, BURST_TYPE}, //Dark2 0x12e7
+	{0x4f, 0x18, BURST_TYPE},
+	{0x50, 0xe8, BURST_TYPE}, //Dark2 0x12e8
+	{0x51, 0x0a, BURST_TYPE},
+	{0x52, 0xe9, BURST_TYPE}, //Dark2 0x12e9
+	{0x53, 0x04, BURST_TYPE},
+	{0x54, 0x03, BURST_TYPE},
+	{0x55, 0x13, BURST_TYPE},//13 page
+	{0x56, 0x10, BURST_TYPE}, //Dark2 0x1310
+	{0x57, 0x3f, BURST_TYPE},
+	{0x58, 0x20, BURST_TYPE}, //Dark2 0x1320
+	{0x59, 0x20, BURST_TYPE},
+	{0x5a, 0x21, BURST_TYPE}, //Dark2 0x1321
+	{0x5b, 0x30, BURST_TYPE},
+	{0x5c, 0x22, BURST_TYPE}, //Dark2 0x1322
+	{0x5d, 0x36, BURST_TYPE},
+	{0x5e, 0x23, BURST_TYPE}, //Dark2 0x1323
+	{0x5f, 0x6a, BURST_TYPE},
+	{0x60, 0x24, BURST_TYPE}, //Dark2 0x1324
+	{0x61, 0xa0, BURST_TYPE},
+	{0x62, 0x25, BURST_TYPE}, //Dark2 0x1325
+	{0x63, 0xc0, BURST_TYPE},
+	{0x64, 0x26, BURST_TYPE}, //Dark2 0x1326
+	{0x65, 0xe0, BURST_TYPE},
+	{0x66, 0x27, BURST_TYPE}, //Dark2 0x1327 lum 0
+	{0x67, 0x04, BURST_TYPE},
+	{0x68, 0x28, BURST_TYPE}, //Dark2 0x1328
+	{0x69, 0x00, BURST_TYPE},
+	{0x6a, 0x29, BURST_TYPE}, //Dark2 0x1329
+	{0x6b, 0x00, BURST_TYPE},
+	{0x6c, 0x2a, BURST_TYPE}, //Dark2 0x132a
+	{0x6d, 0x00, BURST_TYPE},
+	{0x6e, 0x2b, BURST_TYPE}, //Dark2 0x132b
+	{0x6f, 0x00, BURST_TYPE},
+	{0x70, 0x2c, BURST_TYPE}, //Dark2 0x132c
+	{0x71, 0x00, BURST_TYPE},
+	{0x72, 0x2d, BURST_TYPE}, //Dark2 0x132d
+	{0x73, 0x00, BURST_TYPE},
+	{0x74, 0x2e, BURST_TYPE}, //Dark2 0x132e lum7
+	{0x75, 0x00, BURST_TYPE},
+	{0x76, 0x2f, BURST_TYPE}, //Dark2 0x132f	   //weight skin
+	{0x77, 0x00, BURST_TYPE},
+	{0x78, 0x30, BURST_TYPE}, //Dark2 0x1330	   //weight blue
+	{0x79, 0x00, BURST_TYPE},
+	{0x7a, 0x31, BURST_TYPE}, //Dark2 0x1331	   //weight green
+	{0x7b, 0x00, BURST_TYPE},
+	{0x7c, 0x32, BURST_TYPE}, //Dark2 0x1332	   //weight strong color
+	{0x7d, 0x00, BURST_TYPE},
+	{0x7e, 0x33, BURST_TYPE}, //Dark2 0x1333
+	{0x7f, 0x00, BURST_TYPE},
+	{0x80, 0x34, BURST_TYPE}, //Dark2 0x1334
+	{0x81, 0x00, BURST_TYPE},
+	{0x82, 0x35, BURST_TYPE}, //Dark2 0x1335
+	{0x83, 0x00, BURST_TYPE},
+	{0x84, 0x36, BURST_TYPE}, //Dark2 0x1336
+	{0x85, 0x00, BURST_TYPE},
+	{0x86, 0xa0, BURST_TYPE}, //Dark2 0x13a0
+	{0x87, 0x07, BURST_TYPE},
+	{0x88, 0xa8, BURST_TYPE}, //Dark2 0x13a8	   //Dark2 Cb-filter 0x20
+	{0x89, 0x30, BURST_TYPE},
+	{0x8a, 0xa9, BURST_TYPE}, //Dark2 0x13a9	   //Dark2 Cr-filter 0x20
+	{0x8b, 0x30, BURST_TYPE},
+	{0x8c, 0xaa, BURST_TYPE}, //Dark2 0x13aa
+	{0x8d, 0x30, BURST_TYPE},
+	{0x8e, 0xab, BURST_TYPE}, //Dark2 0x13ab
+	{0x8f, 0x02, BURST_TYPE},
+	{0x90, 0xc0, BURST_TYPE}, //Dark2 0x13c0
+	{0x91, 0x27, BURST_TYPE},
+	{0x92, 0xc2, BURST_TYPE}, //Dark2 0x13c2
+	{0x93, 0x08, BURST_TYPE},
+	{0x94, 0xc3, BURST_TYPE}, //Dark2 0x13c3
+	{0x95, 0x08, BURST_TYPE},
+	{0x96, 0xc4, BURST_TYPE}, //Dark2 0x13c4
+	{0x97, 0x46, BURST_TYPE},
+	{0x98, 0xc5, BURST_TYPE}, //Dark2 0x13c5
+	{0x99, 0x78, BURST_TYPE},
+	{0x9a, 0xc6, BURST_TYPE}, //Dark2 0x13c6
+	{0x9b, 0xf0, BURST_TYPE},
+	{0x9c, 0xc7, BURST_TYPE}, //Dark2 0x13c7
+	{0x9d, 0x10, BURST_TYPE},
+	{0x9e, 0xc8, BURST_TYPE}, //Dark2 0x13c8
+	{0x9f, 0x44, BURST_TYPE},
+	{0xa0, 0xc9, BURST_TYPE}, //Dark2 0x13c9
+	{0xa1, 0x87, BURST_TYPE},
+	{0xa2, 0xca, BURST_TYPE}, //Dark2 0x13ca
+	{0xa3, 0xff, BURST_TYPE},
+	{0xa4, 0xcb, BURST_TYPE}, //Dark2 0x13cb
+	{0xa5, 0x20, BURST_TYPE},
+	{0xa6, 0xcc, BURST_TYPE}, //Dark2 0x13cc	   //skin range_cb_l
+	{0xa7, 0x61, BURST_TYPE},
+	{0xa8, 0xcd, BURST_TYPE}, //Dark2 0x13cd	   //skin range_cb_h
+	{0xa9, 0x87, BURST_TYPE},
+	{0xaa, 0xce, BURST_TYPE}, //Dark2 0x13ce	   //skin range_cr_l
+	{0xab, 0x8a, BURST_TYPE},
+	{0xac, 0xcf, BURST_TYPE}, //Dark2 0x13cf	   //skin range_cr_h
+	{0xad, 0xa5, BURST_TYPE},
+	{0xae, 0x03, BURST_TYPE}, //14 page
+	{0xaf, 0x14, BURST_TYPE},
+	{0xb0, 0x10, BURST_TYPE}, //Dark2 0x1410
+	{0xb1, 0x27, BURST_TYPE},
+	{0xb2, 0x11, BURST_TYPE}, //Dark2 0x1411
+	{0xb3, 0x00, BURST_TYPE},
+	{0xb4, 0x12, BURST_TYPE}, //Dark2 0x1412
+	{0xb5, 0x40, BURST_TYPE}, //Top H_Clip
+	{0xb6, 0x13, BURST_TYPE}, //Dark2 0x1413
+	{0xb7, 0xc8, BURST_TYPE},
+	{0xb8, 0x14, BURST_TYPE}, //Dark2 0x1414
+	{0xb9, 0x50, BURST_TYPE},
+	{0xba, 0x15, BURST_TYPE}, //Dark2 0x1415	   //sharp positive hi
+	{0xbb, 0x19, BURST_TYPE},
+	{0xbc, 0x16, BURST_TYPE}, //Dark2 0x1416	   //sharp positive mi
+	{0xbd, 0x19, BURST_TYPE},
+	{0xbe, 0x17, BURST_TYPE}, //Dark2 0x1417	   //sharp positive low
+	{0xbf, 0x19, BURST_TYPE},
+	{0xc0, 0x18, BURST_TYPE}, //Dark2 0x1418	   //sharp negative hi
+	{0xc1, 0x33, BURST_TYPE},
+	{0xc2, 0x19, BURST_TYPE}, //Dark2 0x1419	   //sharp negative mi
+	{0xc3, 0x33, BURST_TYPE},
+	{0xc4, 0x1a, BURST_TYPE}, //Dark2 0x141a	   //sharp negative low
+	{0xc5, 0x33, BURST_TYPE},
+	{0xc6, 0x20, BURST_TYPE}, //Dark2 0x1420
+	{0xc7, 0x80, BURST_TYPE},
+	{0xc8, 0x21, BURST_TYPE}, //Dark2 0x1421
+	{0xc9, 0x03, BURST_TYPE},
+	{0xca, 0x22, BURST_TYPE}, //Dark2 0x1422
+	{0xcb, 0x05, BURST_TYPE},
+	{0xcc, 0x23, BURST_TYPE}, //Dark2 0x1423
+	{0xcd, 0x07, BURST_TYPE},
+	{0xce, 0x24, BURST_TYPE}, //Dark2 0x1424
+	{0xcf, 0x0a, BURST_TYPE},
+	{0xd0, 0x25, BURST_TYPE}, //Dark2 0x1425
+	{0xd1, 0x46, BURST_TYPE},
+	{0xd2, 0x26, BURST_TYPE}, //Dark2 0x1426
+	{0xd3, 0x32, BURST_TYPE},
+	{0xd4, 0x27, BURST_TYPE}, //Dark2 0x1427
+	{0xd5, 0x1e, BURST_TYPE},
+	{0xd6, 0x28, BURST_TYPE}, //Dark2 0x1428
+	{0xd7, 0x19, BURST_TYPE},
+	{0xd8, 0x29, BURST_TYPE}, //Dark2 0x1429
+	{0xd9, 0x00, BURST_TYPE},
+	{0xda, 0x2a, BURST_TYPE}, //Dark2 0x142a
+	{0xdb, 0x10, BURST_TYPE},
+	{0xdc, 0x2b, BURST_TYPE}, //Dark2 0x142b
+	{0xdd, 0x10, BURST_TYPE},
+	{0xde, 0x2c, BURST_TYPE}, //Dark2 0x142c
+	{0xdf, 0x10, BURST_TYPE},
+	{0xe0, 0x2d, BURST_TYPE}, //Dark2 0x142d
+	{0xe1, 0x80, BURST_TYPE},
+	{0xe2, 0x2e, BURST_TYPE}, //Dark2 0x142e
+	{0xe3, 0x80, BURST_TYPE},
+	{0xe4, 0x2f, BURST_TYPE}, //Dark2 0x142f
+	{0xe5, 0x80, BURST_TYPE},
+	{0xe6, 0x30, BURST_TYPE}, //Dark2 0x1430
+	{0xe7, 0x80, BURST_TYPE},
+	{0xe8, 0x31, BURST_TYPE}, //Dark2 0x1431
+	{0xe9, 0x02, BURST_TYPE},
+	{0xea, 0x32, BURST_TYPE}, //Dark2 0x1432
+	{0xeb, 0x04, BURST_TYPE},
+	{0xec, 0x33, BURST_TYPE}, //Dark2 0x1433
+	{0xed, 0x04, BURST_TYPE},
+	{0xee, 0x34, BURST_TYPE}, //Dark2 0x1434
+	{0xef, 0x0a, BURST_TYPE},
+	{0xf0, 0x35, BURST_TYPE}, //Dark2 0x1435
+	{0xf1, 0x46, BURST_TYPE},
+	{0xf2, 0x36, BURST_TYPE}, //Dark2 0x1436
+	{0xf3, 0x32, BURST_TYPE},
+	{0xf4, 0x37, BURST_TYPE}, //Dark2 0x1437
+	{0xf5, 0x28, BURST_TYPE},
+	{0xf6, 0x38, BURST_TYPE}, //Dark2 0x1438
+	{0xf7, 0x12, BURST_TYPE},//2d
+	{0xf8, 0x39, BURST_TYPE}, //Dark2 0x1439
+	{0xf9, 0x00, BURST_TYPE},//23
+	{0xfa, 0x3a, BURST_TYPE}, //Dark2 0x143a
+	{0xfb, 0x18, BURST_TYPE}, //dr gain
+	{0xfc, 0x3b, BURST_TYPE}, //Dark2 0x143b
+	{0xfd, 0x20, BURST_TYPE_ED},
+	//{0xfe, 0x3c, BURST_TYPE}, // STEVE deleted
+	//{0xff, 0x20, BURST_TYPE}, // STEVE deleted
+
+	{0x03, 0xe5, BYTE_LEN},
+	{0x10, 0x3c, BURST_TYPE}, //Dark2 0x143c
+	{0x11, 0x18, BURST_TYPE},
+	{0x12, 0x3d, BURST_TYPE}, //Dark2 0x143d
+	{0x13, 0x20, BURST_TYPE}, //nor gain
+	{0x14, 0x3e, BURST_TYPE}, //Dark2 0x143e
+	{0x15, 0x22, BURST_TYPE},
+	{0x16, 0x3f, BURST_TYPE}, //Dark2 0x143f
+	{0x17, 0x10, BURST_TYPE},
+	{0x18, 0x40, BURST_TYPE}, //Dark2 0x1440
+	{0x19, 0x80, BURST_TYPE},
+	{0x1a, 0x41, BURST_TYPE}, //Dark2 0x1441
+	{0x1b, 0x12, BURST_TYPE},
+	{0x1c, 0x42, BURST_TYPE}, //Dark2 0x1442
+	{0x1d, 0xb0, BURST_TYPE},
+	{0x1e, 0x43, BURST_TYPE}, //Dark2 0x1443
+	{0x1f, 0x20, BURST_TYPE},
+	{0x20, 0x44, BURST_TYPE}, //Dark2 0x1444
+	{0x21, 0x20, BURST_TYPE},
+	{0x22, 0x45, BURST_TYPE}, //Dark2 0x1445
+	{0x23, 0x20, BURST_TYPE},
+	{0x24, 0x46, BURST_TYPE}, //Dark2 0x1446
+	{0x25, 0x20, BURST_TYPE},
+	{0x26, 0x47, BURST_TYPE}, //Dark2 0x1447
+	{0x27, 0x08, BURST_TYPE},
+	{0x28, 0x48, BURST_TYPE}, //Dark2 0x1448
+	{0x29, 0x08, BURST_TYPE},
+	{0x2a, 0x49, BURST_TYPE}, //Dark2 0x1449
+	{0x2b, 0x08, BURST_TYPE},
+	{0x2c, 0x50, BURST_TYPE}, //Dark2 0x1450
+	{0x2d, 0x00, BURST_TYPE},
+	{0x2e, 0x51, BURST_TYPE}, //Dark2 0x1451
+	{0x2f, 0x32, BURST_TYPE}, //
+	{0x30, 0x52, BURST_TYPE}, //Dark2 0x1452
+	{0x31, 0x40, BURST_TYPE},
+	{0x32, 0x53, BURST_TYPE}, //Dark2 0x1453
+	{0x33, 0x19, BURST_TYPE},
+	{0x34, 0x54, BURST_TYPE}, //Dark2 0x1454
+	{0x35, 0x60, BURST_TYPE},
+	{0x36, 0x55, BURST_TYPE}, //Dark2 0x1455
+	{0x37, 0x60, BURST_TYPE},
+	{0x38, 0x56, BURST_TYPE}, //Dark2 0x1456
+	{0x39, 0x60, BURST_TYPE},
+	{0x3a, 0x57, BURST_TYPE}, //Dark2 0x1457
+	{0x3b, 0x20, BURST_TYPE},
+	{0x3c, 0x58, BURST_TYPE}, //Dark2 0x1458
+	{0x3d, 0x20, BURST_TYPE},
+	{0x3e, 0x59, BURST_TYPE}, //Dark2 0x1459
+	{0x3f, 0x20, BURST_TYPE},
+	{0x40, 0x60, BURST_TYPE}, //Dark2 0x1460
+	{0x41, 0x03, BURST_TYPE}, //skin opt en
+	{0x42, 0x61, BURST_TYPE}, //Dark2 0x1461
+	{0x43, 0xa0, BURST_TYPE},
+	{0x44, 0x62, BURST_TYPE}, //Dark2 0x1462
+	{0x45, 0x98, BURST_TYPE},
+	{0x46, 0x63, BURST_TYPE}, //Dark2 0x1463
+	{0x47, 0xe4, BURST_TYPE}, //skin_std_th_h
+	{0x48, 0x64, BURST_TYPE}, //Dark2 0x1464
+	{0x49, 0xa4, BURST_TYPE}, //skin_std_th_l
+	{0x4a, 0x65, BURST_TYPE}, //Dark2 0x1465
+	{0x4b, 0x7d, BURST_TYPE}, //sharp_std_th_h
+	{0x4c, 0x66, BURST_TYPE}, //Dark2 0x1466
+	{0x4d, 0x4b, BURST_TYPE}, //sharp_std_th_l
+	{0x4e, 0x70, BURST_TYPE}, //Dark2 0x1470
+	{0x4f, 0x10, BURST_TYPE},
+	{0x50, 0x71, BURST_TYPE}, //Dark2 0x1471
+	{0x51, 0x10, BURST_TYPE},
+	{0x52, 0x72, BURST_TYPE}, //Dark2 0x1472
+	{0x53, 0x10, BURST_TYPE},
+	{0x54, 0x73, BURST_TYPE}, //Dark2 0x1473
+	{0x55, 0x10, BURST_TYPE},
+	{0x56, 0x74, BURST_TYPE}, //Dark2 0x1474
+	{0x57, 0x10, BURST_TYPE},
+	{0x58, 0x75, BURST_TYPE}, //Dark2 0x1475
+	{0x59, 0x10, BURST_TYPE},
+	{0x5a, 0x76, BURST_TYPE}, //Dark2 0x1476
+	{0x5b, 0x28, BURST_TYPE},
+	{0x5c, 0x77, BURST_TYPE}, //Dark2 0x1477
+	{0x5d, 0x28, BURST_TYPE},
+	{0x5e, 0x78, BURST_TYPE}, //Dark2 0x1478
+	{0x5f, 0x28, BURST_TYPE},
+	{0x60, 0x79, BURST_TYPE}, //Dark2 0x1479
+	{0x61, 0x28, BURST_TYPE},
+	{0x62, 0x7a, BURST_TYPE}, //Dark2 0x147a
+	{0x63, 0x28, BURST_TYPE},
+	{0x64, 0x7b, BURST_TYPE}, //Dark2 0x147b
+	{0x65, 0x28, BURST_TYPE},
+
+	// STEVE Saturation control
+	// CB/CR vs sat
+	//_CHANGE_S ADD INTO MR ver. for low light condition
+
+	{0x66, 0x03, BURST_TYPE}, //page 10
+	{0x67, 0x10, BURST_TYPE}, //
+	{0x68, 0x70, BURST_TYPE}, //Dark2 0x1070
+	{0x69, 0x08, BURST_TYPE}, //
+	{0x6a, 0x71, BURST_TYPE}, //Dark2 0x1071
+	{0x6b, 0x00, BURST_TYPE}, //
+	{0x6c, 0x72, BURST_TYPE}, //Dark2 0x1072
+	{0x6d, 0xbe, BURST_TYPE}, //
+	{0x6e, 0x73, BURST_TYPE}, //Dark2 0x1073
+	{0x6f, 0x88, BURST_TYPE}, //
+	{0x70, 0x74, BURST_TYPE}, //Dark2 0x1074
+	{0x71, 0x51, BURST_TYPE}, //
+	{0x72, 0x75, BURST_TYPE}, //Dark2 0x1075
+	{0x73, 0x00, BURST_TYPE}, //
+	{0x74, 0x76, BURST_TYPE}, //Dark2 0x1076
+	{0x75, 0x23, BURST_TYPE}, //
+	{0x76, 0x77, BURST_TYPE}, //Dark2 0x1077
+	{0x77, 0x31, BURST_TYPE}, //
+	{0x78, 0x78, BURST_TYPE}, //Dark2 0x1078
+	{0x79, 0xeb, BURST_TYPE}, //
+	{0x7a, 0x79, BURST_TYPE}, //Dark2 0x1079
+	{0x7b, 0x38, BURST_TYPE}, //
+	{0x7c, 0x7a, BURST_TYPE}, //Dark2 0x107a
+	{0x7d, 0x51, BURST_TYPE}, //
+	{0x7e, 0x7b, BURST_TYPE}, //Dark2 0x107b
+	{0x7f, 0x40, BURST_TYPE}, //
+	{0x80, 0x7c, BURST_TYPE}, //Dark2 0x107c
+	{0x81, 0x00, BURST_TYPE}, //
+	{0x82, 0x7d, BURST_TYPE}, //Dark2 0x107d
+	{0x83, 0x14, BURST_TYPE}, //
+	{0x84, 0x7e, BURST_TYPE}, //Dark2 0x107e
+	{0x85, 0x20, BURST_TYPE}, //
+	{0x86, 0x7f, BURST_TYPE}, //Dark2 0x107f
+	{0x87, 0x38, BURST_TYPE}, //
+
+	// Lum Vs Sat
+	{0x88, 0x03, BURST_TYPE}, // page 16
+	{0x89, 0x16, BURST_TYPE}, //
+	{0x8A, 0x8a, BURST_TYPE}, // Dark2 0x168a
+	{0x8B, 0x51, BURST_TYPE}, //
+	{0x8C, 0x8b, BURST_TYPE}, // Dark2 0x168b
+	{0x8D, 0x5a, BURST_TYPE}, //
+	{0x8E, 0x8c, BURST_TYPE}, // Dark2 0x168c
+	{0x8F, 0x64, BURST_TYPE}, //
+	{0x90, 0x8d, BURST_TYPE}, // Dark2 0x168d
+	{0x91, 0x6e, BURST_TYPE}, //
+	{0x92, 0x8e, BURST_TYPE}, // Dark2 0x168e
+	{0x93, 0x7b, BURST_TYPE}, //
+	{0x94, 0x8f, BURST_TYPE}, // Dark2 0x168f
+	{0x95, 0x7f, BURST_TYPE}, //
+	{0x96, 0x90, BURST_TYPE}, // Dark2 0x1690
+	{0x97, 0x7f, BURST_TYPE}, //
+	{0x98, 0x91, BURST_TYPE}, // Dark2 0x1691
+	{0x99, 0x7f, BURST_TYPE}, //
+	{0x9A, 0x92, BURST_TYPE}, // Dark2 0x1692
+	{0x9B, 0x7f, BURST_TYPE}, //
+	{0x9C, 0x93, BURST_TYPE}, // Dark2 0x1693
+	{0x9D, 0x7f, BURST_TYPE}, //
+	{0x9E, 0x94, BURST_TYPE}, // Dark2 0x1694
+	{0x9F, 0x7f, BURST_TYPE}, //
+	{0xA0, 0x95, BURST_TYPE}, // Dark2 0x1695
+	{0xA1, 0x7f, BURST_TYPE}, //
+	{0xA2, 0x96, BURST_TYPE}, // Dark2 0x1696
+	{0xA3, 0x7f, BURST_TYPE}, //
+	{0xA4, 0x97, BURST_TYPE}, // Dark2 0x1697
+	{0xA5, 0x7f, BURST_TYPE}, //
+	{0xA6, 0x98, BURST_TYPE}, // Dark2 0x1698
+	{0xA7, 0x7f, BURST_TYPE}, //
+	{0xA8, 0x99, BURST_TYPE}, // Dark2 0x1699
+	{0xA9, 0x7c, BURST_TYPE}, //
+	{0xAA, 0x9a, BURST_TYPE}, // Dark2 0x169a
+	{0xAB, 0x78, BURST_TYPE_ED}, //
+	// DMA END
+	//_CHANGE_E ADD INTO MR ver. for low light condition
+
+
+	{0x03, 0x00, BYTE_LEN},
+	{0x01, 0xF1, BYTE_LEN}, //Sleep mode on
+
+	{0x03, 0xc0, BYTE_LEN},
+	{0x16, 0x80, BYTE_LEN}, //MCU main roof holding off
+
+	{0x03, 0xC0, BYTE_LEN},
+	{0x33, 0x01, BYTE_LEN}, //DMA hand shake mode set
+	{0x32, 0x01, BYTE_LEN}, //DMA off
+	{0x03, 0x30, BYTE_LEN},
+	{0x11, 0x04, BYTE_LEN}, //Bit[0]: MCU hold off
+
+	{0x03, 0xc0, BYTE_LEN},
+	{0xe1, 0x00, BYTE_LEN},
+
+	{0x03, 0x30, BYTE_LEN},
+	{0x25, 0x0e, BYTE_LEN},
+	{0x25, 0x1e, BYTE_LEN},
+	///////////////////////////////////////////
+	// 1F Page SSD
+	///////////////////////////////////////////
+	{0x03, 0x1f, BYTE_LEN}, //1F page
+	{0x11, 0x00, BYTE_LEN}, //bit[5:4]: debug mode
+	{0x12, 0x60, BYTE_LEN},
+	{0x13, 0x14, BYTE_LEN},
+	{0x14, 0x10, BYTE_LEN},
+	{0x15, 0x00, BYTE_LEN},
+	{0x20, 0x18, BYTE_LEN}, //ssd_x_start_pos
+	{0x21, 0x14, BYTE_LEN}, //ssd_y_start_pos
+	{0x22, 0x8C, BYTE_LEN}, //ssd_blk_width
+	{0x23, 0x9C, BYTE_LEN}, //ssd_blk_height
+	{0x28, 0x18, BYTE_LEN},
+	{0x29, 0x02, BYTE_LEN},
+	{0x3B, 0x18, BYTE_LEN},
+	{0x3C, 0x8C, BYTE_LEN},
+	{0x10, 0x19, BYTE_LEN}, //SSD enable
+
+	{0x03, 0xc4, BYTE_LEN}, //AE en
+#if defined (LGE_CAMERA_ANTIBAND_50HZ)	//Flicker 50Hz
+	{0x10, 0xef, BYTE_LEN}, // STEVE AE ON    (50hz : 0xe9, 60hz : 0xe1)
+#else
+	{0x10, 0xe1, BYTE_LEN},
+
+#endif
+	{0x03, 0xc3, BYTE_LEN}, //AE Static en
+	{0x10, 0x84, BYTE_LEN},
+
+	///////////////////////////////////////////
+	// 30 Page DMA address set
+	///////////////////////////////////////////
+	{0x03, 0x30, BYTE_LEN}, //DMA
+	{0x7c, 0x2c, BYTE_LEN}, //Extra str
+	{0x7d, 0xce, BYTE_LEN},
+	{0x7e, 0x2d, BYTE_LEN}, //Extra end
+	{0x7f, 0xbb, BYTE_LEN},
+	{0x80, 0x24, BYTE_LEN}, //Outdoor str
+	{0x81, 0x70, BYTE_LEN},
+	{0x82, 0x27, BYTE_LEN}, //Outdoor end
+	{0x83, 0x39, BYTE_LEN},
+	{0x84, 0x21, BYTE_LEN}, //Indoor str
+	{0x85, 0xa6, BYTE_LEN},
+	{0x86, 0x24, BYTE_LEN}, //Indoor end
+	{0x87, 0x6f, BYTE_LEN},
+	{0x88, 0x27, BYTE_LEN}, //Dark1 str
+	{0x89, 0x3a, BYTE_LEN},
+	{0x8a, 0x2a, BYTE_LEN}, //Dark1 end
+	{0x8b, 0x03, BYTE_LEN},
+	{0x8c, 0x2a, BYTE_LEN}, //Dark2 str
+	{0x8d, 0x04, BYTE_LEN},
+	{0x8e, 0x2c, BYTE_LEN}, //Dark2 end
+	{0x8f, 0xcd, BYTE_LEN},
+
+
+
+	///////////////////////////////////////////
+	// CD Page (Color ratio)
+	///////////////////////////////////////////
+	{0x03, 0xCD, BYTE_LEN},
+	{0x10, 0x38, BYTE_LEN}, //ColorRatio disable ½ÃÅ´
+
+
+	{0x03, 0xc9, BYTE_LEN}, //AWB Start Point
+	{0x2a, 0x00, BYTE_LEN},
+	{0x2b, 0xb2, BYTE_LEN},
+	{0x2c, 0x00, BYTE_LEN},
+	{0x2d, 0x82, BYTE_LEN},
+	{0x2e, 0x00, BYTE_LEN},
+	{0x2f, 0xb2, BYTE_LEN},
+	{0x30, 0x00, BYTE_LEN},
+	{0x31, 0x82, BYTE_LEN},
+
+	{0x03, 0xc5, BYTE_LEN}, //AWB en
+	{0x10, 0xb1, BYTE_LEN},
+
+	{0x03, 0xcf, BYTE_LEN}, //Adative en
+	{0x10, 0xaf, BYTE_LEN}, // STEVE 8f -) af ALL ON :Ytar, Gam, CCM, Sat, LSC, MCMC , (Yoffs, Contrast)
+
+	///////////////////////////////////////////
+	// 48 Page MIPI setting
+	///////////////////////////////////////////
+	{0x03, 0x48, BYTE_LEN},
+	{0x09, 0xa2, BYTE_LEN}, //MIPI CLK
+	{0x10, 0x1C, BYTE_LEN}, //MIPI ON
+	{0x11, 0x00, BYTE_LEN}, //Normal Mode
+	{0x14, 0x50, BYTE_LEN}, //Skew
+	{0x16, 0x04, BYTE_LEN},
+
+	{0x1a, 0x11, BYTE_LEN},
+	{0x1b, 0x0d, BYTE_LEN}, //Short Packet
+	{0x1c, 0x0a, BYTE_LEN}, //Control DP
+	{0x1d, 0x0f, BYTE_LEN}, //Control DN
+	{0x1e, 0x09, BYTE_LEN},
+	{0x1f, 0x07, BYTE_LEN},
+	{0x20, 0x00, BYTE_LEN},
+	{0x24, 0x1e, BYTE_LEN}, //Bayer8 : 2a, Bayer10 : 2b, YUV : 1e
+
+	{0x30, 0x00, BYTE_LEN}, //2048*2
+	{0x31, 0x08, BYTE_LEN},
+	{0x32, 0x0f, BYTE_LEN}, // Tclk zero
+	{0x34, 0x06, BYTE_LEN}, // Tclk prepare
+
+	{0x39, 0x03, BYTE_LEN}, //Drivability 00
+
+	{0x03, 0x00, BYTE_LEN},
+	{0x0c, 0xf0, BYTE_LEN}, //Parallel Line Off
+
+	{0x03, 0x00, BYTE_LEN},
+	{0x11, 0x83, BYTE_LEN}, // STEVE 0 skip Fix Frame Off, XY Flip
+
+	{0x03, 0x00, BYTE_LEN},
+	{0x01, 0xf0, BYTE_LEN}, //sleep off
+
+	{0x03, 0xC0, BYTE_LEN},
+	{0x33, 0x00, BYTE_LEN},
+	{0x32, 0x01, BYTE_LEN}, //DMA on
+
+	//////////////////////////////////////////////
+	// Delay
+	//////////////////////////////////////////////
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+	{0x03, 0x00, BYTE_LEN},
+
+
+
+
+};
+
+
+extern int iReadRegI2C(u8 *a_pSendData , u16 a_sizeSendData, u8 * a_pRecvData, u16 a_sizeRecvData, u16 i2cId);
+extern int iWriteRegI2C(u8 *a_pSendData , u16 a_sizeSendData, u16 i2cId);
+extern int iBurstWriteReg(u8 *pData, u32 bytes, u16 i2cId) ;
+extern int iMultiWriteReg(u8 *pData, u16 lens);
+
+kal_uint16 HI351_write_cmos_sensor(kal_uint8 addr, kal_uint8 para)
+{
+	char puSendCmd[2] = {(char)(addr & 0xFF) , (char)(para & 0xFF)};
+
+	iWriteRegI2C(puSendCmd, 2, HI351_WRITE_ID);
+
+	return 0;
+}
+kal_uint16 HI351_read_cmos_sensor(kal_uint8 addr)
+{
+	kal_uint16 get_byte=0;
+	char puSendCmd = { (char)(addr & 0xFF) };
+	iReadRegI2C(&puSendCmd , 1, (u8*)&get_byte, 1, HI351_WRITE_ID);
+
+	return get_byte;
+}
+
+kal_uint16 HI351_burst_write_cmos_sensor(kal_uint8 *pData, kal_uint32 bytes)
+{
+	//iBurstWriteReg(pData, bytes, HI351_WRITE_ID);
+	iMultiWriteReg(pData, bytes);
+
+	return 0;
+}
+
+
+void HI351_set_dummy(kal_uint16 pixels, kal_uint16 lines)
+{
+	kal_uint8 temp_reg1, temp_reg2;
+	kal_uint16 temp_reg;
+	//return;
+	/* Increase the minimum default h-blanking & v-blanking */
+	pixels += 0x120;
+	lines + 0x1e;
+#if 0
+	HI351_write_cmos_sensor(0x03, 0x00); //dummy
+#else
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x50, (pixels>>8)&0xff);
+	HI351_write_cmos_sensor(0x51, (pixels>>0)&0xff);
+	HI351_write_cmos_sensor(0x52, (lines>>8)&0xff);
+	HI351_write_cmos_sensor(0x53, (lines>>0)&0xff);
+#endif
+}    /* HI351_set_dummy */
+
+#ifdef USE_DMA_MODE
+ssize_t mt519x_dma_write_m_byte(u8 cmd, u8 *writeData_va, u32 writeData_pa,U16 len, u8 bAutoInc)
+{
+	char    write_data[8] = {0};
+	int    i,ret=0, write_count = 0, write_length = 0;
+	int    total_count = len;
+	//new_client->addr = new_client->addr & I2C_MASK_FLAG | I2C_DMA_FLAG;
+	if(len == 0) {
+		MATV_LOGE("[Error]MATV Write Len should not be zero!! \n");
+		return 0;
+	}
+	MATV_LOGD("mt519x_dma_write_m_byte,cmd = %x, va=%x, pa=%x, len = %x\n",cmd,writeData_va,writeData_pa,len);
+	writeData_va[write_count] = cmd + write_count;
+	//for (i = 0; i< total_count+1; i++)
+	//    MATV_LOGD("[MATV]I2C WriteData[%d] = %x\n",i,writeData_va[i]);
+
+	//Driver does not allow (single write length > 255)
+	while(len > 255)
+	{
+		write_length = 255;
+		ret = i2c_master_send(new_client, writeData_pa+write_count, write_length+1);
+		//MATV_LOGD("[MATV_R]I2C Send Size = %d\n",ret);
+		if (ret < 0) {
+			MATV_LOGE("[Error]MATV reads data error!! \n");
+			return 0;
+		}
+		write_count+=write_length;
+		len -= write_length;
+		if (bAutoInc){
+			writeData_va[write_count] = cmd + write_count;
+		}
+		else{
+			writeData_va[write_count] = cmd;
+		}
+	}
+	if (len > 0){
+		ret = i2c_master_send(new_client, writeData_pa+write_count, len+1);
+		//MATV_LOGD("[MATV]I2C Send Size = %d\n",ret);
+		if (ret < 0) {
+			MATV_LOGE("[Error]MATV reads data error!! \n");
+			return 0;
+		}
+	}
+
+	return 1;
+}
+#endif
+
+kal_uint32 HI351_read_gain(void)
+{
+	kal_uint32 sensor_gain = 0;
+	//kal_uint16 temp_reg = 0;
+
+	/*A gain: 1~8x*/
+
+	/* Analog gain = 1 / 32 * B[7:0]. 0x20(1X) ~ 0x40(2X) */
+	HI351_write_cmos_sensor(0x03, 0xc4);
+	sensor_gain = HI351_read_cmos_sensor(0x38);
+
+	/* sensor_gain is 128 base, ex: 128=1X, 256=2X, 320=2.5X */
+	//sensor_gain = (128 * temp_reg) / 32;
+
+	return sensor_gain;
+}  /* HI351_read_gain */
+
+kal_uint32 HI351_read_shutter(void)
+{
+	kal_uint32 shutter = 0;
+	kal_uint32 opclk = 0;
+
+	HI351_write_cmos_sensor(0x03, 0x20);
+	shutter = HI351_read_cmos_sensor(0x20)<<24;
+	shutter |= HI351_read_cmos_sensor(0x21)<<16;
+	shutter |= HI351_read_cmos_sensor(0x22)<<8;
+	shutter |= HI351_read_cmos_sensor(0x23);
+
+	opclk = HI351_preview_pclk / 2;     /* OPCLK = (1/2)PCLK */
+	shutter = shutter  / opclk;         /* After this line, shutter unit is 10us, before is opclk/ */
+
+	return shutter;
+}    /* HI351_read_shutter */
+
+void HI351_write_gain(kal_uint32 sensor_gain)
+{
+	kal_uint16 temp_reg = 0;
+
+	/* sensor_gain is 128 base, ex: 128=1X, 256=2X, 320=2.5X */
+	temp_reg = (sensor_gain * 32) / 128;
+	HI351_TRACE("[HI351]:Write sensor gain = %x, temp_reg = %x\n", sensor_gain, temp_reg);
+
+	/* Analog gain = 1 / 32 * B[7:0]. 0x20(1X) ~ 0x40(2X) */
+	HI351_write_cmos_sensor(0x03, 0x20);
+	HI351_write_cmos_sensor(0x50, temp_reg);
+	//HI351_write_cmos_sensor(0x60, temp_reg);
+
+}  /* HI351_write_gain */
+
+void HI351_write_shutter(kal_uint32 shutter)
+{
+	kal_uint32 opclk = 0;
+
+	HI351_TRACE("[HI351]:Write shutter = %x\n", shutter);
+
+	opclk = HI351_preview_pclk / 2;     /* OPCLK = (1/2)PCLK */
+	shutter = shutter * opclk;         /* After this line, shutter unit is opclk, before is 10us/ */
+
+	HI351_write_cmos_sensor(0x03, 0x20);
+	HI351_write_cmos_sensor(0x20, (shutter >> 24) & 0xFF);
+	HI351_write_cmos_sensor(0x21, (shutter >> 16) & 0xFF);
+	HI351_write_cmos_sensor(0x22, (shutter >> 8) & 0xFF);
+	HI351_write_cmos_sensor(0x23, shutter & 0xFF);
+}    /* HI351_write_shutter */
+
+void HI351YUVSensorInitialSetting(void)
+{
+	HI351_I2C_REG_STRUCT *init_reg = NULL;//HI351_Initialize_Setting;
+	UINT32 tosend=0, IDX=0,last_type=0x11,type = 0x11,setting_len=0;
+	char puSendCmd[I2C_BUFFER_LEN]; //at most 2 bytes address and 6 bytes data for multiple write. MTK i2c master has only 8bytes fifo.
+	UINT8 burst_buff[255] = {0};
+	UINT32 i=0, j=0;
+
+	setting_len = sizeof(HI351_Initialize_Setting) / sizeof(HI351_Initialize_Setting[0]);
+
+	i = 0;
+	while (i < setting_len)
+	{
+		init_reg = &HI351_Initialize_Setting[i];
+        type =  init_reg->type;
+		if (BYTE_LEN == init_reg->type)
+		{
+			HI351_write_cmos_sensor(init_reg->addr, init_reg->val);
+			last_type=init_reg->type;
+			i++;
+		}
+		else if((BURST_TYPE== init_reg->type) && (last_type==BYTE_LEN))
+       {
+           puSendCmd[tosend++] = (char)(init_reg->addr);
+           puSendCmd[tosend++] = (char)(init_reg->val);
+		   i++;
+           
+           //tosend += 2;
+           last_type = init_reg->type;
+       }
+			
+	   else if((BURST_TYPE== init_reg->type) && (last_type==BURST_TYPE))
+       {
+           //data = para[IDX+1];
+           puSendCmd[tosend++] = (char)(init_reg->val);
+           //puSendCmd[tosend++] = (char)(data & 0xFF);
+           //tosend += 1;
+		   i++;
+		   last_type = init_reg->type;
+       }
+	   else if(BURST_TYPE_ED== init_reg->type) 
+	   {
+	     puSendCmd[tosend++] = (char)(init_reg->val);
+		 //tosend += 1;
+	   	 BLOCK_I2C_DATA_WRITE(puSendCmd , tosend, HI351_WRITE_ID);
+		 last_type=BURST_TYPE_ED;
+		 i++;
+         tosend = 0;
+	   }
+	   else
+	   	{
+	   	i++;
+	   	}
+		}
+	Capture_delay_in_Flash = Capture_delay;
+
+}
+
+
+/* Register setting from capture to preview. */
+void HI351PreviewSetting(void)
+{
+#if 1
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x01, 0xf1); //Sleep on
+
+	HI351_write_cmos_sensor(0x03, 0x30); //DMA&Adaptive Off
+	HI351_write_cmos_sensor(0x36, 0xa3);
+
+	mdelay(10);//20
+
+	HI351_write_cmos_sensor(0x03, 0xc4); //AE off
+#if defined (LGE_CAMERA_ANTIBAND_50HZ)	//Flicker 50Hz
+	HI351_write_cmos_sensor(0x10, 0x68); // STEVE AE OFF   (50Hz : 0x68, 60hz : 0x60)
+#else
+	HI351_write_cmos_sensor(0x10, 0x60);
+#endif
+	HI351_write_cmos_sensor(0x03, 0xc5); //AWB off
+	HI351_write_cmos_sensor(0x10, 0x30);
+
+	HI351_write_cmos_sensor(0x03, 0x19); //Scaler Setting
+	HI351_write_cmos_sensor(0x10, 0x87);
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x10, 0x13); //Sub1/2 + Pre2
+	HI351_write_cmos_sensor(0x11, 0x90); //turn off fix framerate  //yan xu 0xD0
+	HI351_write_cmos_sensor(0x13, 0x80); //Fix AE Set Off
+	HI351_write_cmos_sensor(0x14, 0x70); // for Pre2mode
+
+	//mdelay(20);
+
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x20, 0x00);
+	HI351_write_cmos_sensor(0x21, 0x01);  // 0x01//previ ew row start set.
+
+	HI351_write_cmos_sensor(0x22, 0x00);
+	HI351_write_cmos_sensor(0x23, 0x0a); // col start set.
+
+	HI351_write_cmos_sensor(0x03, 0x15);  //Shading
+
+	HI351_write_cmos_sensor(0x10, 0x81);
+	HI351_write_cmos_sensor(0x20, 0x04);  //Shading Width 1024 (pre2)
+	HI351_write_cmos_sensor(0x21, 0x00);
+	HI351_write_cmos_sensor(0x22, 0x03);  //Shading Height 768
+	HI351_write_cmos_sensor(0x23, 0x00);
+
+	HI351_write_cmos_sensor(0x03,0x10);
+	HI351_write_cmos_sensor(0x41,0x00); //dark Y-offset
+
+
+
+	HI351_write_cmos_sensor(0x03, 0x48);
+	HI351_write_cmos_sensor(0x10, 0x1C); //MIPI On
+	HI351_write_cmos_sensor(0x16, 0x04);
+	HI351_write_cmos_sensor(0x30, 0x00); //640 * 2
+	HI351_write_cmos_sensor(0x31, 0x08); // STEVE for 1024x768 5-)8
+
+	HI351_write_cmos_sensor(0x03, 0x30);
+	HI351_write_cmos_sensor(0x36, 0x28); //Preview set
+
+	mdelay(10);//50
+
+	HI351_write_cmos_sensor(0x03, 0xc4); //AE en
+#if defined (LGE_CAMERA_ANTIBAND_50HZ)	//Flicker 50Hz
+	HI351_write_cmos_sensor(0x10, 0xef); // STEVE AE ON    (50hz : 0xe9, 60hz : 0xe1)
+#else
+	HI351_write_cmos_sensor(0x10, 0xe1);
+#endif
+
+	mdelay(20);
+
+	HI351_write_cmos_sensor(0x03, 0xc5); //AWB en
+	HI351_write_cmos_sensor(0x10, 0xb1);
+
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x01, 0xf0); //sleep off
+
+	HI351_write_cmos_sensor(0x03, 0xcf); //Adaptive On
+	HI351_write_cmos_sensor(0x10, 0xaf);
+	HI351_write_cmos_sensor(0x03, 0xc0);
+	HI351_write_cmos_sensor(0x33, 0x00);
+	HI351_write_cmos_sensor(0x32, 0x01); //DMA On
+
+#else
+#endif
+}
+
+void HI351FullPreviewSetting(void)
+{
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x01, 0xf1); //Sleep on
+
+	HI351_write_cmos_sensor(0x03, 0x30); //DMA&Adaptive Off
+	HI351_write_cmos_sensor(0x36, 0xa3);
+	//HI351_write_cmos_sensor(0x03, 0xFE);
+	//HI351_write_cmos_sensor(0xFE, 0x0A); //Delay MUST WAIT 10msec
+	//mdelay(15);
+
+	HI351_write_cmos_sensor(0x03, 0xc4); //AE off
+	HI351_write_cmos_sensor(0x10, 0x60);
+	HI351_write_cmos_sensor(0x03, 0xc5); //AWB off
+	HI351_write_cmos_sensor(0x10, 0x30);
+
+	HI351_write_cmos_sensor(0x03, 0x20);
+	HI351_write_cmos_sensor(0x24, 0x00); 
+	HI351_write_cmos_sensor(0x25, 0x6d); 
+	HI351_write_cmos_sensor(0x26, 0x35);
+	HI351_write_cmos_sensor(0x27, 0xd0); 
+	
+
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x14, 0x20); // for Full mode
+	HI351_write_cmos_sensor(0x10, 0x00); //Full
+	HI351_write_cmos_sensor(0x11, 0x83);
+	HI351_write_cmos_sensor(0x13, 0x80); //Fix AE Set Off
+
+	HI351_write_cmos_sensor(0x20, 0x00); //Full
+	HI351_write_cmos_sensor(0x21, 0x01); //Full
+
+	HI351_write_cmos_sensor(0x22, 0x00); //Full
+	HI351_write_cmos_sensor(0x23, 0x0a); //Full
+	//HI351_write_cmos_sensor(0x03, 0xFE);
+	//HI351_write_cmos_sensor(0xFE, 0x0A); //Delay MUST WAIT 10msec
+	//mdelay(15);
+
+	HI351_write_cmos_sensor(0x03, 0x15); //Shading
+	HI351_write_cmos_sensor(0x10, 0x81); // 00 -> 83 LSC ON
+	HI351_write_cmos_sensor(0x20, 0x07);
+	HI351_write_cmos_sensor(0x21, 0xf8);
+	HI351_write_cmos_sensor(0x22, 0x05);
+	HI351_write_cmos_sensor(0x23, 0xf8);
+
+
+	HI351_write_cmos_sensor(0x03, 0x19); //Scaler Off
+	HI351_write_cmos_sensor(0x10, 0x00);
+
+	HI351_write_cmos_sensor(0x03, 0x48); //MIPI Setting
+	HI351_write_cmos_sensor(0x10, 0x1C);
+	HI351_write_cmos_sensor(0x16, 0x04);
+	HI351_write_cmos_sensor(0x30, 0x00); //2048 * 2
+	HI351_write_cmos_sensor(0x31, 0x10);
+
+	HI351_write_cmos_sensor(0x03, 0x30);
+	HI351_write_cmos_sensor(0x36, 0x28); //Preview set
+
+	//HI351_write_cmos_sensor(0x03, 0xFE);
+	//HI351_write_cmos_sensor(0xFE, 0x14); //Delay 20ms 16 ms delay but actual delay in measurement is 20 ms
+	//mdelay(25);
+
+	//AE On
+	HI351_write_cmos_sensor(0x03, 0xc4);
+	HI351_write_cmos_sensor(0x10, 0xe1);
+
+	//HI351_write_cmos_sensor(0x03, 0xFE);
+	//HI351_write_cmos_sensor(0xFE, 0x0A); //Delay 10ms
+	//mdelay(15);
+
+	//AWB On
+	HI351_write_cmos_sensor(0x03, 0xc5);
+	HI351_write_cmos_sensor(0x10, 0xb1);
+
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x01, 0xf0); //sleep off
+
+	HI351_write_cmos_sensor(0x03, 0xcf); //Adaptive On
+	HI351_write_cmos_sensor(0x10, 0xaf);
+
+	HI351_write_cmos_sensor(0x03, 0xc0);
+	HI351_write_cmos_sensor(0x33, 0x00);
+	HI351_write_cmos_sensor(0x32, 0x01); //DMA On
+
+}
+
+void HI351CaptureSetting(void)
+{
+#if 1
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x01, 0xf1); //Sleep on
+
+	HI351_write_cmos_sensor(0x03, 0x30); //DMA&Adaptive Off
+	HI351_write_cmos_sensor(0x36, 0xa3);
+
+	HI351_write_cmos_sensor(0x03, 0xc4); //AE off
+#if defined (LGE_CAMERA_ANTIBAND_50HZ)	//Flicker 50Hz
+	HI351_write_cmos_sensor(0x10, 0x68);  // STEVE AE OFF   (50Hz : 0x68, 60hz : 0x60)
+#else
+	HI351_write_cmos_sensor(0x10, 0x60);
+#endif
+	HI351_write_cmos_sensor(0x03, 0xc5); //AWB off
+	HI351_write_cmos_sensor(0x10, 0x30);
+
+	HI351_write_cmos_sensor(0x03, 0x19); //Scaler Off
+	HI351_write_cmos_sensor(0x10, 0x00);
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x14, 0x70); // for Full mode
+	HI351_write_cmos_sensor(0x10, 0x00); //Full
+
+	mdelay(20);
+
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x20, 0x00);
+	HI351_write_cmos_sensor(0x21, 0x01); //preview row start set.
+	HI351_write_cmos_sensor(0x22, 0x00);
+	HI351_write_cmos_sensor(0x23, 0x0a); // col start set.
+
+	HI351_write_cmos_sensor(0x03, 0x15); //Shading
+	HI351_write_cmos_sensor(0x10, 0x83); // 00 -> 83 LSC ON
+	HI351_write_cmos_sensor(0x20, 0x07);
+	HI351_write_cmos_sensor(0x21, 0xf8);
+	HI351_write_cmos_sensor(0x22, 0x05);
+	HI351_write_cmos_sensor(0x23, 0xf8);
+
+	HI351_write_cmos_sensor(0x03, 0x48); //MIPI Setting
+	HI351_write_cmos_sensor(0x10, 0x1C);
+	HI351_write_cmos_sensor(0x16, 0x04);
+	HI351_write_cmos_sensor(0x30, 0x00); //2048 * 2
+	HI351_write_cmos_sensor(0x31, 0x10);
+
+	HI351_write_cmos_sensor(0x03, 0x30);
+	HI351_write_cmos_sensor(0x36, 0x29); //Capture
+
+	mdelay(20);
+
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x01, 0xf0); //sleep off
+
+	HI351_write_cmos_sensor(0x03, 0xcf); //Adaptive On
+	HI351_write_cmos_sensor(0x10, 0xaf);
+
+	HI351_write_cmos_sensor(0x03, 0xc0);
+	HI351_write_cmos_sensor(0x33, 0x00);
+	HI351_write_cmos_sensor(0x32, 0x01); //DMA On
+
+#else
+
+#endif
+
+}
+
+
+/*****************************************************************************/
+/* Windows Mobile Sensor Interface */
+/*****************************************************************************/
+/*************************************************************************
+* FUNCTION
+*   HI351GetSensorID
+*
+* DESCRIPTION
+*   This function get the sensor ID
+*
+* PARAMETERS
+*   *sensorID : return the sensor ID
+*
+* RETURNS
+*   None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+UINT32 HI351GetSensorID(UINT32 *sensorID)
+{
+	volatile signed char i = 0;
+
+	HI351_write_cmos_sensor(0x03, 0x00);    /* Page 0 */
+	//Software Reset
+	HI351_write_cmos_sensor(0x01, 0xF1);
+	HI351_write_cmos_sensor(0x01, 0xF3);
+	HI351_write_cmos_sensor(0x01, 0xF1);
+	mdelay(5);
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_zoom_factor = 0;
+	spin_unlock(&hi351mipi_drv_lock);
+	*sensorID = HI351_read_cmos_sensor(0x04);
+	HI351_TRACE("[HI351]:Get Sensor ID:0x%x\n", *sensorID);
+
+	mdelay(5);
+
+	if(*sensorID != HI351_SENSOR_ID)
+	{
+		*sensorID = 0xFFFFFFFF;
+		return ERROR_SENSOR_CONNECT_FAIL;
+	}
+
+	return ERROR_NONE;
+}
+
+/*************************************************************************
+* FUNCTION
+*	HI351Open
+*
+* DESCRIPTION
+*	This function initialize the registers of CMOS sensor
+*
+* PARAMETERS
+*	None
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+UINT32 HI351Open(void)
+{
+	UINT32 sensor_id = 0;
+
+	HI351_write_cmos_sensor(0x03, 0x00);    /* Page 0 */
+	//Software Reset
+	HI351_write_cmos_sensor(0x01, 0xF1);
+	HI351_write_cmos_sensor(0x01, 0xF3);
+	HI351_write_cmos_sensor(0x01, 0xF1);
+	mdelay(5);
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_zoom_factor = 0;
+	spin_unlock(&hi351mipi_drv_lock);
+	sensor_id = HI351_read_cmos_sensor(0x04);
+	HI351_TRACE("[HI351]:Open Sensor ID:0x%x\n", sensor_id);
+	mdelay(5);
+
+	if(sensor_id != HI351_SENSOR_ID)
+	{
+		return ERROR_SENSOR_CONNECT_FAIL;
+	}
+
+	HI351_TRACE("[HI351]:Start apply the initialize setting\n");
+	HI351YUVSensorInitialSetting();
+	HI351_TRACE("[HI351]:Apply the initialize setting done\n");
+
+	return ERROR_NONE;
+}	/* HI351Open() */
+
+/*************************************************************************
+* FUNCTION
+*	HI351Close
+*
+* DESCRIPTION
+*	This function is to turn off sensor module power.
+*
+* PARAMETERS
+*	None
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+UINT32 HI351Close(void)
+{
+	return ERROR_NONE;
+}	/* HI351Close() */
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_ae_enable
+*
+* DESCRIPTION
+*	Enable/disable the auto exposure.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+void HI351_set_ae_enable(kal_bool AE_enable)
+{
+	HI351_TRACE("[HI351]:HI351_set_ae_enable: AE_enable=%d\n", AE_enable);
+#if 0
+	if (AE_enable == KAL_TRUE)
+	{
+		HI351_write_cmos_sensor(0x03, 0x00); //Dummy
+	}
+	else
+	{
+		HI351_write_cmos_sensor(0x03, 0x00); //Dummy
+	}
+#else
+	if (AE_enable == KAL_TRUE)
+	{
+		HI351_write_cmos_sensor(0x03, 0xc4); //AE en
+
+		if(HI351_Banding_setting == AE_FLICKER_MODE_50HZ)
+			HI351_write_cmos_sensor(0x10, 0xe8); // 50Hz, 0xe9, 60Hz:e1
+		else
+			HI351_write_cmos_sensor(0x10, 0xe0); // 50Hz, 0xe9, 60Hz:e1
+		/*atuo flicker :*/
+	}
+	else
+	{
+		HI351_write_cmos_sensor(0x03, 0xc4); //AE off
+		HI351_write_cmos_sensor(0x10, 0x60);
+	}
+#endif
+}
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_awb_enable
+*
+* DESCRIPTION
+*	Enable/disable the auto white balance.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+void HI351_set_awb_enable(kal_bool AWB_enable)
+{
+	HI351_TRACE("[HI351]:HI351_set_awb_enable: AWB_enable=%d\n", AWB_enable);
+#if 0
+	if (AWB_enable == KAL_TRUE)
+	{
+		HI351_write_cmos_sensor(0x03, 0x00); //Dummy
+	}
+	else
+	{
+		HI351_write_cmos_sensor(0x03, 0x00); //Dummy
+	}
+#else
+	if (AWB_enable == KAL_TRUE)
+	{
+		HI351_write_cmos_sensor(0x03, 0xc5); //AWB en
+		HI351_write_cmos_sensor(0x10, 0xb1);
+	}
+	else
+	{
+		HI351_write_cmos_sensor(0x03, 0xc5); //AWB off
+		HI351_write_cmos_sensor(0x10, 0x30);
+	}
+#endif
+}
+
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_mirror_flip
+*
+* DESCRIPTION
+*	mirror flip setting.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+BOOL HI351_set_mirror_flip(kal_uint8 image_mirror)
+{
+	kal_uint8 iTemp = 0;
+
+	/* 0x11 [page mode 0]: VDOCTL2 [default=0x90, r/w]
+	B[1] Vertical Flip Function (0:OFF, 1:ON)
+	B[0] Horizontal Flip Function (0:OFF, 1:ON)  */
+	HI351_write_cmos_sensor(0x03, 0x00);
+	iTemp = HI351_read_cmos_sensor(0x11);
+
+	HI351_TRACE("[HI351]:Set start Mirror/Flip image_mirror=%d, iTemp=%x\n", image_mirror, iTemp);
+	iTemp &= 0xFC;
+
+	switch (image_mirror)
+	{
+	case IMAGE_NORMAL:
+		//iTemp |= 0x00;
+		iTemp |= 0x03;        /* For LGE_V3 project */
+		break;
+	case IMAGE_H_MIRROR:
+		iTemp |= 0x01;
+		break;
+	case IMAGE_V_MIRROR:	//Flip Register 0x04[6] and 0x04[4] (FF = 01)
+		iTemp |= 0x02;
+		break;
+	case IMAGE_HV_MIRROR:
+		//iTemp |= 0x03;
+		iTemp |= 0x00;        /* For LGE_V3 project */
+		break;
+	default:
+		//iTemp |= 0x00;      /* Default, mirror & flip off. */
+		iTemp |= 0x03;        /* For LGE_V3 project */
+		break;
+	}
+
+	HI351_TRACE("[HI351]:Set end Mirror/Flip image_mirror=%d, iTemp=%x\n", image_mirror, iTemp);
+
+	HI351_write_cmos_sensor(0x11, iTemp);
+
+	return TRUE;
+} /* HI351_set_mirror_flip */
+
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_param_wb
+*
+* DESCRIPTION
+*	wb setting.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+BOOL HI351_set_param_wb(UINT16 para)
+{
+	HI351_TRACE("[HI351]:HI351_set_param_wb: =%d\n", para);
+	spin_lock(&hi351mipi_drv_lock);
+
+	Exif_info.awb = para;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	switch (para)
+	{
+
+#if 1
+		case AWB_MODE_OFF:
+			spin_lock(&hi351mipi_drv_lock);
+			HI351_AWB_ENABLE = KAL_FALSE;
+			spin_unlock(&hi351mipi_drv_lock);
+			HI351_set_awb_enable(HI351_AWB_ENABLE);
+			break;
+		case AWB_MODE_AUTO:
+			/*WB Auto*/
+			HI351_write_cmos_sensor(0x03, 0xc5); /*Page c5*/
+			HI351_write_cmos_sensor(0x11, 0xa4); /*adaptive on*/
+			HI351_write_cmos_sensor(0x12, 0x97); /*adaptive on*/
+			HI351_write_cmos_sensor(0x26, 0x00); /*indoor agl max*/
+			HI351_write_cmos_sensor(0x27, 0xeb);
+			HI351_write_cmos_sensor(0x28, 0x00);  /*indoor agl min*/
+			HI351_write_cmos_sensor(0x29, 0x55);
+			HI351_write_cmos_sensor(0x03, 0xc6); /*Page c6*/
+			HI351_write_cmos_sensor(0x18, 0x46); /*RgainMin*/
+			HI351_write_cmos_sensor(0x19, 0x90); /*RgainMax*/
+			HI351_write_cmos_sensor(0x1a, 0x40); /*BgainMin*/
+			HI351_write_cmos_sensor(0x1b, 0xa4); /*BgainMax*/
+			HI351_write_cmos_sensor(0x03, 0xc5);
+			HI351_write_cmos_sensor(0x10, 0xb1);
+
+			break;
+
+		case AWB_MODE_CLOUDY_DAYLIGHT:  
+			/*WB Cloudy*/
+			HI351_write_cmos_sensor(0x03, 0xc5); /*Page c5*/
+			HI351_write_cmos_sensor(0x11, 0xa0); /*adaptive off*/
+			HI351_write_cmos_sensor(0x12, 0x07); /*adaptive off*/
+			HI351_write_cmos_sensor(0x26, 0x00); /*indoor agl max*/
+			HI351_write_cmos_sensor(0x27, 0xff);
+			HI351_write_cmos_sensor(0x28, 0x00);  /*indoor agl min*/
+			HI351_write_cmos_sensor(0x29, 0xf0);
+			HI351_write_cmos_sensor(0x03, 0xc6); /*Page c6*/
+			HI351_write_cmos_sensor(0x18, 0x44); /*indoor R gain Min*/
+			HI351_write_cmos_sensor(0x19, 0x90); /*indoor R gain Max*/
+			HI351_write_cmos_sensor(0x1a, 0x40); /*indoor B gain Min*/
+			HI351_write_cmos_sensor(0x1b, 0xa4); /*indoor B gain Max*/
+			HI351_write_cmos_sensor(0x03, 0xc5);
+			HI351_write_cmos_sensor(0x10, 0xb1);
+			break;
+
+		case AWB_MODE_DAYLIGHT:
+			/*WB Daylight*/
+			HI351_write_cmos_sensor(0x03, 0xc5); /*Page c5*/
+			HI351_write_cmos_sensor(0x11, 0xa0); /*adaptive off*/
+			HI351_write_cmos_sensor(0x12, 0x07); /*adaptive off*/
+			HI351_write_cmos_sensor(0x26, 0x00); /*indoor agl max*/
+			HI351_write_cmos_sensor(0x27, 0xf0);
+			HI351_write_cmos_sensor(0x28, 0x00);  /*indoor agl min*/
+			HI351_write_cmos_sensor(0x29, 0xc8);
+			HI351_write_cmos_sensor(0x03, 0xc6); /*Page c6*/
+			HI351_write_cmos_sensor(0x18, 0x44); /*indoor R gain Min*/
+			HI351_write_cmos_sensor(0x19, 0x90); /*indoor R gain Max*/
+			HI351_write_cmos_sensor(0x1a, 0x40); /*indoor B gain Min*/
+			HI351_write_cmos_sensor(0x1b, 0xa4); /*indoor B gain Max*/
+			HI351_write_cmos_sensor(0x03, 0xc5);
+			HI351_write_cmos_sensor(0x10, 0xb1);
+			break;
+
+		case AWB_MODE_INCANDESCENT:
+			/*WB Incandescent*/
+			HI351_write_cmos_sensor(0x03, 0xc5); /*Page c5*/
+			HI351_write_cmos_sensor(0x11, 0xa0); /*adaptive off*/
+			HI351_write_cmos_sensor(0x12, 0x07); /*adaptive off*/
+			HI351_write_cmos_sensor(0x26, 0x00); /*indoor agl max*/
+			HI351_write_cmos_sensor(0x27, 0x82);
+			HI351_write_cmos_sensor(0x28, 0x00);  /*indoor agl min*/
+			HI351_write_cmos_sensor(0x29, 0x50);
+			HI351_write_cmos_sensor(0x03, 0xc6); /*Page c6*/
+			HI351_write_cmos_sensor(0x18, 0x44); /*indoor R gain Min*/
+			HI351_write_cmos_sensor(0x19, 0x90); /*indoor R gain Max*/
+			HI351_write_cmos_sensor(0x1a, 0x40); /*indoor B gain Min*/
+			HI351_write_cmos_sensor(0x1b, 0xa4); /*indoor B gain Max*/
+			HI351_write_cmos_sensor(0x03, 0xc5);
+			HI351_write_cmos_sensor(0x10, 0xb1);
+			break;
+		case AWB_MODE_FLUORESCENT:
+			/*WB Fluorescent*/
+			HI351_write_cmos_sensor(0x03, 0xc5); /*Page c5*/
+			HI351_write_cmos_sensor(0x11, 0xa0); /*adaptive off*/
+			HI351_write_cmos_sensor(0x12, 0x07); /*adaptive off*/
+			HI351_write_cmos_sensor(0x26, 0x00); /*indoor agl max*/
+			HI351_write_cmos_sensor(0x27, 0xb4);
+			HI351_write_cmos_sensor(0x28, 0x00);  /*indoor agl min*/
+			HI351_write_cmos_sensor(0x29, 0x82);
+			HI351_write_cmos_sensor(0x03, 0xc6); /*Page c6*/
+			HI351_write_cmos_sensor(0x18, 0x44); /*indoor R gain Min*/
+			HI351_write_cmos_sensor(0x19, 0x90); /*indoor R gain Max*/
+			HI351_write_cmos_sensor(0x1a, 0x40); /*indoor B gain Min*/
+			HI351_write_cmos_sensor(0x1b, 0xa4); /*indoor B gain Max*/
+			HI351_write_cmos_sensor(0x03, 0xc5);
+			HI351_write_cmos_sensor(0x10, 0xb1); 
+			break;
+		case AWB_MODE_TUNGSTEN:
+			/*WB Incandescent*/
+			HI351_write_cmos_sensor(0x03, 0xc5); /*Page c5*/
+			HI351_write_cmos_sensor(0x11, 0xa0); /*adaptive off*/
+			HI351_write_cmos_sensor(0x12, 0x07); /*adaptive off*/
+			HI351_write_cmos_sensor(0x26, 0x00); /*indoor agl max*/
+			HI351_write_cmos_sensor(0x27, 0x82);
+			HI351_write_cmos_sensor(0x28, 0x00);  /*indoor agl min*/
+			HI351_write_cmos_sensor(0x29, 0x50);
+			HI351_write_cmos_sensor(0x03, 0xc6); /*Page c6*/
+			HI351_write_cmos_sensor(0x18, 0x44); /*indoor R gain Min*/
+			HI351_write_cmos_sensor(0x19, 0x90); /*indoor R gain Max*/
+			HI351_write_cmos_sensor(0x1a, 0x40); /*indoor B gain Min*/
+			HI351_write_cmos_sensor(0x1b, 0xa4); /*indoor B gain Max*/
+			HI351_write_cmos_sensor(0x03, 0xc5);
+			HI351_write_cmos_sensor(0x10, 0xb1);
+
+			break;
+#else
+
+#endif
+	default:
+		return FALSE;
+	}
+
+	return TRUE;
+
+} /* HI351_set_param_wb */
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_param_effect
+*
+* DESCRIPTION
+*	effect setting.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+BOOL HI351_set_param_effect(UINT16 para)
+{
+	kal_uint32  ret = TRUE;
+	HI351_TRACE("[HI351]:HI351_set_param_effect :%d", para);
+
+	switch (para)
+	{
+	case MEFFECT_OFF:
+		//Filter OFF
+		HI351_write_cmos_sensor(0x03, 0x10);
+		HI351_write_cmos_sensor(0x12, 0x30); //constant OFF
+		HI351_write_cmos_sensor(0x44, 0x80); //cb_constant
+		HI351_write_cmos_sensor(0x45, 0x80); //cr_constant
+		break;
+	case MEFFECT_MONO:
+		// Mono
+		HI351_write_cmos_sensor(0x03, 0x10);
+		HI351_write_cmos_sensor(0x12, 0x33); //constant ON
+		HI351_write_cmos_sensor(0x44, 0x80); //cb_constant
+		HI351_write_cmos_sensor(0x45, 0x80); //cr_constant
+		break;
+	case MEFFECT_NEGATIVE:
+		//Negative
+		HI351_write_cmos_sensor(0x03, 0x10);
+		HI351_write_cmos_sensor(0x12, 0x38); //constant OFF
+		HI351_write_cmos_sensor(0x44, 0x80); //cb_constant
+		HI351_write_cmos_sensor(0x45, 0x80); //cr_constant
+		break;
+	case MEFFECT_SEPIA:
+		//Sepia
+		HI351_write_cmos_sensor(0x03, 0x10);
+		HI351_write_cmos_sensor(0x12, 0x33); //constant ON
+		HI351_write_cmos_sensor(0x44, 0x60); //cb_constant
+		HI351_write_cmos_sensor(0x45, 0xA3); //cr_constant
+		break;
+	case MEFFECT_SEPIAGREEN:
+		//Sepia_green
+		HI351_write_cmos_sensor(0x03, 0x10);
+		HI351_write_cmos_sensor(0x12, 0x33); //constant ON
+		HI351_write_cmos_sensor(0x44, 0x60); //cb_constant
+		HI351_write_cmos_sensor(0x45, 0x60); //cr_constant
+		break;
+	case MEFFECT_SEPIABLUE:
+		//Sepia_blue
+		HI351_write_cmos_sensor(0x03, 0x10);
+		HI351_write_cmos_sensor(0x12, 0x33); //constant ON
+		HI351_write_cmos_sensor(0x44, 0xe0); //cb_constant
+		HI351_write_cmos_sensor(0x45, 0x60); //cr_constant
+		break;
+	case MEFFECT_AQUA:
+		//aqua
+		HI351_write_cmos_sensor(0x03, 0x10);
+		HI351_write_cmos_sensor(0x12, 0x33); //constant ON
+		HI351_write_cmos_sensor(0x44, 0xA3); //cb_constant
+		HI351_write_cmos_sensor(0x45, 0x60); //cr_constant
+		break;
+	default:
+		ret = FALSE;
+	}
+
+	return ret;
+} /* HI351_set_param_effect */
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_param_banding
+*
+* DESCRIPTION
+*	banding setting.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+BOOL HI351_set_param_banding(UINT16 para)
+{
+	HI351_TRACE("[HI351]:HI351_set_param_banding :%d", para);
+#if 0
+	switch (para)
+	{
+	case AE_FLICKER_MODE_50HZ:
+		HI351_write_cmos_sensor(0x03, 0x00); //Dummy
+		spin_lock(&hi351mipi_drv_lock);
+		HI351_Banding_setting = AE_FLICKER_MODE_50HZ;
+		spin_unlock(&hi351mipi_drv_lock);
+		break;
+	case AE_FLICKER_MODE_60HZ:
+		HI351_write_cmos_sensor(0x03, 0x00); //Dummy
+		spin_lock(&hi351mipi_drv_lock);
+		HI351_Banding_setting = AE_FLICKER_MODE_60HZ;
+		spin_unlock(&hi351mipi_drv_lock);
+		break;
+	default:
+		HI351_write_cmos_sensor(0x03, 0x00); //Dummy
+		break;
+	}
+
+#else
+	switch (para)
+	{
+	case AE_FLICKER_MODE_50HZ:
+		HI351_write_cmos_sensor(0x03, 0x20);
+		HI351_write_cmos_sensor(0x10, 0x9f);    // Auto flicker 50Hz
+		spin_lock(&hi351mipi_drv_lock);
+		HI351_Banding_setting = AE_FLICKER_MODE_50HZ;
+		spin_unlock(&hi351mipi_drv_lock);
+		break;
+	case AE_FLICKER_MODE_60HZ:
+		HI351_write_cmos_sensor(0x03, 0x20);
+		HI351_write_cmos_sensor(0x10, 0x8f);    // Auto flicker 60Hz
+		spin_lock(&hi351mipi_drv_lock);
+		HI351_Banding_setting = AE_FLICKER_MODE_60HZ;
+		spin_unlock(&hi351mipi_drv_lock);
+		break;
+	default:
+		HI351_write_cmos_sensor(0x03, 0x20);
+		HI351_write_cmos_sensor(0x10, 0x9f);    // Auto flicker 50Hz
+		spin_lock(&hi351mipi_drv_lock);
+		HI351_Banding_setting = AE_FLICKER_MODE_50HZ;
+		spin_unlock(&hi351mipi_drv_lock);
+		break;
+	}
+#endif
+	return KAL_TRUE;
+} /* HI351_set_param_banding */
+
+
+BOOL HI351_set_param_exposure_for_HDR(UINT16 para)
+{
+	HI351_TRACE("[HI351]:HI351_set_param_exposure_for_HDR :%d", para);
+
+	HI351_write_cmos_sensor(0x03, 0xd9);
+
+
+	switch (para)
+	{
+	 case AE_EV_COMP_20:  //+2 EV
+	 case AE_EV_COMP_10:  // +1 EV
+	    HI351_write_cmos_sensor(0x16, 0x40);
+		HI351_write_cmos_sensor(0x17, 0x40);
+	 break;
+	 case AE_EV_COMP_00:  // +0 EV
+	   HI351_write_cmos_sensor(0x16, 0x40);
+		HI351_write_cmos_sensor(0x17, 0x00);
+	 break;
+	 case AE_EV_COMP_n10:  // -1 EV
+	 case AE_EV_COMP_n20:  // -2 EV
+	    HI351_write_cmos_sensor(0x16, 0x40);
+		HI351_write_cmos_sensor(0x17, 0xc0);
+	 break;
+	 default:
+	 break;//return FALSE;
+	}
+   
+  return TRUE;
+}
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_param_exposure
+*
+* DESCRIPTION
+*	exposure setting.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+BOOL HI351_set_param_exposure(UINT16 para)
+{
+	HI351_TRACE("[HI351]:HI351_set_param_exposure :%d", para);
+	if (SCENE_MODE_HDR == HI351_Scene_mode )
+	   {
+		   HI351_set_param_exposure_for_HDR(para);
+		   return TRUE;
+	   }
+	HI351_write_cmos_sensor(0x03, 0x10);
+	HI351_write_cmos_sensor(0x13, 0x0A);
+	switch (para)
+	{
+    case AE_EV_COMP_30:	
+		HI351_TRACE("[HI351]:AE_EV_COMP_30 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0xc8);
+		break;
+    case AE_EV_COMP_25:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_25 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0xb8);
+		break;
+    case AE_EV_COMP_20:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_20 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0xa8);
+        break;  
+    case AE_EV_COMP_15:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_15 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0x98);
+        break;    
+    case AE_EV_COMP_10:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_10 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0x90);
+        break;    
+    case AE_EV_COMP_05:	
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_05 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0x88);
+        break;    
+    case AE_EV_COMP_00:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_00 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0x80); // EV 0 (Normal)
+        break;    
+    case AE_EV_COMP_n05:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_n05 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0x78);
+        break;    
+    case AE_EV_COMP_n10:	
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_n10 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0x70);
+        break;    
+	case AE_EV_COMP_n15:
+		HI351_TRACE("[HI351]:AE_EV_COMP_n15 :%d", para);
+		HI351_write_cmos_sensor(0x4A, 0x68);
+		break;
+	case AE_EV_COMP_n20:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_n20 :%d", para);
+        HI351_write_cmos_sensor(0x4A, 0x58);
+		break;
+	case AE_EV_COMP_n25:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_n25 :%d", para);
+    	HI351_write_cmos_sensor(0x4A, 0x48);
+		break;
+	case AE_EV_COMP_n30:
+		
+		HI351_TRACE("[HI351]:AE_EV_COMP_n30 :%d", para);
+   		HI351_write_cmos_sensor(0x4A, 0x38);
+        break;
+    default:
+        return FALSE;
+	}
+
+	return TRUE;
+
+} /* HI351_set_param_exposure */
+/*************************************************************************
+* FUNCTION
+*	HI351_set_param_saturation
+*
+* DESCRIPTION
+*	Saturation setting.
+*
+* PARAMETERS
+*	low,med,high
+*
+* RETURNS
+*	True or False
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+
+BOOL HI351_set_param_saturation(UINT16 para)
+{
+
+	HI351_TRACE("[HI351]Set_saturation\n");
+	switch (para)
+	{
+	case ISP_SAT_HIGH:
+		HI351_write_cmos_sensor(0x03, 0xd1);
+		//Cb
+		HI351_write_cmos_sensor(0x2b, 0xa8); //SATB_00
+		HI351_write_cmos_sensor(0x2c, 0xa8); //SATB_01
+		HI351_write_cmos_sensor(0x2d, 0xa8); //SATB_02
+		HI351_write_cmos_sensor(0x2e, 0xb8); //SATB_03
+		HI351_write_cmos_sensor(0x2f, 0xc0); //SATB_04
+		HI351_write_cmos_sensor(0x30, 0xc8); //SATB_05
+		HI351_write_cmos_sensor(0x31, 0xb8); //SATB_06
+		HI351_write_cmos_sensor(0x32, 0xc0); //SATB_07
+		HI351_write_cmos_sensor(0x33, 0xc8); //SATB_08
+		HI351_write_cmos_sensor(0x34, 0xb8); //SATB_09
+		HI351_write_cmos_sensor(0x35, 0xb8); //SATB_10
+		HI351_write_cmos_sensor(0x36, 0xb8); //SATB_11
+		//Cr
+		HI351_write_cmos_sensor(0x37, 0xa8); //SATR_00
+		HI351_write_cmos_sensor(0x38, 0xa8); //SATR_01
+		HI351_write_cmos_sensor(0x39, 0xa8); //SATR_02
+		HI351_write_cmos_sensor(0x3a, 0xb8); //SATR_03
+		HI351_write_cmos_sensor(0x3b, 0xc0); //SATR_04
+		HI351_write_cmos_sensor(0x3c, 0xc8); //SATR_05
+		HI351_write_cmos_sensor(0x3d, 0xb8); //SATR_06
+		HI351_write_cmos_sensor(0x3e, 0xc0); //SATR_07
+		HI351_write_cmos_sensor(0x3f, 0xc8); //SATR_08
+		HI351_write_cmos_sensor(0x40, 0xb8); //SATR_09
+		HI351_write_cmos_sensor(0x41, 0xb8); //SATR_10
+		HI351_write_cmos_sensor(0x42, 0xb8); //SATR_11
+		break;
+	case ISP_SAT_LOW:
+		HI351_write_cmos_sensor(0x03, 0xd1);
+		//Cb
+		HI351_write_cmos_sensor(0x2b, 0x68); //SATB_00
+		HI351_write_cmos_sensor(0x2c, 0x68); //SATB_01
+		HI351_write_cmos_sensor(0x2d, 0x68); //SATB_02
+		HI351_write_cmos_sensor(0x2e, 0x78); //SATB_03
+		HI351_write_cmos_sensor(0x2f, 0x80); //SATB_04
+		HI351_write_cmos_sensor(0x30, 0x88); //SATB_05
+		HI351_write_cmos_sensor(0x31, 0x78); //SATB_06
+		HI351_write_cmos_sensor(0x32, 0x80); //SATB_07
+		HI351_write_cmos_sensor(0x33, 0x88); //SATB_08
+		HI351_write_cmos_sensor(0x34, 0x78); //SATB_09
+		HI351_write_cmos_sensor(0x35, 0x78); //SATB_10
+		HI351_write_cmos_sensor(0x36, 0x78); //SATB_11
+		//Cr
+		HI351_write_cmos_sensor(0x37, 0x68); //SATR_00
+		HI351_write_cmos_sensor(0x38, 0x68); //SATR_01
+		HI351_write_cmos_sensor(0x39, 0x68); //SATR_02
+		HI351_write_cmos_sensor(0x3a, 0x78); //SATR_03
+		HI351_write_cmos_sensor(0x3b, 0x80); //SATR_04
+		HI351_write_cmos_sensor(0x3c, 0x88); //SATR_05
+		HI351_write_cmos_sensor(0x3d, 0x78); //SATR_06
+		HI351_write_cmos_sensor(0x3e, 0x80); //SATR_07
+		HI351_write_cmos_sensor(0x3f, 0x88); //SATR_08
+		HI351_write_cmos_sensor(0x40, 0x78); //SATR_09
+		HI351_write_cmos_sensor(0x41, 0x78); //SATR_10
+		HI351_write_cmos_sensor(0x42, 0x78); //SATR_11
+		break;
+	case ISP_SAT_MIDDLE:
+	default:
+		/*Saturation 0*/
+		HI351_write_cmos_sensor(0x03, 0xd1);
+		//Cb
+		HI351_write_cmos_sensor(0x2b, 0x88); //SATB_00
+		HI351_write_cmos_sensor(0x2c, 0x88); //SATB_01
+		HI351_write_cmos_sensor(0x2d, 0x88); //SATB_02
+		HI351_write_cmos_sensor(0x2e, 0x98); //SATB_03
+		HI351_write_cmos_sensor(0x2f, 0xa0); //SATB_04
+		HI351_write_cmos_sensor(0x30, 0xa8); //SATB_05
+		HI351_write_cmos_sensor(0x31, 0x98); //SATB_06
+		HI351_write_cmos_sensor(0x32, 0xa0); //SATB_07
+		HI351_write_cmos_sensor(0x33, 0xa8); //SATB_08
+		HI351_write_cmos_sensor(0x34, 0x98); //SATB_09
+		HI351_write_cmos_sensor(0x35, 0x98); //SATB_10
+		HI351_write_cmos_sensor(0x36, 0x98); //SATB_11
+		//Cr
+		HI351_write_cmos_sensor(0x37, 0x88); //SATR_00
+		HI351_write_cmos_sensor(0x38, 0x88); //SATR_01
+		HI351_write_cmos_sensor(0x39, 0x88); //SATR_02
+		HI351_write_cmos_sensor(0x3a, 0x98); //SATR_03
+		HI351_write_cmos_sensor(0x3b, 0xa0); //SATR_04
+		HI351_write_cmos_sensor(0x3c, 0xa8); //SATR_05
+		HI351_write_cmos_sensor(0x3d, 0x98); //SATR_06
+		HI351_write_cmos_sensor(0x3e, 0xa0); //SATR_07
+		HI351_write_cmos_sensor(0x3f, 0xa8); //SATR_08
+		HI351_write_cmos_sensor(0x40, 0x98); //SATR_09
+		HI351_write_cmos_sensor(0x41, 0x98); //SATR_10
+		HI351_write_cmos_sensor(0x42, 0x98); //SATR_11
+		break;
+	}
+	return;
+}
+
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_param_iso
+*
+* DESCRIPTION
+*	ISO setting.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+BOOL HI351_set_param_iso(UINT16 para)
+{
+	HI351_TRACE("[HI351]:HI351_set_param_iso :%d", para);
+	spin_lock(&hi351mipi_drv_lock);
+	Exif_info.iso = para;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	switch (para)
+	{
+	case AE_ISO_AUTO:
+		//AE OFF
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0x60);
+		HI351_write_cmos_sensor(0x11, 0xB0);
+
+		//ISO Auto
+		HI351_write_cmos_sensor(0x03, 0x20);
+
+		HI351_write_cmos_sensor(0x51, 0xf0); //Max Gain
+		HI351_write_cmos_sensor(0x52, 0x28); //Min Gain
+
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x19, 0x4a); //Bnd0 Gain
+		HI351_write_cmos_sensor(0x1a, 0x54); //Bnd1 Gain
+		HI351_write_cmos_sensor(0x1b, 0x5c); //Bnd2 Gain
+
+		//AE On
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0xef);
+		//Delay 20ms
+		break;
+	case AE_ISO_100:
+		//AE OFF
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0x60);
+		HI351_write_cmos_sensor(0x11, 0x10);
+
+		//ISO Auto
+		HI351_write_cmos_sensor(0x03, 0x20);
+
+		HI351_write_cmos_sensor(0x51, 0x38); //Max Gain
+		HI351_write_cmos_sensor(0x52, 0x29); //Min Gain
+
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x19, 0x29); //Bnd0 Gain
+		HI351_write_cmos_sensor(0x1a, 0x29); //Bnd1 Gain
+		HI351_write_cmos_sensor(0x1b, 0x29); //Bnd2 Gain
+
+		//AE On
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0xa9);
+		//Delay 20ms
+		break;
+	case AE_ISO_200:
+		//AE OFF
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0x60);
+		HI351_write_cmos_sensor(0x11, 0x10);
+
+		//ISO Auto
+		HI351_write_cmos_sensor(0x03, 0x20);
+
+		HI351_write_cmos_sensor(0x51, 0x58); //Max Gain
+		HI351_write_cmos_sensor(0x52, 0x39); //Min Gain
+
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x19, 0x39); //Bnd0 Gain
+		HI351_write_cmos_sensor(0x1a, 0x39); //Bnd1 Gain
+		HI351_write_cmos_sensor(0x1b, 0x39); //Bnd2 Gain
+
+		//AE On
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0xa9);
+		//Delay 20ms
+		break;
+	case AE_ISO_400:
+		//AE OFF
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0x60);
+		HI351_write_cmos_sensor(0x11, 0x10);
+
+		//ISO Auto
+		HI351_write_cmos_sensor(0x03, 0x20);
+
+		HI351_write_cmos_sensor(0x51, 0x80); //Max Gain
+		HI351_write_cmos_sensor(0x52, 0x59); //Min Gain
+
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x19, 0x59); //Bnd0 Gain
+		HI351_write_cmos_sensor(0x1a, 0x59); //Bnd1 Gain
+		HI351_write_cmos_sensor(0x1b, 0x59); //Bnd2 Gain
+
+		//AE On
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0xa9);
+		//Delay 20ms
+		break;
+	default:
+		//AE OFF
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0x60);
+		HI351_write_cmos_sensor(0x11, 0x30);
+
+		//ISO Auto
+		HI351_write_cmos_sensor(0x03, 0x20);
+
+		HI351_write_cmos_sensor(0x51, 0xf0); //Max Gain
+		HI351_write_cmos_sensor(0x52, 0x28); //Min Gain
+
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x19, 0x4a); //Bnd0 Gain
+		HI351_write_cmos_sensor(0x1a, 0x54); //Bnd1 Gain
+		HI351_write_cmos_sensor(0x1b, 0x5c); //Bnd2 Gain
+
+		//AE On
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0xef);
+		//Delay 20ms    /* Default set as the ISO Auto */
+		break;
+	}
+
+	return KAL_TRUE;
+} /* HI351_set_param_iso */
+
+BOOL HI351_set_param_contrast(UINT16 para)
+{
+	//UINT8 temp_reg=0;
+	HI351_TRACE("[HI351]Set_Contrast\n");
+	HI351_write_cmos_sensor(0x03, 0xd9);
+	//temp_reg = HI351_read_cmos_sensor(0x13);
+	//HI351_write_cmos_sensor(0x13,temp_reg | 0x02);
+	switch (para)
+	{
+	case ISP_CONTRAST_LOW:
+		HI351_write_cmos_sensor(0x18, 0x48);
+		HI351_write_cmos_sensor(0x19, 0x50);
+		break;
+	case ISP_CONTRAST_HIGH:
+		HI351_write_cmos_sensor(0x18, 0x48);
+		HI351_write_cmos_sensor(0x19, 0xb0);
+		break;
+	case ISP_CONTRAST_MIDDLE:
+	default:
+		HI351_write_cmos_sensor(0x18, 0x48);
+		HI351_write_cmos_sensor(0x19, 0x80);
+		break;
+	}
+
+	return;
+
+}
+BOOL HI351_set_param_brightness(UINT16 para)
+{
+	HI351_TRACE("[HI351]Set_Brightness\n");
+
+	HI351_write_cmos_sensor(0x03, 0xd9);
+	switch (para)
+	{
+	case ISP_BRIGHT_LOW:
+		HI351_write_cmos_sensor(0x16, 0x40);
+		HI351_write_cmos_sensor(0x17, 0xc0);
+		break;
+	case ISP_BRIGHT_HIGH:
+		HI351_write_cmos_sensor(0x16, 0x40);
+		HI351_write_cmos_sensor(0x17, 0x40);
+		break;
+	case ISP_BRIGHT_MIDDLE:
+		HI351_write_cmos_sensor(0x16, 0x40);
+		HI351_write_cmos_sensor(0x17, 0x00);
+		break;
+	}
+
+
+	return;
+}
+
+/*************************************************************************
+* FUNCTION
+*	HI351_NightMode
+*
+* DESCRIPTION
+*	This function night mode of HI351.
+*
+* PARAMETERS
+*	none
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+void HI351_night_mode(kal_bool enable)
+{
+	kal_uint8 iTemp = 0;
+
+	/* 0x11 [page mode 0]: VDOCTL2 [default=0x90, r/w]
+	B[1] Vertical Flip Function (0:OFF, 1:ON)
+	B[0] Horizontal Flip Function (0:OFF, 1:ON)  */
+	HI351_write_cmos_sensor(0x03, 0x00);
+	iTemp = HI351_read_cmos_sensor(0x11);
+	iTemp &= 0x03;
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_Night_mode = enable;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	if (HI351_VEDIO_encode_mode == KAL_TRUE) {
+		return ;	//If video mode, return directely.
+	}
+
+	HI351_TRACE("[HI351]:night mode: enable=%d\n", enable);
+
+	if (enable)
+	{
+		if(HI351_ZSD_Preview_state)
+		{
+			HI351_write_cmos_sensor(0x03,0x10);
+			HI351_write_cmos_sensor(0x41,0x20); //dark Y-offset
+		}
+		else
+		{
+			HI351_write_cmos_sensor(0x03, 0x00);
+			HI351_write_cmos_sensor(0x01, 0xf1);
+			HI351_write_cmos_sensor(0x03, 0x30);
+			HI351_write_cmos_sensor(0x36, 0xA3); /*DMA off*/
+			HI351_write_cmos_sensor(0x03, 0x30);
+			HI351_write_cmos_sensor(0x03, 0x30);
+			HI351_write_cmos_sensor(0x03, 0x30);
+			HI351_write_cmos_sensor(0x36, 0xA3); /*DMA off*/
+			HI351_write_cmos_sensor(0x03, 0xc4);
+			HI351_write_cmos_sensor(0x10, 0x6e); /*AE Off*/
+
+			HI351_write_cmos_sensor(0x03, 0x20); //Page 20
+			HI351_write_cmos_sensor(0x24, 0x00); //EXP Max 5.00 fps
+			HI351_write_cmos_sensor(0x25, 0x6d);
+			HI351_write_cmos_sensor(0x26, 0xd1);
+			HI351_write_cmos_sensor(0x27, 0xc0);
+
+			HI351_write_cmos_sensor(0x03, 0xcf); /*Adative en*/
+			HI351_write_cmos_sensor(0x10, 0xaf); /*Yoffset, Contrast Off*/
+			//AE On
+			HI351_write_cmos_sensor(0x03, 0xc4);
+			HI351_write_cmos_sensor(0x66, 0x08); /*ae stat*/
+			HI351_write_cmos_sensor(0x67, 0x00); /*ae stat*/
+			HI351_write_cmos_sensor(0x10, 0xff); /*ae on & reset*/
+			mdelay(10);
+			HI351_write_cmos_sensor(0x03, 0x00);
+			HI351_write_cmos_sensor(0x01, 0xf0); /*sleep off*/
+
+			HI351_write_cmos_sensor(0x03, 0xc0);
+			HI351_write_cmos_sensor(0x33, 0x00);
+			HI351_write_cmos_sensor(0x32, 0x01); /*DMA On*/
+			mdelay(10);
+		}
+	}
+	else
+	{
+		if(HI351_ZSD_Preview_state)
+		{
+			HI351_write_cmos_sensor(0x03,0x10);
+			HI351_write_cmos_sensor(0x41,0x00); //dark Y-offset
+		}
+		else
+		{
+			HI351_write_cmos_sensor(0x03, 0x00);
+			HI351_write_cmos_sensor(0x01, 0xf1);
+			HI351_write_cmos_sensor(0x03, 0x30);
+			HI351_write_cmos_sensor(0x36, 0xA3); /*DMA off*/
+			HI351_write_cmos_sensor(0x03, 0x30);
+			HI351_write_cmos_sensor(0x03, 0x30);
+			HI351_write_cmos_sensor(0x03, 0x30);
+			HI351_write_cmos_sensor(0x36, 0xA3); /*DMA off*/
+			HI351_write_cmos_sensor(0x03, 0xc4);
+			HI351_write_cmos_sensor(0x10, 0x6e); /*AE Off*/
+
+			HI351_write_cmos_sensor(0x03, 0x20); //Page 20
+			HI351_write_cmos_sensor(0x24, 0x00); //EXP Max 10.00 fps
+			HI351_write_cmos_sensor(0x25, 0x36);
+			HI351_write_cmos_sensor(0x26, 0xe8);
+			HI351_write_cmos_sensor(0x27, 0xe0);
+
+			HI351_write_cmos_sensor(0x03, 0xcf); /*Adative en*/
+			HI351_write_cmos_sensor(0x10, 0xaf); /*Yoffset, Contrast Off*/
+
+			//AE On
+			HI351_write_cmos_sensor(0x03, 0xc4);
+			HI351_write_cmos_sensor(0x66, 0x08); /*ae stat*/
+			HI351_write_cmos_sensor(0x67, 0x00); /*ae stat*/
+			HI351_write_cmos_sensor(0x10, 0xff); /*ae on & reset*/
+
+			mdelay(10);
+
+			HI351_write_cmos_sensor(0x03, 0x00);
+			HI351_write_cmos_sensor(0x01, 0xf0); /*sleep off*/
+
+			HI351_write_cmos_sensor(0x03, 0xc0);
+			HI351_write_cmos_sensor(0x33, 0x00);
+			HI351_write_cmos_sensor(0x32, 0x01); /*DMA On*/
+			mdelay(10);
+		}
+	}
+}	/* HI351_NightMode */
+
+void hi351_scene_normal_mode(void)
+{
+	UINT8 temp_reg=0;
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x01, 0xf1);
+
+	if(HI351_ZSD_Preview_state)
+	{
+		HI351_write_cmos_sensor(0x03,0x10);
+		temp_reg=HI351_read_cmos_sensor(0x12);
+		HI351_write_cmos_sensor(0x12,(temp_reg | 0x20));//enable DYOFS
+		HI351_write_cmos_sensor(0x41,0x00); //dark Y-offset
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x13, 0x80); //Fix AE Set Off
+		//HI351_write_cmos_sensor(0x11, 0x83); //Fix On
+		HI351_write_cmos_sensor(0x01, 0xf0); /*sleep off*/
+	}
+	else
+	{
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x36, 0xA3); /*DMA off*/
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x36, 0xA3); /*DMA off*/
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0x6e); /*AE Off*/
+
+		HI351_write_cmos_sensor(0x03, 0x20); //Page 20
+		HI351_write_cmos_sensor(0x24, 0x00); //EXP Max 10.00 fps
+		HI351_write_cmos_sensor(0x25, 0x36);
+		HI351_write_cmos_sensor(0x26, 0xe8);
+		HI351_write_cmos_sensor(0x27, 0xe0);
+
+		HI351_write_cmos_sensor(0x03, 0xcf); /*Adative en*/
+		HI351_write_cmos_sensor(0x10, 0xaf); /*Yoffset, Contrast Off*/
+
+		//AE On
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x66, 0x08); /*ae stat*/
+		HI351_write_cmos_sensor(0x67, 0x00); /*ae stat*/
+		HI351_write_cmos_sensor(0x10, 0xff); /*ae on & reset*/
+
+		mdelay(10);
+
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x01, 0xf0); /*sleep off*/
+
+		HI351_write_cmos_sensor(0x03, 0xc0);
+		HI351_write_cmos_sensor(0x33, 0x00);
+		HI351_write_cmos_sensor(0x32, 0x01); /*DMA On*/
+		mdelay(10);
+	}	
+}
+
+void hi351_scene_night_mode(void)
+{
+	UINT8 temp_reg=0;
+	HI351_write_cmos_sensor(0x03, 0x00);
+	HI351_write_cmos_sensor(0x01, 0xf1);
+
+	if(HI351_ZSD_Preview_state)
+	{
+		HI351_write_cmos_sensor(0x03,0x10);
+		temp_reg=HI351_read_cmos_sensor(0x12);
+		HI351_write_cmos_sensor(0x12,(temp_reg | 0x20));//enable DYOFS
+		HI351_write_cmos_sensor(0x41,0x20); //dark Y-offset
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x13, 0x80); //Fix AE Set Off
+		//HI351_write_cmos_sensor(0x11, 0x83); //Fix On
+		HI351_write_cmos_sensor(0x01, 0xf0); /*sleep off*/
+	}
+	else
+	{
+		
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x36, 0xA3); /*DMA off*/
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x36, 0xA3); /*DMA off*/
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x10, 0x6e); /*AE Off*/
+
+		HI351_write_cmos_sensor(0x03, 0x20); //Page 20
+		HI351_write_cmos_sensor(0x24, 0x00); //EXP Max 5.00 fps
+		HI351_write_cmos_sensor(0x25, 0x6d);
+		HI351_write_cmos_sensor(0x26, 0xd1);
+		HI351_write_cmos_sensor(0x27, 0xc0);
+
+		HI351_write_cmos_sensor(0x03, 0xcf); /*Adative en*/
+		HI351_write_cmos_sensor(0x10, 0xaf); /*Yoffset, Contrast Off*/
+		//AE On
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x66, 0x08); /*ae stat*/
+		HI351_write_cmos_sensor(0x67, 0x00); /*ae stat*/
+		HI351_write_cmos_sensor(0x10, 0xff); /*ae on & reset*/
+		mdelay(10);
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x01, 0xf0); /*sleep off*/
+
+		HI351_write_cmos_sensor(0x03, 0xc0);
+		HI351_write_cmos_sensor(0x33, 0x00);
+		HI351_write_cmos_sensor(0x32, 0x01); /*DMA On*/
+		Sleep(200);
+}
+}
+
+/*************************************************************************
+* FUNCTION
+*	HI351_set_param_scene
+*
+* DESCRIPTION
+*	This function scene mode of HI351.
+*
+* PARAMETERS
+*	mode
+*
+* RETURNS
+*	BOOL
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+BOOL HI351_set_param_scene(UINT16 para)
+{
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_Scene_mode = para;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	if (HI351_VEDIO_encode_mode == KAL_TRUE)
+	{
+		return FALSE;	//If video mode, return directely.
+	}
+
+	HI351_TRACE("[HI351]:HI351_set_param_scene: =%d\n", para);
+
+	switch (para)
+	{
+	case SCENE_MODE_OFF:
+	case SCENE_MODE_NORMAL:
+		HI351_TRACE("[HI351]:SCENE_MODE_OFF: =%d\n", para);
+		hi351_scene_normal_mode();
+		break;
+	case SCENE_MODE_PORTRAIT:
+		HI351_TRACE("[HI351]:SCENE_MODE_PORTRAIT: =%d\n", para);
+		//hi351_scene_portrait_mode();
+		break;
+	case SCENE_MODE_LANDSCAPE:
+		HI351_TRACE("[HI351]:SCENE_MODE_LANDSCAPE: =%d\n", para);
+		//hi351_scene_landscape_mode();
+		break;
+	case SCENE_MODE_SPORTS:
+		HI351_TRACE("[HI351]:SCENE_MODE_SPORTS: =%d\n", para);
+		//hi351_scene_sport_mode();
+		break;
+	case SCENE_MODE_SUNSET:
+		HI351_TRACE("[HI351]:SCENE_MODE_SUNSET: =%d\n", para);
+		//hi351_scene_sunset_mode();
+		break;
+	case SCENE_MODE_NIGHTSCENE:
+		HI351_TRACE("[HI351]:SCENE_MODE_NIGHTSCENE: =%d\n", para);
+		hi351_scene_night_mode();
+		break;
+	case SCENE_MODE_HDR:	
+		HI351_TRACE("[HI351]:SCENE_MODE_HDR: =%d\n", para);
+		break;
+	default:
+		HI351_TRACE("[HI351]:HI351_set_param_scene default fail: =%d\n", para);
+		return FALSE;
+	}
+
+	return TRUE;
+}	/* HI351_set_param_scene */
+
+
+/*************************************************************************
+* FUNCTION
+*    HI351GetEvAwbRef
+*
+* DESCRIPTION
+*    This function get sensor Ev/Awb (EV05/EV13) for auto scene detect
+*
+* PARAMETERS
+*    Ref
+*
+* RETURNS
+*    None
+*
+* LOCAL AFFECTED
+*
+*************************************************************************/
+static void HI351GetEvAwbRef(UINT32 pSensorAEAWBRefStruct/*PSENSOR_AE_AWB_REF_STRUCT Ref*/)
+{
+	PSENSOR_AE_AWB_REF_STRUCT Ref = (PSENSOR_AE_AWB_REF_STRUCT)pSensorAEAWBRefStruct;
+	HI351_TRACE("[HI351]:GetEvAwbRef ref = 0x%x \n", Ref);
+
+	Ref->SensorAERef.AeRefLV05Shutter = 9166;
+	Ref->SensorAERef.AeRefLV05Gain = 600; /* 4.68x, 128 base */
+	Ref->SensorAERef.AeRefLV13Shutter = 184;
+	Ref->SensorAERef.AeRefLV13Gain = 160; /* 1.25x, 128 base */
+	Ref->SensorAwbGainRef.AwbRefD65Rgain = 218; /* 1.70x, 128 base */
+	Ref->SensorAwbGainRef.AwbRefD65Bgain = 188; /* 146x, 128 base */
+	Ref->SensorAwbGainRef.AwbRefCWFRgain = 176; /* 1.38x, 128 base */
+	Ref->SensorAwbGainRef.AwbRefCWFBgain = 258; /* 2.01x, 128 base */
+}
+
+/*************************************************************************
+* FUNCTION
+*    HI351GetCurAeAwbInfo
+*
+* DESCRIPTION
+*    This function get sensor cur Ae/Awb for auto scene detect
+*
+* PARAMETERS
+*    Info
+*
+* RETURNS
+*    None
+*
+* LOCAL AFFECTED
+*
+*************************************************************************/
+static void HI351GetCurAeAwbInfo(UINT32 pSensorAEAWBCurStruct/*PSENSOR_AE_AWB_CUR_STRUCT Info*/)
+{
+	PSENSOR_AE_AWB_CUR_STRUCT Info = (PSENSOR_AE_AWB_CUR_STRUCT)pSensorAEAWBCurStruct;
+	HI351_TRACE("[HI351]:GetCurAeAwbInfo Info = 0x%x \n", Info);
+
+	Info->SensorAECur.AeCurShutter = HI351_read_shutter();
+	Info->SensorAECur.AeCurGain = HI351_read_gain(); /* 128 base */
+
+	/* AWB R/B gain = 1 / 64 * B[7:0]. 0x20(1X) ~ 0x40(2X) */
+	HI351_write_cmos_sensor(0x03, 0x16); /* read R gain, set R gain index */
+	Info->SensorAwbGainCur.AwbCurRgain = HI351_read_cmos_sensor(0xA2) << 1; /* 128 base */
+	HI351_write_cmos_sensor(0x03, 0x16); /* read B gain, set B gain index */
+	Info->SensorAwbGainCur.AwbCurBgain = HI351_read_cmos_sensor(0xA3) << 1; /* 128 base */
+
+	HI351_TRACE("[HI351]Curr shutter=%d(10us), gain=%d(128base), RGain=%d(128base), BGain=%d(128base)", \
+		Info->SensorAECur.AeCurShutter, Info->SensorAECur.AeCurGain, \
+		Info->SensorAwbGainCur.AwbCurRgain, Info->SensorAwbGainCur.AwbCurBgain);
+}
+
+/*************************************************************************
+* FUNCTION
+*	HI351Preview
+*
+* DESCRIPTION
+*	This function start the sensor preview.
+*
+* PARAMETERS
+*	*image_window : address pointer of pixel numbers in one period of HSYNC
+*  *sensor_config_data : address pointer of line numbers in one period of VSYNC
+*
+* RETURNS
+*	None
+*
+* GLOBALS AFFECTED
+*
+*************************************************************************/
+UINT32 HI351Preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
+					MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
+{
+	UINT16 iStartX = 3, iStartY = 3;
+	UINT16 	shutter = 0,pv_gain = 0;
+
+	HI351_TRACE("[HI351 Preview] target size=%d x %d, mirror=%d\n", \
+		image_window->ImageTargetWidth, image_window->ImageTargetHeight, sensor_config_data->SensorImageMirror);
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_sensor_cap_state = KAL_FALSE;
+	HI351_ZSD_Preview_state = KAL_FALSE;
+	HI351_gPVmode = KAL_TRUE;
+
+	memset(&Exif_info,0,sizeof(HI351_EXIF_INFO));
+	spin_unlock(&hi351mipi_drv_lock);
+	
+	/*Step1. set output size*/
+	HI351PreviewSetting();
+
+	//Step2. Nedd to turn on the AE/AWB in preview mode.
+	HI351_set_ae_enable(HI351_AE_ENABLE);
+	HI351_set_awb_enable(HI351_AWB_ENABLE);
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_VEDIO_encode_mode = KAL_FALSE;
+
+	//4  <2> if preview of capture PICTURE
+	HI351_PV_dummy_pixels = 0;
+	HI351_PV_dummy_lines = 0;
+
+	//Step 3. record preview ISP_clk
+	HI351_preview_pclk = 720;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	//4 <3> set mirror and flip
+	HI351_set_mirror_flip(sensor_config_data->SensorImageMirror);
+
+	//4 <6> set dummy
+	HI351_set_dummy(HI351_PV_dummy_pixels, HI351_PV_dummy_lines);
+
+	HI351_TRACE("[HI351 Preview] dummy pixels=%d, dummy lines=%d\n", HI351_PV_dummy_pixels, HI351_PV_dummy_lines);
+
+	image_window->GrabStartX = IMAGE_SENSOR_PV_GRAB_START_X;
+	image_window->GrabStartY = IMAGE_SENSOR_PV_GRAB_START_Y;
+	image_window->ExposureWindowWidth = HI351_IMAGE_SENSOR_PV_WIDTH;
+	image_window->ExposureWindowHeight = HI351_IMAGE_SENSOR_PV_HEIGHT;
+
+	HI351_para_scene = 0xFFFF;
+	HI351_para_wb = 0xFFFF;
+	HI351_para_effect = 0xFFFF;
+
+	return TRUE;
+}	/* HI351_Preview */
+
+
+UINT32 HI351FullPreview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window, MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
+{
+	volatile kal_uint32 cap_shutter = 0;
+
+	HI351_TRACE("[HI351 FullPreview] target size=%d x %d, ZoomFactor=%d\n", \
+		image_window->ImageTargetWidth, image_window->ImageTargetHeight, image_window->ZoomFactor);
+
+	HI351_TRACE("HI351_zoom_factor:%d;\n",HI351_zoom_factor);
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_ZSD_Preview_state = KAL_TRUE;
+	HI351_VEDIO_encode_mode=KAL_FALSE;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	/* Step 1. set output size:2048x1536 */
+	HI351FullPreviewSetting();
+
+	/* Step 2. Enable the ae/awb mode */
+	HI351_set_ae_enable(HI351_AE_ENABLE);
+	HI351_set_awb_enable(HI351_AWB_ENABLE);
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_gPVmode = KAL_FALSE;
+
+	//Step 3. record preview ISP_clk
+	HI351_preview_pclk = 720;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	//4 <3> set mirror and flip
+	HI351_set_mirror_flip(sensor_config_data->SensorImageMirror);
+
+	/* Step 3. Set dummy pixels & dummy lines. */
+	HI351_set_dummy(HI351_FULL_dummy_pixels, HI351_FULL_dummy_lines);
+
+	/* Step 4. calculate capture shutter */
+	//HI351_write_shutter(cap_shutter);
+
+	HI351_TRACE("[HI351 FullPreview] dummy_pixels=%d, dummy_pixels=%d, cap_shutter=%d\n", \
+		HI351_FULL_dummy_pixels, HI351_FULL_dummy_lines, cap_shutter);
+
+	/* Step 5. Config the exposure window. */
+	image_window->GrabStartX = IMAGE_SENSOR_FULL_GRAB_START_X;
+	image_window->GrabStartY = IMAGE_SENSOR_FULL_GRAB_START_Y;
+	image_window->ImageTargetWidth = HI351_IMAGE_SENSOR_FULL_WIDTH;
+	image_window->ImageTargetHeight = HI351_IMAGE_SENSOR_FULL_HEIGHT;
+
+	return TRUE;
+}	/* HI351_Capture */
+void HI351_ISO_CAL(void)
+{
+	kal_uint32 a_gain = 0x28;
+	if(AE_ISO_AUTO != Exif_info.iso ) return;
+		a_gain = HI351_read_gain();
+		if((a_gain >= 0x28)&&(a_gain<=0x38))
+			{Exif_info.iso= AE_ISO_100; return;}
+		if((a_gain > 0x38)&&(a_gain<=0x58))
+			{Exif_info.iso= AE_ISO_200; return;}
+ 		if((a_gain > 0x58)&&(a_gain<=0xf0))
+			{Exif_info.iso= AE_ISO_400; return;}
+		return;
+
+}
+UINT32 HI351Capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window, MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
+{
+	volatile kal_uint32 cap_shutter = 0, prev_shutter;  //HI351_exposure_lines;
+
+	HI351_TRACE("[HI351 Capture] target size=%d x %d, ZoomFactor=%d\n", \
+		image_window->ImageTargetWidth, image_window->ImageTargetHeight, image_window->ZoomFactor);
+
+	HI351_TRACE("HI351_zoom_factor:%d;\n",HI351_zoom_factor);
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_sensor_cap_state = KAL_TRUE;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	/* Step 1. Disable the ae/awb mode */
+	HI351_set_ae_enable(KAL_FALSE);
+	HI351_set_awb_enable(KAL_FALSE);
+
+	prev_shutter = HI351_read_shutter();
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_PV_Shutter = prev_shutter;
+	spin_unlock(&hi351mipi_drv_lock);
+	HI351_TRACE("[HI351 Capture] prev_shutter=%d\n", prev_shutter);
+	HI351_ISO_CAL();  
+	/* Step 2. set output size:2048x1536 */
+	HI351CaptureSetting();
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_gPVmode = KAL_FALSE;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	//4 <3> set mirror and flip
+	HI351_set_mirror_flip(sensor_config_data->SensorImageMirror);
+
+	/* Step 3. Set dummy pixels & dummy lines. */
+	HI351_set_dummy(HI351_FULL_dummy_pixels, HI351_FULL_dummy_lines);
+
+	/* Step 4. calculate capture shutter */
+	// Do not calculate shutter due to the same opclk
+	//HI351_write_shutter(cap_shutter);
+
+	HI351_TRACE("[HI351 Capture] dummy_pixels=%d, dummy_pixels=%d, cap_shutter=%d\n", \
+		HI351_FULL_dummy_pixels, HI351_FULL_dummy_lines, cap_shutter);
+
+	/* Step 5. Config the exposure window. */
+	image_window->GrabStartX = IMAGE_SENSOR_FULL_GRAB_START_X;
+	image_window->GrabStartY = IMAGE_SENSOR_FULL_GRAB_START_Y;
+	image_window->ImageTargetWidth = HI351_IMAGE_SENSOR_FULL_WIDTH;
+	image_window->ImageTargetHeight = HI351_IMAGE_SENSOR_FULL_HEIGHT;
+
+	HI351_para_scene = 0xFFFF;
+	HI351_para_wb = 0xFFFF;
+	HI351_para_effect = 0xFFFF;
+
+	return TRUE;
+}	/* HI351_Capture */
+
+
+UINT32 HI351GetResolution(MSDK_SENSOR_RESOLUTION_INFO_STRUCT *pSensorResolution)
+{
+	pSensorResolution->SensorPreviewWidth = HI351_IMAGE_SENSOR_PV_WIDTH;
+	pSensorResolution->SensorPreviewHeight = HI351_IMAGE_SENSOR_PV_HEIGHT;
+
+	pSensorResolution->SensorFullWidth = HI351_IMAGE_SENSOR_FULL_WIDTH;
+	pSensorResolution->SensorFullHeight = HI351_IMAGE_SENSOR_FULL_HEIGHT;
+
+	pSensorResolution->SensorVideoWidth = HI351_IMAGE_SENSOR_PV_WIDTH;
+	pSensorResolution->SensorVideoHeight = HI351_IMAGE_SENSOR_PV_HEIGHT;
+
+	return ERROR_NONE;
+}	/* HI351GetResolution() */
+
+UINT32 HI351GetInfo(MSDK_SCENARIO_ID_ENUM ScenarioId,
+					MSDK_SENSOR_INFO_STRUCT *pSensorInfo,
+					MSDK_SENSOR_CONFIG_STRUCT *pSensorConfigData)
+{
+	pSensorInfo->SensorPreviewResolutionX = HI351_IMAGE_SENSOR_PV_WIDTH;
+	pSensorInfo->SensorPreviewResolutionY = HI351_IMAGE_SENSOR_PV_HEIGHT;
+	pSensorInfo->SensorCameraPreviewFrameRate=30;
+
+	pSensorInfo->SensorFullResolutionX = HI351_IMAGE_SENSOR_FULL_WIDTH;
+	pSensorInfo->SensorFullResolutionY = HI351_IMAGE_SENSOR_FULL_HEIGHT;
+
+	pSensorInfo->SensorVideoFrameRate=30;
+	pSensorInfo->SensorStillCaptureFrameRate=10;
+	pSensorInfo->SensorWebCamCaptureFrameRate=15;
+
+	pSensorInfo->SensorResetActiveHigh=FALSE;
+	pSensorInfo->SensorResetDelayCount=1;
+	pSensorInfo->SensorOutputDataFormat=SENSOR_OUTPUT_FORMAT_YUYV;
+	pSensorInfo->SensorClockPolarity=SENSOR_CLOCK_POLARITY_LOW;
+	pSensorInfo->SensorClockFallingPolarity=SENSOR_CLOCK_POLARITY_LOW;
+	pSensorInfo->SensorHsyncPolarity = SENSOR_CLOCK_POLARITY_LOW;
+	pSensorInfo->SensorVsyncPolarity = SENSOR_CLOCK_POLARITY_LOW;
+
+	pSensorInfo->SensorInterruptDelayLines = 1;
+	pSensorInfo->SensroInterfaceType=SENSOR_INTERFACE_TYPE_MIPI;
+	pSensorInfo->CaptureDelayFrame = 1;
+	pSensorInfo->PreviewDelayFrame = 0;
+	pSensorInfo->VideoDelayFrame = 2;
+	pSensorInfo->SensorMasterClockSwitch = 0;
+	pSensorInfo->SensorDrivingCurrent = ISP_DRIVING_6MA;//ISP_DRIVING_2MA;
+
+	pSensorInfo->SensorMIPILaneNumber = SENSOR_MIPI_1_LANE;
+	pSensorInfo->MIPIDataLowPwr2HighSpeedTermDelayCount = 0;
+	pSensorInfo->MIPIDataLowPwr2HighSpeedSettleDelayCount = 14;
+	pSensorInfo->MIPICLKLowPwr2HighSpeedTermDelayCount = 0;
+	pSensorInfo->SensorWidthSampling = 0;  // 0 is default 1x
+	pSensorInfo->SensorHightSampling = 0;   // 0 is default 1x
+	pSensorInfo->SensorPacketECCOrder = 1;
+
+	switch (ScenarioId)
+	{
+	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+	case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+		//case MSDK_SCENARIO_ID_VIDEO_CAPTURE_MPEG4:
+		pSensorInfo->SensorClockFreq=24;
+		pSensorInfo->SensorClockDividCount=	3;
+		pSensorInfo->SensorClockRisingCount= 0;
+		pSensorInfo->SensorClockFallingCount= 2;
+		pSensorInfo->SensorPixelClockCount= 3;
+		pSensorInfo->SensorDataLatchCount= 2;
+		pSensorInfo->SensorGrabStartX = 0;
+		pSensorInfo->SensorGrabStartY = 1;
+		break;
+	case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+		//case MSDK_SCENARIO_ID_CAMERA_CAPTURE_MEM:
+	case MSDK_SCENARIO_ID_CAMERA_ZSD:
+		pSensorInfo->SensorClockFreq=24;
+		pSensorInfo->SensorClockDividCount=	3;
+		pSensorInfo->SensorClockRisingCount= 0;
+		pSensorInfo->SensorClockFallingCount= 2;
+		pSensorInfo->SensorPixelClockCount= 3;
+		pSensorInfo->SensorDataLatchCount= 2;
+		pSensorInfo->SensorGrabStartX = 0;
+		pSensorInfo->SensorGrabStartY = 1;
+		break;
+	default:
+		pSensorInfo->SensorClockFreq=24;
+		pSensorInfo->SensorClockDividCount=3;
+		pSensorInfo->SensorClockRisingCount=0;
+		pSensorInfo->SensorClockFallingCount=2;
+		pSensorInfo->SensorPixelClockCount=3;
+		pSensorInfo->SensorDataLatchCount=2;
+		pSensorInfo->SensorGrabStartX = 0;
+		pSensorInfo->SensorGrabStartY = 1;
+		break;
+	}
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_PixelClockDivider=pSensorInfo->SensorPixelClockCount;
+	spin_unlock(&hi351mipi_drv_lock);
+	memcpy(pSensorConfigData, &HI351SensorConfigData, sizeof(MSDK_SENSOR_CONFIG_STRUCT));
+
+	Capture_delay_in_Flash = Capture_delay;
+
+	return ERROR_NONE;
+}	/* HI351GetInfo() */
+
+
+UINT32 HI351Control(MSDK_SCENARIO_ID_ENUM ScenarioId, MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *pImageWindow,
+					MSDK_SENSOR_CONFIG_STRUCT *pSensorConfigData)
+{
+	HI351_TRACE("[HI351]:Control Senario ID:%x\n", ScenarioId);
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351CurrentScenarioId = ScenarioId;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	switch (ScenarioId)
+	{
+	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+	case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+		//case MSDK_SCENARIO_ID_VIDEO_CAPTURE_MPEG4:
+		HI351Preview(pImageWindow, pSensorConfigData);
+		break;
+	case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+		//case MSDK_SCENARIO_ID_CAMERA_CAPTURE_MEM:
+		HI351Capture(pImageWindow, pSensorConfigData);
+		break;
+	case MSDK_SCENARIO_ID_CAMERA_ZSD:
+		HI351FullPreview(pImageWindow, pSensorConfigData);
+	default:
+		break;
+	}
+	return TRUE;
+}	/* HI351Control() */
+
+UINT32 HI351YUVSensorSetting(FEATURE_ID iCmd, UINT32 iPara)
+{
+	HI351_TRACE("[HI351 YUV Sensor setting]: FID=%d, para=%d\n", iCmd, iPara);
+
+	switch (iCmd)
+	{
+	case FID_SCENE_MODE:
+#if 0
+		if (iPara == SCENE_MODE_OFF)
+		{
+			HI351_night_mode(0);
+		}
+		else if (iPara == SCENE_MODE_NIGHTSCENE)
+		{
+			HI351_night_mode(1);
+		}
+#else
+		HI351_set_param_scene(iPara);
+		//HI351_set_param_wb_effect_scene(iCmd, iPara);
+#endif
+		break;
+	case FID_AWB_MODE:
+		HI351_set_param_wb(iPara);
+		//HI351_set_param_wb_effect_scene(iCmd, iPara);
+		break;
+	case FID_COLOR_EFFECT:
+		HI351_set_param_effect(iPara);
+		//HI351_set_param_wb_effect_scene(iCmd, iPara);
+		break;
+	case FID_AE_FLICKER:
+		HI351_set_param_banding(iPara);
+		break;
+	case FID_AE_EV:
+		HI351_set_param_exposure(iPara);
+		break;
+	case FID_AE_ISO:
+		HI351_set_param_iso(iPara);
+		break;
+	case FID_AE_SCENE_MODE:
+		//6589Ö®Ç°¿ØÖÆAEµÄ·½Ê½£¬Ö®ºó²»»áÊ¹ÓÃÁË
+		//if (MSDK_SCENARIO_ID_CAMERA_ZSD != HI351CurrentScenarioId)
+		{
+			if (iPara == AE_MODE_OFF)
+			{
+				spin_lock(&hi351_drv_lock);
+				HI351_AE_ENABLE = KAL_FALSE;
+				spin_unlock(&hi351_drv_lock);
+			}
+			else
+			{
+				spin_lock(&hi351_drv_lock);
+				HI351_AE_ENABLE = KAL_TRUE;
+				spin_unlock(&hi351_drv_lock);
+			}
+			HI351_set_ae_enable(HI351_AE_ENABLE);
+		}
+		break;
+	case FID_ISP_CONTRAST:
+		HI351_set_param_contrast(iPara);
+		break;
+	case FID_ISP_BRIGHT:
+		HI351_set_param_brightness(iPara);
+		break;
+	case FID_ISP_SAT:
+		HI351_set_param_saturation(iPara);
+		break;
+	case FID_ZOOM_FACTOR:
+		spin_lock(&hi351_drv_lock);
+		HI351_zoom_factor = iPara;
+		spin_unlock(&hi351_drv_lock);
+		break;
+	default:
+		break;
+	}
+	return TRUE;
+}   /* HI351YUVSensorSetting */
+
+UINT32 HI351YUVSetVideoMode(UINT16 u2FrameRate)
+{
+#if 0
+	kal_uint8 iTemp = 0;
+
+	/* 0x11 [page mode 0]: VDOCTL2 [default=0x90, r/w]
+	B[1] Vertical Flip Function (0:OFF, 1:ON)
+	B[0] Horizontal Flip Function (0:OFF, 1:ON)  */
+	HI351_write_cmos_sensor(0x03, 0x00);
+	iTemp = HI351_read_cmos_sensor(0x11);
+	iTemp &= 0x03;
+#endif
+
+	spin_lock(&hi351mipi_drv_lock);
+	HI351_VEDIO_encode_mode = KAL_TRUE;
+	HI351_ZSD_Preview_state = KAL_FALSE;
+	spin_unlock(&hi351mipi_drv_lock);
+
+	HI351_TRACE("[HI351]video mode: frame_rate=%d\n", u2FrameRate);
+
+	if (u2FrameRate == 30)
+	{
+		//video encode
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x01, 0xf1); //Sleep on
+
+		HI351_write_cmos_sensor(0x03, 0x30); //DMA&Adaptive Off
+		HI351_write_cmos_sensor(0x36, 0xa3);
+
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x36, 0xa3); //DMA&Adaptive Off
+
+		HI351_write_cmos_sensor(0x03, 0xc4); //AE off
+		HI351_write_cmos_sensor(0x10, 0x6a);
+		HI351_write_cmos_sensor(0x03, 0xc5); //AWB off
+		HI351_write_cmos_sensor(0x10, 0x00);
+		mdelay(10);
+		//preview mode off
+		//HI351_write_cmos_sensor(0x03, 0x30);
+		//HI351_write_cmos_sensor(0x36, 0x29);
+
+		/*HI351_write_cmos_sensor(0x03, 0x15);  //Shading
+		HI351_write_cmos_sensor(0x10, 0x81);  //
+		HI351_write_cmos_sensor(0x20, 0x04);  //Shading Width 2048
+		HI351_write_cmos_sensor(0x21, 0x00);
+		HI351_write_cmos_sensor(0x22, 0x03);  //Shading Height 768
+		HI351_write_cmos_sensor(0x23, 0x00);*/
+
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x10, 0x13); //Sub+Pre1
+		HI351_write_cmos_sensor(0x17, 0x04); //clk 1/1
+
+		HI351_write_cmos_sensor(0x20, 0x00); //Start of Height
+		HI351_write_cmos_sensor(0x21, 0x01);
+		HI351_write_cmos_sensor(0x22, 0x00); //Start of Width
+		HI351_write_cmos_sensor(0x23, 0x0a);
+
+
+		HI351_write_cmos_sensor(0x03, 0x20); //Page 20
+		HI351_write_cmos_sensor(0x80, 0x34);
+
+		HI351_write_cmos_sensor(0x24, 0x00); //EXP Max 33.33 fps
+		HI351_write_cmos_sensor(0x25, 0x10);
+		HI351_write_cmos_sensor(0x26, 0x79);
+		HI351_write_cmos_sensor(0x27, 0x10);
+		HI351_write_cmos_sensor(0x28, 0x00); //EXPMin 24545.45 fps
+		HI351_write_cmos_sensor(0x29, 0x05);
+		HI351_write_cmos_sensor(0x2a, 0x94);
+
+		HI351_write_cmos_sensor(0x3c, 0x00); //EXP Fix 30.01 fps
+		HI351_write_cmos_sensor(0x3d, 0x12);
+		HI351_write_cmos_sensor(0x3e, 0x4d);
+		HI351_write_cmos_sensor(0x3f, 0xa0);
+
+		HI351_write_cmos_sensor(0x30, 0x05); //EXP100
+		HI351_write_cmos_sensor(0x31, 0x7d);
+		HI351_write_cmos_sensor(0x32, 0xb0);
+		HI351_write_cmos_sensor(0x33, 0x04); //EXP120
+		HI351_write_cmos_sensor(0x34, 0x93);
+		HI351_write_cmos_sensor(0x35, 0x68);
+		HI351_write_cmos_sensor(0x36, 0x00); //EXP Unit
+		HI351_write_cmos_sensor(0x37, 0x05);
+		HI351_write_cmos_sensor(0x38, 0x94);
+
+		HI351_write_cmos_sensor(0x51, 0xf0); //ag max
+
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x19, 0x24); //Bnd0 Gain
+		HI351_write_cmos_sensor(0x1e, 0x00); //Bnd0 100fps
+		HI351_write_cmos_sensor(0x1f, 0x05);
+		HI351_write_cmos_sensor(0x20, 0x7d);
+		HI351_write_cmos_sensor(0x21, 0xb0);
+		HI351_write_cmos_sensor(0x1a, 0x24); //Bnd1 Gain
+		HI351_write_cmos_sensor(0x22, 0x00); //Bnd1 50fps
+		HI351_write_cmos_sensor(0x23, 0x0a);
+		HI351_write_cmos_sensor(0x24, 0xfb);
+		HI351_write_cmos_sensor(0x25, 0x60);
+		HI351_write_cmos_sensor(0x1b, 0x24); //Bnd2 Gain
+		HI351_write_cmos_sensor(0x26, 0x00); //Bnd2 33.3fps
+		HI351_write_cmos_sensor(0x27, 0x10);
+		HI351_write_cmos_sensor(0x28, 0x79);
+		HI351_write_cmos_sensor(0x29, 0x10);
+
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x13, 0xa8); //Fix AE Set on
+		HI351_write_cmos_sensor(0x11, 0x87); //Fix On
+
+		mdelay(10);
+
+
+		HI351_write_cmos_sensor(0x03, 0xcf); //Adaptive On
+		HI351_write_cmos_sensor(0x10, 0xaf);
+
+		HI351_write_cmos_sensor(0x03, 0xc4); //AE en
+		HI351_write_cmos_sensor(0x10, 0xef);
+		mdelay(20);
+
+		HI351_write_cmos_sensor(0x03, 0xc5); //AWB en
+		HI351_write_cmos_sensor(0x10, 0xb1);
+
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x01, 0xf0); //sleep off
+
+		HI351_write_cmos_sensor(0x03, 0xc0);
+		HI351_write_cmos_sensor(0x33, 0x00);
+		HI351_write_cmos_sensor(0x32, 0x01); //DMA On
+		mdelay(10);
+	}
+	else if (u2FrameRate == 15)
+	{
+		//video encode
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x01, 0xf1); //Sleep on
+
+		HI351_write_cmos_sensor(0x03, 0x30); //DMA&Adaptive Off
+		HI351_write_cmos_sensor(0x36, 0xa3);
+
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x03, 0x30);
+		HI351_write_cmos_sensor(0x36, 0xa3); //DMA&Adaptive Off
+
+		HI351_write_cmos_sensor(0x03, 0xc4); //AE off
+		HI351_write_cmos_sensor(0x10, 0x6a);
+		HI351_write_cmos_sensor(0x03, 0xc5); //AWB off
+		HI351_write_cmos_sensor(0x10, 0x00);
+		mdelay(10);
+		//preview mode off
+		//HI351_write_cmos_sensor(0x03, 0x30);
+		//HI351_write_cmos_sensor(0x36, 0x29);
+
+		/*HI351_write_cmos_sensor(0x03, 0x15);  //Shading
+		HI351_write_cmos_sensor(0x10, 0x81);  //
+		HI351_write_cmos_sensor(0x20, 0x04);  //Shading Width 2048
+		HI351_write_cmos_sensor(0x21, 0x00);
+		HI351_write_cmos_sensor(0x22, 0x03);  //Shading Height 768
+		HI351_write_cmos_sensor(0x23, 0x00);*/
+
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x10, 0x13); //Sub+Pre1
+		HI351_write_cmos_sensor(0x17, 0x04); //clk 1/1
+
+		HI351_write_cmos_sensor(0x20, 0x00); //Start of Height
+		HI351_write_cmos_sensor(0x21, 0x01);
+		HI351_write_cmos_sensor(0x22, 0x00); //Start of Width
+		HI351_write_cmos_sensor(0x23, 0x0a);
+
+
+		HI351_write_cmos_sensor(0x03, 0x20); //Page 20
+		HI351_write_cmos_sensor(0x80, 0x34);
+
+		HI351_write_cmos_sensor(0x24, 0x00); //EXP Max 33.33 fps
+		HI351_write_cmos_sensor(0x25, 0x20);//0x10
+		HI351_write_cmos_sensor(0x26, 0xf2);//0x79
+		HI351_write_cmos_sensor(0x27, 0x20);//0x20
+		HI351_write_cmos_sensor(0x28, 0x00); //EXPMin 24545.45 fps
+		HI351_write_cmos_sensor(0x29, 0x05);
+		HI351_write_cmos_sensor(0x2a, 0x94);
+
+		HI351_write_cmos_sensor(0x3c, 0x00); //EXP Fix 15.01 fps
+		HI351_write_cmos_sensor(0x3d, 0x24);
+		HI351_write_cmos_sensor(0x3e, 0x9b);
+		HI351_write_cmos_sensor(0x3f, 0x40);
+
+		HI351_write_cmos_sensor(0x30, 0x05); //EXP100
+		HI351_write_cmos_sensor(0x31, 0x7d);
+		HI351_write_cmos_sensor(0x32, 0xb0);
+		HI351_write_cmos_sensor(0x33, 0x04); //EXP120
+		HI351_write_cmos_sensor(0x34, 0x93);
+		HI351_write_cmos_sensor(0x35, 0x68);
+		HI351_write_cmos_sensor(0x36, 0x00); //EXP Unit
+		HI351_write_cmos_sensor(0x37, 0x05);
+		HI351_write_cmos_sensor(0x38, 0x94);
+
+		HI351_write_cmos_sensor(0x51, 0xf0); //ag max
+
+		HI351_write_cmos_sensor(0x03, 0xc4);
+		HI351_write_cmos_sensor(0x19, 0x24); //Bnd0 Gain
+		HI351_write_cmos_sensor(0x1e, 0x00); //Bnd0 100fps
+		HI351_write_cmos_sensor(0x1f, 0x05);
+		HI351_write_cmos_sensor(0x20, 0x7d);
+		HI351_write_cmos_sensor(0x21, 0xb0);
+		HI351_write_cmos_sensor(0x1a, 0x24); //Bnd1 Gain
+		HI351_write_cmos_sensor(0x22, 0x00); //Bnd1 50fps
+		HI351_write_cmos_sensor(0x23, 0x0a);
+		HI351_write_cmos_sensor(0x24, 0xfb);
+		HI351_write_cmos_sensor(0x25, 0x60);
+		HI351_write_cmos_sensor(0x1b, 0x24); //Bnd2 Gain
+		HI351_write_cmos_sensor(0x26, 0x00); //Bnd2 33.3fps
+		HI351_write_cmos_sensor(0x27, 0x10);
+		HI351_write_cmos_sensor(0x28, 0x79);
+		HI351_write_cmos_sensor(0x29, 0x10);
+
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x13, 0xa8); //Fix AE Set on
+		HI351_write_cmos_sensor(0x11, 0x87); //Fix On 94->87
+
+		mdelay(10);
+
+
+		HI351_write_cmos_sensor(0x03, 0xcf); //Adaptive On
+		HI351_write_cmos_sensor(0x10, 0xaf);
+
+		HI351_write_cmos_sensor(0x03, 0xc4); //AE en
+		HI351_write_cmos_sensor(0x10, 0xef);
+		mdelay(20);
+
+		HI351_write_cmos_sensor(0x03, 0xc5); //AWB en
+		HI351_write_cmos_sensor(0x10, 0xb1);
+
+		HI351_write_cmos_sensor(0x03, 0x00);
+		HI351_write_cmos_sensor(0x01, 0xf0); //sleep off
+
+		HI351_write_cmos_sensor(0x03, 0xc0);
+		HI351_write_cmos_sensor(0x33, 0x00);
+		HI351_write_cmos_sensor(0x32, 0x01); //DMA On
+		mdelay(10);
+	}
+	else
+	{
+		HI351_TRACE("[HI351] Wrong frame rate setting %d\n", u2FrameRate);
+		return KAL_FALSE;
+	}
+
+	return TRUE;
+}
+
+#if 0
+static void HI351GetCurAeInfo(UINT32 pSensorAECurStruct)
+{
+	PSENSOR_FLASHLIGHT_AE_INFO_STRUCT Info = (PSENSOR_FLASHLIGHT_AE_INFO_STRUCT)pSensorAECurStruct;
+	Info->Exposuretime = HI351_read_shutter();
+	Info->Gain=HI351_read_gain() * 2;
+	if(Info->GAIN_BASE == 0xAABBCCDD)
+	{
+		Capture_delay_in_Flash = 1;
+	}
+	HI351_TRACE("[HI351][HI351GetCurAeInfo]Exp:%d,Gain:%d\n",Info->Exposuretime,Info->Gain);
+
+}
+#endif
+static void HI351GetExifInfo(UINT32 pSensorExifInfoStruct)
+{
+	PSENSOR_EXIF_INFO_STRUCT Info = (PSENSOR_EXIF_INFO_STRUCT)pSensorExifInfoStruct;
+	Info->AWBMode = Exif_info.awb;
+	Info->FlashLightTimeus = Exif_info.flashlight;
+	Info->AEISOSpeed = Exif_info.iso; // should implement get the ISO value
+	Info->RealISOValue = Exif_info.iso; // should insert real ISO when ISO value is AUTO
+	HI351_TRACE("[HI351][HI351GetExifInfo]AWBMode:%d,AEISOSpeed:%d\n",Info->AWBMode,Info->AEISOSpeed);
+
+}
+
+// need review
+UINT32 HI351SetMaxFramerateByScenario(MSDK_SCENARIO_ID_ENUM scenarioId, MUINT32 frameRate)
+{
+	kal_uint32 pclk;
+	kal_int16 dummyLine;
+	kal_uint16 lineLength,frameHeight;
+	HI351_TRACE("[HI351]HI351SetMaxFramerateByScenario: scenarioId = %d, frame rate = %d\n",scenarioId,frameRate);
+	switch (scenarioId) {
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+			pclk = 72000000;
+			lineLength = HI351_IMAGE_SENSOR_PV_WIDTH;
+			frameHeight = (10 * pclk)/frameRate/lineLength;
+			dummyLine = frameHeight - HI351_IMAGE_SENSOR_PV_HEIGHT;
+			if(dummyLine<0)
+				dummyLine = 0;
+			spin_lock(&hi351_drv_lock);
+			HI351Sensor.SensorMode= SENSOR_MODE_PREVIEW;
+			HI351Sensor.PreviewDummyLines = dummyLine;
+			spin_unlock(&hi351_drv_lock);
+			HI351_set_dummy(HI351Sensor.PreviewDummyPixels, dummyLine);
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+		case MSDK_SCENARIO_ID_CAMERA_ZSD:
+			pclk = 72000000;
+			lineLength = HI351_IMAGE_SENSOR_FULL_WIDTH;
+			frameHeight = (10 * pclk)/frameRate/lineLength;
+			dummyLine = frameHeight - HI351_IMAGE_SENSOR_FULL_HEIGHT;
+			if(dummyLine<0)
+				dummyLine = 0;
+			spin_lock(&hi351_drv_lock);
+			HI351Sensor.CaptureDummyLines = dummyLine;
+			HI351Sensor.SensorMode= SENSOR_MODE_CAPTURE;
+			spin_unlock(&hi351_drv_lock);
+			HI351_set_dummy(HI351Sensor.CaptureDummyPixels, dummyLine);
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_3D_PREVIEW: //added
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_3D_VIDEO:
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_3D_CAPTURE: //added
+			break;
+		default:
+			break;
+	}
+	HI351_TRACE("[HI351]exit OV5645MIPIMaxFramerateByScenario function:\n ");
+	return ERROR_NONE;
+}
+
+UINT32 HI351GetDefaultFramerateByScenario(MSDK_SCENARIO_ID_ENUM scenarioId, MUINT32 *pframeRate)
+{
+	HI351_TRACE("[HI351]enter HI351GetDefaultFramerateByScenario function:\n ");
+	switch (scenarioId) {
+		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
+		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
+			*pframeRate = 300;
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
+		case MSDK_SCENARIO_ID_CAMERA_ZSD:
+			*pframeRate = 88;
+			break;
+		case MSDK_SCENARIO_ID_CAMERA_3D_PREVIEW: //added
+		case MSDK_SCENARIO_ID_CAMERA_3D_VIDEO:
+		case MSDK_SCENARIO_ID_CAMERA_3D_CAPTURE: //added
+			*pframeRate = 300;
+			break;
+		default:
+			break;
+	}
+	HI351_TRACE("[HI351]exit HI351GetDefaultFramerateByScenario function:\n ");
+	return ERROR_NONE;
+}
+void HI351_get_AEAWB_lock(UINT32 *pAElockRet32, UINT32 *pAWBlockRet32)
+{
+	HI351_TRACE("[HI351]enter HI351_get_AEAWB_lock function:\n ");
+	*pAElockRet32 =1;
+	*pAWBlockRet32=1;
+	HI351_TRACE("[HI351]HI351_get_AEAWB_lock,AE=%d,AWB=%d\n",*pAElockRet32,*pAWBlockRet32);
+	HI351_TRACE("[HI351]exit HI351_get_AEAWB_lock function:\n ");
+}
+void HI351_GetDelayInfo(UINT32 delayAddr)
+{
+	HI351_TRACE("[HI351]enter HI351_GetDelayInfo function:\n ");
+	SENSOR_DELAY_INFO_STRUCT *pDelayInfo=(SENSOR_DELAY_INFO_STRUCT*)delayAddr;
+	pDelayInfo->InitDelay=1;
+	pDelayInfo->EffectDelay=2;
+	pDelayInfo->AwbDelay=2;
+	//pDelayInfo->AFSwitchDelayFrame=50;
+	HI351_TRACE("[HI351]exit HI351_GetDelayInfo function:\n ");
+}
+#if 0
+void HI351_AutoTestCmd(UINT32 *cmd,UINT32 *para)
+{
+	HI351_TRACE("[HI351]enter HI351_AutoTestCmd function:\n ");
+	switch(*cmd)
+	{
+	case YUV_AUTOTEST_SET_SHADDING:
+		HI351_TRACE("YUV_AUTOTEST_SET_SHADDING:para=%d\n",*para);
+		break;
+	case YUV_AUTOTEST_SET_GAMMA:
+		HI351_TRACE("YUV_AUTOTEST_SET_GAMMA:para=%d\n",*para);
+		break;
+	case YUV_AUTOTEST_SET_AE:
+		HI351_TRACE("YUV_AUTOTEST_SET_AE:para=%d\n",*para);
+		break;
+	case YUV_AUTOTEST_SET_SHUTTER:
+		HI351_TRACE("YUV_AUTOTEST_SET_SHUTTER:para=%d\n",*para);
+		break;
+	case YUV_AUTOTEST_SET_GAIN:
+		HI351_TRACE("YUV_AUTOTEST_SET_GAIN:para=%d\n",*para);
+		break;
+	case YUV_AUTOTEST_GET_SHUTTER_RANGE:
+		*para=8228; // ?? 8828 means???
+		break;
+	default:
+		HI351_TRACE("YUV AUTOTEST NOT SUPPORT CMD:%d\n",*cmd);
+		break;
+	}
+	HI351_TRACE("[HI351]exit HI351_AutoTestCmd function:\n ");
+}
+#endif
+void HI351_3ACtrl(ACDK_SENSOR_3A_LOCK_ENUM action)
+{
+	HI351_TRACE("[HI351]enter HI351MIPI_3ACtrl function:action=%d\n",action);
+	switch (action)
+	{
+	case SENSOR_3A_AE_LOCK:
+		HI351_set_ae_enable(KAL_FALSE);
+		break;
+	case SENSOR_3A_AE_UNLOCK:
+		HI351_set_ae_enable(KAL_TRUE);
+		break;
+
+	case SENSOR_3A_AWB_LOCK:
+		HI351_set_awb_enable(KAL_FALSE);
+		break;
+
+	case SENSOR_3A_AWB_UNLOCK:
+		HI351_set_awb_enable(KAL_TRUE);
+		break;
+	default:
+		break;
+	}
+	HI351_TRACE("[HI351]exit HI351MIPI_3ACtrl function:action=%d\n",action);
+	return;
+}
+//#endif
+
+static void HI351_Get_AF_Max_Num_Focus_Areas(UINT32 *pFeatureReturnPara32)
+{
+	*pFeatureReturnPara32 = 0;
+	HI351_TRACE("[HI351]HI351_Get_AF_Max_Num_Focus_Areas,  *pFeatureReturnPara32 = %d\n",  *pFeatureReturnPara32);
+}
+
+static void HI351_Get_AE_Max_Num_Metering_Areas(UINT32 *pFeatureReturnPara32)
+{
+	*pFeatureReturnPara32 = 0;
+	HI351_TRACE("[HI351] HI351_Get_AE_Max_Num_Metering_Areas,*pFeatureReturnPara32 = %d\n",  *pFeatureReturnPara32);
+}
+
+//need review
+UINT32 HI351SetTestPatternMode(kal_bool bEnable)
+{
+	HI351_TRACE("[OV5645MIPI_OV5645SetTestPatternMode]test pattern bEnable:=%d\n",bEnable);
+
+	//return ERROR_NONE;
+
+	if(bEnable)
+	{
+		HI351_write_cmos_sensor(0x03,0x00);
+		HI351_write_cmos_sensor(0x60,0x05);
+	}
+	else
+	{
+		HI351_write_cmos_sensor(0x03,0x00);
+		HI351_write_cmos_sensor(0x60,0x00);
+	}
+	return ERROR_NONE;
+}
+
+UINT32 HI351FeatureControl(MSDK_SENSOR_FEATURE_ENUM FeatureId,
+						   UINT8 *pFeaturePara,UINT32 *pFeatureParaLen)
+{
+	UINT16 u2Temp = 0;
+	UINT16 *pFeatureReturnPara16=(UINT16 *) pFeaturePara;
+	UINT16 *pFeatureData16=(UINT16 *) pFeaturePara;
+	UINT32 *pFeatureReturnPara32=(UINT32 *) pFeaturePara;
+	UINT32 *pFeatureData32=(UINT32 *) pFeaturePara;
+	MSDK_SENSOR_CONFIG_STRUCT *pSensorConfigData=(MSDK_SENSOR_CONFIG_STRUCT *) pFeaturePara;
+	MSDK_SENSOR_REG_INFO_STRUCT *pSensorRegData=(MSDK_SENSOR_REG_INFO_STRUCT *) pFeaturePara;
+	HI351_TRACE("[HI351][HI351FeatureControl]FeatureId:%d \n", FeatureId);
+
+	switch (FeatureId)
+	{
+	case SENSOR_FEATURE_GET_RESOLUTION:
+		*pFeatureReturnPara16++=HI351_IMAGE_SENSOR_FULL_WIDTH;
+		*pFeatureReturnPara16=HI351_IMAGE_SENSOR_FULL_HEIGHT;
+		*pFeatureParaLen=4;
+		break;
+	case SENSOR_FEATURE_GET_PERIOD:
+		switch (HI351CurrentScenarioId)
+		{
+		case MSDK_SCENARIO_ID_CAMERA_ZSD:
+			*pFeatureReturnPara16++=HI351_FULL_PERIOD_PIXEL_NUMS+HI351_FULL_dummy_pixels;
+			*pFeatureReturnPara16=HI351_FULL_PERIOD_LINE_NUMS+HI351_FULL_dummy_lines;
+			*pFeatureParaLen=4;
+			break;
+		default:
+			*pFeatureReturnPara16++=HI351_PV_PERIOD_PIXEL_NUMS+HI351_PV_dummy_pixels;
+			*pFeatureReturnPara16=HI351_PV_PERIOD_LINE_NUMS+HI351_PV_dummy_lines;
+			*pFeatureParaLen=4;
+			break;
+		}
+		break;
+	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ:
+		switch (HI351CurrentScenarioId)
+		{
+		case MSDK_SCENARIO_ID_CAMERA_ZSD:
+			*pFeatureReturnPara32 = HI351_preview_pclk/10;
+			*pFeatureParaLen=4;
+			break;
+		default:
+			*pFeatureReturnPara32 = HI351_preview_pclk/10;
+			*pFeatureParaLen=4;
+			break;
+		}
+		break;
+	case SENSOR_FEATURE_SET_ESHUTTER:
+		//			u2Temp = HI351_read_shutter();
+		HI351_TRACE("[HI351][HI351FeatureControl]Shutter:%d \n", *pFeatureData16);
+		HI351_write_shutter(*pFeatureData16);
+
+		break;
+	case SENSOR_FEATURE_SET_NIGHTMODE:
+		HI351_night_mode((BOOL) *pFeatureData16);
+		break;
+	case SENSOR_FEATURE_SET_GAIN:
+		//			u2Temp = HI351_read_gain();
+		//			HI351_TRACE("Gain:%d\n", u2Temp);
+		//			HI351_TRACE("y_val:%d\n", HI351_read_cmos_sensor(0x301B));
+		HI351_TRACE("[HI351][HI351FeatureControl]Gain:%d \n", *pFeatureData16);
+		HI351_write_gain((UINT16) *pFeatureData16);
+		break;
+	case SENSOR_FEATURE_SET_FLASHLIGHT:
+		break;
+	case SENSOR_FEATURE_SET_ISP_MASTER_CLOCK_FREQ:
+		spin_lock(&hi351mipi_drv_lock);
+		HI351_isp_master_clock=*pFeatureData32;
+		spin_unlock(&hi351mipi_drv_lock);
+		break;
+	case SENSOR_FEATURE_SET_REGISTER:
+		HI351_write_cmos_sensor(pSensorRegData->RegAddr, pSensorRegData->RegData);
+		break;
+	case SENSOR_FEATURE_GET_REGISTER:
+		pSensorRegData->RegData = HI351_read_cmos_sensor(pSensorRegData->RegAddr);
+		break;
+	case SENSOR_FEATURE_GET_CONFIG_PARA:
+		memcpy(pSensorConfigData, &HI351SensorConfigData, sizeof(MSDK_SENSOR_CONFIG_STRUCT));
+		*pFeatureParaLen=sizeof(MSDK_SENSOR_CONFIG_STRUCT);
+		break;
+	case SENSOR_FEATURE_SET_CCT_REGISTER:
+	case SENSOR_FEATURE_GET_CCT_REGISTER:
+	case SENSOR_FEATURE_SET_ENG_REGISTER:
+	case SENSOR_FEATURE_GET_ENG_REGISTER:
+	case SENSOR_FEATURE_GET_REGISTER_DEFAULT:
+
+	case SENSOR_FEATURE_CAMERA_PARA_TO_SENSOR:
+	case SENSOR_FEATURE_SENSOR_TO_CAMERA_PARA:
+	case SENSOR_FEATURE_GET_GROUP_INFO:
+	case SENSOR_FEATURE_GET_ITEM_INFO:
+	case SENSOR_FEATURE_SET_ITEM_INFO:
+	case SENSOR_FEATURE_GET_ENG_INFO:
+		break;
+	case SENSOR_FEATURE_GET_GROUP_COUNT:
+		*pFeatureReturnPara32++=0;
+		*pFeatureParaLen=4;
+		break;
+
+	case SENSOR_FEATURE_GET_LENS_DRIVER_ID:
+		// get the lens driver ID from EEPROM or just return LENS_DRIVER_ID_DO_NOT_CARE
+		// if EEPROM does not exist in camera module.
+		*pFeatureReturnPara32=LENS_DRIVER_ID_DO_NOT_CARE;
+		*pFeatureParaLen=4;
+		break;
+	case SENSOR_FEATURE_CHECK_SENSOR_ID:
+		HI351GetSensorID(pFeatureReturnPara32);
+		break;
+	case SENSOR_FEATURE_SET_YUV_CMD:
+		HI351YUVSensorSetting((FEATURE_ID)*pFeatureData32, *(pFeatureData32+1));
+		break;
+	case SENSOR_FEATURE_SET_VIDEO_MODE:
+		HI351YUVSetVideoMode(*pFeatureData16);
+		break;
+	case SENSOR_FEATURE_GET_EV_AWB_REF:
+        //HI351GetEvAwbRef(*pFeatureData32);
+		break;
+	case SENSOR_FEATURE_GET_SHUTTER_GAIN_AWB_GAIN:
+        //HI351GetCurAeAwbInfo(*pFeatureData32);	
+		break;
+		//case SENSOR_FEATURE_GET_AE_FLASHLIGHT_INFO:
+		//HI351GetCurAeInfo(*pFeatureData32);
+		//break;
+    case SENSOR_FEATURE_GET_EXIF_INFO:
+		HI351GetExifInfo(*pFeatureData32);
+		break;
+		////////////////////////////////////////////
+	case SENSOR_FEATURE_SET_TEST_PATTERN:
+		HI351SetTestPatternMode((BOOL)*pFeatureData16);
+		break;
+	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
+		*pFeatureReturnPara32=HI351_TEST_PATTERN_CHECKSUM;
+		*pFeatureParaLen=4;
+		break;
+
+	case SENSOR_FEATURE_SET_YUV_3A_CMD:
+		HI351_3ACtrl((ACDK_SENSOR_3A_LOCK_ENUM)*pFeatureData32);
+		break;
+
+	case SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO:
+		HI351SetMaxFramerateByScenario((MSDK_SCENARIO_ID_ENUM)*pFeatureData32,*(pFeatureData32+1));
+		break;
+	case SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO:
+		HI351GetDefaultFramerateByScenario((MSDK_SCENARIO_ID_ENUM)*pFeatureData32,(MUINT32 *)*(pFeatureData32+1));
+		break;
+	case SENSOR_FEATURE_GET_AE_AWB_LOCK_INFO:
+		HI351_get_AEAWB_lock(*pFeatureData32, *(pFeatureData32+1));
+		break;
+	case SENSOR_FEATURE_GET_DELAY_INFO:
+		HI351_TRACE("SENSOR_FEATURE_GET_DELAY_INFO\n");
+		HI351_GetDelayInfo(*pFeatureData32);
+		break;
+		//case SENSOR_FEATURE_AUTOTEST_CMD:
+		//	HI351_TRACE("SENSOR_FEATURE_AUTOTEST_CMD\n");
+		//	HI351_AutoTestCmd(*pFeatureData32,*(pFeatureData32+1));
+		//	break;
+	case SENSOR_FEATURE_INITIALIZE_AF:
+		break;
+
+	case SENSOR_FEATURE_GET_AF_MAX_NUM_FOCUS_AREAS:
+		HI351_Get_AF_Max_Num_Focus_Areas(pFeatureReturnPara32);
+		*pFeatureParaLen=4;
+		break;
+	case SENSOR_FEATURE_GET_AE_MAX_NUM_METERING_AREAS:
+		HI351_Get_AE_Max_Num_Metering_Areas(pFeatureReturnPara32);
+		*pFeatureParaLen=4;
+		break;
+		/////////////////////////////
+	default:
+		break;
+	}
+	return ERROR_NONE;
+}	/* HI351FeatureControl() */
+
+
+SENSOR_FUNCTION_STRUCT	SensorFuncHI351=
+{
+	HI351Open,
+	HI351GetInfo,
+	HI351GetResolution,
+	HI351FeatureControl,
+	HI351Control,
+	HI351Close
+};
+
+UINT32 HI351_MIPI_YUV_SensorInit(PSENSOR_FUNCTION_STRUCT *pfFunc)
+{
+	/* To Do : Check Sensor status here */
+	if (pfFunc!=NULL)
+		*pfFunc=&SensorFuncHI351;
+
+	return ERROR_NONE;
+}	/* SensorInit() */
+

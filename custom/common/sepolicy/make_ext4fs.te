@@ -1,0 +1,36 @@
+# ==============================================
+# Policy File of /system/binmake_ext4fs Executable File 
+
+
+# ==============================================
+# Type Declaration
+# ==============================================
+
+type make_ext4fs_exec , exec_type, file_type;
+type make_ext4fs ,domain;
+
+# ==============================================
+# Android Policy Rule
+# ==============================================
+
+# ==============================================
+# NSA Policy Rule
+# ==============================================
+
+# ==============================================
+# MTK Policy Rule
+# ==============================================
+
+permissive make_ext4fs;
+init_daemon_domain(make_ext4fs)
+
+
+# 20131122 Add Set Property Rule
+allow make_ext4fs  property_type:property_service set;
+
+# 20140107 KKMR1_CQ_03
+allow make_ext4fs linker_exec:file read;
+allow make_ext4fs rootfs:dir { write add_name };
+allow make_ext4fs rootfs:file { write create };
+allow make_ext4fs tmpfs:chr_file { read write };
+
