@@ -1,0 +1,119 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<style type="text/css">
+* {
+	margin:0;
+}
+body {
+	color:#ffffff;
+}
+a {
+	color:inherit;
+}
+ul {
+	padding-left:1em;
+	list-style-position:outside;
+}
+ol {
+	padding-left:0em;
+	list-style-position: inside;
+}
+h1 {
+	font-weight:normal;
+	font-size:1.2em;
+	padding:0.25em;
+	color:#076FA2;
+}
+h2 {
+	font-weight:normal;
+	font-size:1.2em;
+	color:#BEBEBE;
+}
+#part1, #part2, #part3 {
+	padding:0.5em;
+}
+#part1 >div {
+	border:1px solid #ccf;
+	padding:0.5em;
+}
+#part2 ul {
+	border:1px solid #ccf;
+	padding:0.5em 0.5em 0.5em 1.5em;
+}
+table {
+	border:1px solid #ccf;
+	border-right:none;
+	border-bottom:none;
+	width:100%;    
+}
+td {
+	border-right:1px solid #ccf;
+	border-bottom:1px solid #ccf;
+	padding:0 0.5em;
+}
+.back {
+	text-align:right;
+	font-size:0.8em;
+	color:#076FA2;
+	padding:0 0.5em;
+}
+</style>
+</head>
+
+<body bgcolor="black">
+<h1><a href="#part1">基本介绍</a>|<a href="#part2">使用CTSC</a>|<a href="#part3">图标说明</a></h1>
+<div id="part1">
+    <h2>基本介绍</h2>
+    <div>
+        <p>&nbsp;&nbsp;&nbsp;&nbsp;CTSC(CMCC Testing Self Checking)送测手机检查是在<font color=#ffff00>厂商准备样机寄送到中国移动前</font>，协助厂商检查手机默认配置是否正确。“默认配置”是指重新download过版本或恢复出厂设置后的设置。<br><br>&nbsp;&nbsp;&nbsp;&nbsp;CTSC（送测手机检查）基本功能：</p>
+        <ol>
+            <li>CMCC送测手机默认配置检查</li>
+            <li>检查项目分为自动检查和人工检查</li>
+            <li>自动检查项可以查询当前手机状态并判断是否正确</li>
+            <li>人工检查项允许使用者人工标记检查结果</li>
+            <li>生成检查报告，并可以导出为文件</li>
+        </ol>
+    </div>
+</div>
+<p class="back"><a href="#top">返回顶部</a></p>
+<div id="part2">
+    <h2>使用CTSC</h2>
+    <ul>
+        <li>
+            <p>检查结果界面的使用</p>
+            <p>&nbsp;&nbsp;&nbsp;&nbsp;1. 人工检查项 -&gt; 勾选已完成人工检查的检查项 -&gt; 如果确认检查项正确，点击“正确”按钮 -&gt; 如果确认检查项错误，点击“错误”按钮 -&gt; 如果需要放弃已确认的结果，点击“还原”按钮<br><br><img src="images/manu_check.JPG"/></p><br>
+            <p>&nbsp;&nbsp;&nbsp;&nbsp;2. 选项菜单 -&gt; 全部勾选 -&gt; 勾选当前Tab界面上的全部检查项</p>
+            <p>&nbsp;&nbsp;&nbsp;&nbsp;3. 选项菜单 -&gt; 全部取消勾选 -&gt; 取消勾选当前Tab界面上的全部检查项</p>
+            <p>&nbsp;&nbsp;&nbsp;&nbsp;4. 选项菜单 -&gt; 检查报告 -&gt; 所选测试类型的检查报告界面</p>
+        </li>
+        <br>
+        <li>
+            <p>导出设置检查报告</p>
+            <p>&nbsp;&nbsp;&nbsp;&nbsp;进入检查报告界面 -&gt; 导出检查报告</p>
+            <p>&nbsp;&nbsp;&nbsp;&nbsp;检查报告导出路径：storage/sdcard0/ConfigureCheck/CheckReport_[日期]_[IMEI].csv</p>
+        </li>
+    </ul>
+</div>
+<p class="back"><a href="#top">返回顶部</a></p>
+<div id="part3">
+    <h2>图标说明</h2>
+    <table cellspacing="0">
+        <tr>
+            <td><img src="images/ic_right.png"/></td>
+            <td>检查项结果正确，符合SOP要求</td>
+        </tr>
+        <tr>
+            <td><img src="images/ic_wrong.png"/></td>
+            <td>检查项结果错误，不符合SOP要求</td>
+        </tr>
+        <tr>
+            <td><img src="images/ic_unknown.png"/></td>
+            <td>检查项结果未知，需要人工进行检查和确认</td>
+        </tr>
+    </table>
+</div>
+<p class="back"><a href="#top">返回顶部</a></p>
+</body>
+</html>

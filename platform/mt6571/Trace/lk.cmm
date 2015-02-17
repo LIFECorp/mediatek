@@ -1,0 +1,77 @@
+do project.cmm
+
+SYSTEM.down
+SYSTEM.Reset
+SYStem.CPU CortexA7MPCore
+System.Option Cflush on    	;flush the cache to avoid data consistency
+SYSTEM.OPTION ENRESET On
+SYSTEM.OPTION TRST On
+SYStem.Option ResBreak OFF
+SYStem.Option WaitReset OFF
+SYStem.JtagClock 10MHz
+
+;R-T Memory Access
+SYSTEM.MULTICORE MEMORYACCESSPORT 0
+SYSTEM.MULTICORE DEBUGACCESSPORT 1
+
+;Serial Wire JTAG
+System.CONFIG SWDP ON
+
+;Setting Core debug register access
+SYStem.CONFIG CORENUMBER 2
+SYSTEM.MULTICORE COREBASE APB:0x80070000 0x80072000
+
+SYStem.Up
+
+; set_hw_breakpoint_by_def
+; setting attribute of breakpoints
+Break.Select Program OnChip
+Break.Select Hll OnChip
+;Break.Select Spot OnChip
+Break.Select Read OnChip
+Break.Select Write OnChip
+
+
+do wdt.cmm  ; disable hw watchdog timer
+
+; disable DABORT and PABORT breakpoint
+ TrOnchip.Set DABORT OFF        ; used by Linux for page miss!
+ TrOnchip.Set SWI OFF
+ TrOnchip.Set PABORT OFF        ; used by Linux for page miss!
+ TrOnchip.Set UNDEF OFF         ; used to detect non-existent coprocessor
+
+
+print "loading lk symbol"
+d.load.elf ../../../../bootable/bootloader/lk/build-&project/lk /gnu /nocode
+
+
+Y.SPATH.RESET ; reset all source path
+Y.SPATH.SRD ../../../../mediatek/platform/mt6571/lk
+Y.SPATH.SRD ../../../../mediatek/custom/out/&project/preloader
+Y.SPATH.SRD ../../../../bootable/bootloader/lk/app
+Y.SPATH.SRD ../../../../bootable/bootloader/lk/app/mt_boot
+Y.SPATH.SRD ../../../../bootable/bootloader/lk/arch/arm
+Y.SPATH.SRD ../../../../bootable/bootloader/lk/dev
+Y.SPATH.SRD ../../../../bootable/bootloader/lk/include
+Y.SPATH.SRD ../../../../bootable/bootloader/lk/kernel
+Y.SPATH.SRD ../../../../bootable/bootloader/lk/lib
+
+Break.Delete 
+B.set kmain
+; jump to BROM
+Register.Set PC a:0xffff0000
+
+;winclear
+winpos 0% 0% 50% 50%
+d.l
+go
+
+on pbreak gosub
+(
+	do wdt.cmm
+	print "Watchdog disabled"
+	return
+)
+stop
+end
+

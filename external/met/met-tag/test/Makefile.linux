@@ -1,0 +1,18 @@
+CC=$(CROSS_COMPILE)gcc
+LD=$(CROSS_COMPILE)LD
+STRIP=$(CROSS_COMPILE)strip
+
+EXTRA_CFLAGS+=-DMET_USER_EVENT_SUPPORT
+
+BINS:=mtag_test1 mtag_test5
+
+mtag_test%: test_main%.c
+	$(CC) $< $(EXTRA_CFLAGS) -lpthread  -lmet-tag -o $@
+
+all: $(BINS)
+	$(STRIP) $(BINS)
+
+clean:
+	touch *.c
+	rm -f *.o mtag_test*
+

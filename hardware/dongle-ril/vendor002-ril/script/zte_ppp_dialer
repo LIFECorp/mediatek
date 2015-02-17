@@ -1,0 +1,11 @@
+ABORT           "NO CARRIER" 
+ABORT           "ERROR"
+TIMEOUT         120
+""		
+ATE
+SAY             "ATE"
+ECHO            ON
+OK              ATH
+OK              ATP
+OK		ATD*99#
+CONNECT

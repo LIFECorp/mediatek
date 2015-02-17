@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">客户服务</string>
+    <string name="customer_service">客户服务</string>
+    <string name="customer_service_set">客户服务设置</string>
+    <string name="set_name_tip">姓名</string>
+    <string name="set_number_tip">号码</string>
+    <string name="set_save_btn">保存</string>
+    <string name="set_cancel_btn">取消</string>
+    <string name="set_number_or_name_empty">输入的号码或者姓名为空</string>
+    <string name="str_ok">确定</string>
+    <string name="save_success">保存成功</string>
+    <string name="sms_send_tips">已经发送短信给10086</string>
+    <string name="sim_card_tips">请检查SIM卡是否可用</string>
+    <string name="service_web">http://www.monternet.com</string>
+    <string name="service_num">10086</string>
+    <string name="after_service_phone_text">售后服务电话：</string>
+    <string name="after_service_phone_num">01056900888</string>
+    <string name="after_service">售后服务</string>
+    <string name="phone_type">机型：</string>
+    <string name="phone_type_content">MT6582</string>
+    <string name="web_address_text">网站网址：</string>
+    <string name="web_address">http://www.mediatek.com</string>
+    <string name="web_not_available">网络不可用！</string>
+    
+</resources>

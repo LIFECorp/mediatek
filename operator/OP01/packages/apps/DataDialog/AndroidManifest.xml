@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+      package="com.mediatek.data"
+      android:versionCode="1"
+      android:versionName="1.0">
+    
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>  
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    
+    <application android:label="@string/app_name">
+        <activity android:name=".DataDialog"
+		  android:configChanges="orientation"
+                  android:label="@string/app_name"
+                  android:theme="@style/Transparent">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>                  
+        </activity>
+        <receiver android:name="DataConnectionReceiver" >
+            <intent-filter> 
+                <action android:name="android.intent.action_WIFI_FAILOVER_GPRS_DIALOG" />
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+    </receiver> 
+
+    <activity android:name=".DataConnectionDialog"
+          android:configChanges="orientation"
+          android:excludeFromRecents="true"
+          android:theme="@*android:style/Theme.Holo.Dialog.Alert"
+          android:launchMode="singleTop"
+          android:label="@string/app_name">
+          <intent-filter>
+              <action android:name="android.intent.action.MAIN" />
+          </intent-filter>                  
+     </activity>
+    </application>
+
+<uses-sdk android:minSdkVersion="1"></uses-sdk>
+</manifest>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">ڈیٹا ڈائلاگ</string>  
+    <string name="dialog_content">کیا MMS لین دین کیلئے ڈیٹا کنکشن تبدیل کرنا ہے؟</string>  
+    <string name="dialog_title">ڈیٹا کنکشن تبدیل ہوگیا</string>  
+    <string name="dialog_continue">جاری</string>  
+    <string name="dialog_cancel">منسوخ کرنا</string>  
+    <string name="wifi_failover_gprs_content">WIFI دستیاب نہیں ہے، موبائل نیٹ ورک سے رابطہ کرنے کی کوشش کریں؟</string> 
+</resources>

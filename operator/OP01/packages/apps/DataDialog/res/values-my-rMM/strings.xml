@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">အချက်အလက် ခေါ်ဆိုမှု မှတ်တမ်း</string>  
+    <string name="dialog_content">MMS လုပ်ငန်းကိစ္စ အတွက် အချက်အလက် ချိတ်ဆက်မှုကို ပြောင်းလဲမည်လား။</string>  
+    <string name="dialog_title">အချက်အလက် ချိတ်ဆက်မှုကို ပြောင်းလဲသည်</string>  
+    <string name="dialog_continue">ဆက်ရန်</string>  
+    <string name="dialog_cancel">ပယ်ဖျက်</string>  
+    <string name="wifi_failover_gprs_content">WIFI ရရှိနေပါသည်၊ မိုဘိုင်း ကွန်ရက်သို့ ချိတ်ဆက်ရန် ကြိုးစားမည်လား။</string> 
+</resources>

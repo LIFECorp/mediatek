@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+<!DOCTYPE operator [
+<!ATTLIST operator xml:id ID #IMPLIED>
+]>
+-->
+<smsselfreg><customized>on</customized><operatorcustomized>cmcc</operatorcustomized><manufacturer>MTK1</manufacturer><operator xml:id="cmcc"><operatorname>cmcc</operatorname><networknumber><number>46000</number><number>46002</number><number>46007</number></networknumber><smsnumber>1065840409</smsnumber><smsport>16998</smsport><srcport>16998</srcport><content><segment><prefix>IMEI:</prefix><method>getimei</method><postfix>/</postfix></segment><segment><prefix></prefix><method>getvendor</method><postfix>/</postfix></segment><segment><prefix></prefix><method>getproduct</method><postfix>/</postfix></segment><segment><prefix></prefix><method>getversion</method><postfix></postfix></segment></content></operator></smsselfreg>

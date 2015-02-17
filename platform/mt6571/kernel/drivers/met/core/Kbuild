@@ -1,0 +1,29 @@
+
+ifeq ($(MET_TOP),)
+	ifeq ($(CONFIG_MTK_MET),)
+		obj-y := metFake.o
+		metFake-y := met_api.o
+	else
+		obj-$(CONFIG_MTK_MET) := met.o
+	endif
+else
+ifeq ($(CONFIG_MTK_MET),)
+	obj-m := met.o
+endif
+endif
+
+met-y := met_main.o  sampler.o cookie.o \
+	 interface.o cpu_pmu.o v7_pmu_hw.o \
+	 util.o \
+	 trace.o \
+	 stat.o
+
+ifeq ($(NO_MET_EXT_API), 0)
+	met-y += met_tag_ex.o
+else
+	met-y += met_tag.o
+endif
+
+met-$(CONFIG_CPU_FREQ) += power.o
+
+ccflags-y := -DMET_USER_EVENT_SUPPORT

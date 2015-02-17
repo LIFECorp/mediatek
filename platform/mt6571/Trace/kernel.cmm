@@ -1,0 +1,87 @@
+do project.cmm
+; =========================================
+; Please DO NOT modify this section - START
+; =========================================
+SYSTEM.down
+SYSTEM.Reset
+SYStem.CPU CortexA7MPCore
+System.Option Cflush on    	;flush the cache to avoid data consistency
+SYSTEM.OPTION ENRESET On
+SYSTEM.OPTION TRST On
+SYStem.Option ResBreak OFF
+SYStem.Option WaitReset OFF
+SYStem.JtagClock 10MHz
+
+;R-T Memory Access
+SYSTEM.MULTICORE MEMORYACCESSPORT 0
+SYSTEM.MULTICORE DEBUGACCESSPORT 1
+
+;Serial Wire JTAG
+System.CONFIG SWDP ON
+
+;Setting Core debug register access
+SYStem.CONFIG CORENUMBER 2
+SYSTEM.MULTICORE COREBASE APB:0x80070000 0x80072000
+
+SYStem.Up
+
+SETUP.IMASKASM	ON          ; Disbale interrupt during assembly step
+SETUP.IMASKHLL	ON          ; Disbale interrupt during C step
+
+do wdt.cmm  ; disable hw watchdog timer
+
+Break.SELect Program OnChip ; set_hw_breakpoint_by_def   Jau add
+Break.SELect Read OnChip
+Break.SELect Write OnChip
+
+Break.Delete 
+sYmbol.RESet
+
+TrOnchip.Set DABORT OFF        ; used by Linux for page miss!
+TrOnchip.Set SWI OFF        
+TrOnchip.Set PABORT OFF        ; used by Linux for page miss!
+TrOnchip.Set UNDEF OFF         ; used to detect non-existent coprocessor
+
+print "loading Linux kernel symbols..."
+
+
+Y.SPATH.RESET ; reset all source path
+Y.SPATH.SRD ../../../../mediatek/platform/mt6571/kernel
+Y.SPATH.SRD ../../../../mediatek/kernel
+Y.SPATH.SRD ../../../../mediatek/custom/out/&project/kernel
+Y.SPATH.SRD ../../../../kernel/init
+Y.SPATH.SRD ../../../../kernel/drivers/
+Y.SPATH.SRD ../../../../kernel/include
+Y.SPATH.SRD ../../../../kernel/lib
+Y.SPATH.SRD ../../../../kernel/fs/fat
+Y.SPATH.SRD ../../../../kernel/tools
+
+Data.LOAD.Elf ../../../../kernel/out/vmlinux /gnu /nocode
+print "load kernel symbols done....."
+
+task.config Linux
+menu.reprogram  Linux
+menu.reprogram watchdog
+
+TOOLBAR ON
+STTUSBAR ON
+
+WINPOS 0.125 0.125 100. 30. 13. 1. W000
+WINTABS 16. 10. 25. 62.
+
+Break.delete
+B.set start_kernel
+d.l
+go
+
+on pbreak gosub
+(
+	do wdt.cmm
+	print "Watchdog disabled"
+	return
+)
+stop
+end
+
+
+

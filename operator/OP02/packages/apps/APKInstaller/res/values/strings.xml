@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">APKInstaller</string>
+    <string name="none_apk">There is no APK files</string>
+    <string name="settings_safetylegal_activity_loading">Loading\u2026</string>
+    <string name="menu_stats_refresh">Refresh</string>
+</resources>

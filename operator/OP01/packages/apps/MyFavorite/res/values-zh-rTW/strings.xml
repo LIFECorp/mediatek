@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="app_name">我的收藏</string>
+	<string name="music">音頻</string>
+	<string name="video">影片</string>
+	<string name="photo">照片</string>
+	<string name="picture">圖片</string>
+	<string name="allfiles">所有文件</string>
+	<string name="musicuninstalled">沒有安裝音樂應用</string>
+	<string name="galleryuninstalled">沒有安裝圖片應用</string>	
+	<string name="allfilesuninstalled">沒有安裝文件管理應用</string>		
+</resources>

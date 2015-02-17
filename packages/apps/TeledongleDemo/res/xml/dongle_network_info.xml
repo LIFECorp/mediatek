@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+        android:title="@string/tedongle_network_infomation">
+
+    <Preference android:key="ip" 
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/ip"
+        android:summary="@string/ip_summary"
+        android:persistent="false" />
+    <Preference android:key="ifname"
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/ifname"
+        android:summary="@string/ifname_summary"
+        android:persistent="false" />
+    <Preference android:key="type"
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/type"
+        android:summary="@string/type_summary"
+        android:persistent="false" />
+    <Preference android:key="dnses" 
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/dnses"
+        android:summary="@string/dnses_summary"
+        android:persistent="false" />
+    <Preference android:key="route" 
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/route"
+        android:summary="@string/route_summary"
+        android:persistent="false" />
+</PreferenceScreen>

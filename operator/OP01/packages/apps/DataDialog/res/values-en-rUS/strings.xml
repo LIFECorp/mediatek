@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">Whether Change Data Connection for MMS Transaction?</string>  
+    <string name="dialog_title">Data Connection Change</string>  
+    <string name="dialog_continue">Continue</string>  
+    <string name="dialog_cancel">Cancel</string>  
+    <string name="wifi_failover_gprs_content">WIFI is unavailable, try to connect to mobile network?</string> 
+</resources>

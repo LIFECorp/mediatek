@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+ ANT Stack
+ 
+ Copyright 2011 Dynastream Innovations
+ 
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+ 
+     http://www.apache.org/licenses/LICENSE-2.0
+ 
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and  
+ limitations under the License.
+-->
+<resources>
+    <string name="app_name">ANT HAL Service</string>
+    
+<!-- Permissions -->
+    <!-- Permission description for com.dsi.ant.permission.ANTRADIO -->
+    <string name="permdesc_antradio">Allows the application to directly configure the ANT radio.  Malicious applications may prevent the ANT Radio Service from providing ANT functionality to oter applications. </string>
+    <!-- Permission label for com.dsi.ant.permission.ANTRADIO -->
+    <string name="permlab_antradio">use ANT hardware</string>
+    
+    <!-- Permission description for com.dsi.ant.permission.ANT -->
+    <string name="permdesc_ant">Allows the application to communicate with ANT devices using the proxy service.  Malicious applications may acquire information from, or transmit to, ANT devices without your knowledge. </string>
+    <!-- Permission label for com.dsi.ant.permission.ANT -->
+    <string name="permlab_ant">use ANT radio interface</string>
+    
+    <!-- Permission description for com.dsi.ant.permission.ANT_ADMIN -->
+    <string name="permdesc_antAdmin">Allows the application to directly configure the ANT radio through the proxy service.  Malicious applications may prevent other ANT applications from connecting to ANT devices. </string>
+    <!-- Permission label for com.dsi.ant.permission.ANT_ADMIN -->
+    <string name="permlab_antAdmin">control ANT radio configuration</string>
+
+</resources>

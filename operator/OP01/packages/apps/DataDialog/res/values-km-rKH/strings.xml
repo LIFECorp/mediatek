@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">ប្រអប់សន្ទនាទិន្នន័យ</string>  
+    <string name="dialog_content">ចង់ប្តូរការតភ្ជាប់ទិន្នន័យទៅកាន់សេវាកម្ម MMS ឬទេ?</string>  
+    <string name="dialog_title">ប្តូរការតភ្ជាប់ទិន្នន័យ</string>  
+    <string name="dialog_continue">បន្ត</string>  
+    <string name="dialog_cancel">លើកលែង</string>  
+    <string name="wifi_failover_gprs_content">មិនមាន WIFI សាកល្បងតភ្ជាប់ជាមួយនឹងបណ្តាញចល័តឬទេ?</string> 
+</resources>

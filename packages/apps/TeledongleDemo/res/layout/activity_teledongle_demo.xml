@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+        android:key="tedongle_demo">
+    <PreferenceCategory
+        	android:key="tedongle_radio_information"
+        	android:title="@string/tedongle_radio_info_title">
+        	<com.mediatek.teledongledemo.TedongleRadioEnablePre
+        	    android:key="tedongle_radio_enable"
+        	    android:title="@string/tedongle_radio_enable"/>
+            <com.mediatek.teledongledemo.IconPreferenceScreen
+            android:key="tedongle_signal_strength"
+            android:title="@string/tedongle_signal_strenght"/>
+            <PreferenceScreen
+            	android:key="tedongle_network"
+            	android:title="@string/tedongle_network_info">
+         	<intent
+      			android:action="android.intent.action.MAIN"
+      			android:targetPackage="com.mediatek.teledongledemo"
+      			android:targetClass="com.mediatek.teledongledemo.TedongleInfo"/>
+         	</PreferenceScreen>
+
+    	 	<PreferenceScreen
+            	android:key="tedongle_siminfo"
+            	android:title="@string/tedongle_sim_info">
+         	<intent
+      			android:action="android.intent.action.MAIN"
+      			android:targetPackage="com.mediatek.teledongledemo"
+      			android:targetClass="com.mediatek.teledongledemo.TedongleSimInfo"/>
+         	</PreferenceScreen>
+	</PreferenceCategory>
+    	
+	<PreferenceCategory
+    	    android:key="tedongle_default_setting"
+    	    android:title="@string/tedongle_default_setting">
+         
+        <PreferenceScreen
+            android:key="tedongle_sim_lock"
+            android:title="@string/tedongle_sim_lock" > 
+            <intent
+      		android:action="android.intent.action.MAIN"
+      		android:targetPackage="com.mediatek.teledongledemo"
+      		android:targetClass="com.mediatek.teledongledemo.TedongleSimLockSet"/>
+        </PreferenceScreen> 
+    </PreferenceCategory>
+    
+    <PreferenceCategory
+        android:key="tedongle_support_list"
+        android:title="@string/tedongle_support_list">
+        <PreferenceScreen
+            android:key="support_list"
+            android:title="@string/support_list" >
+            <intent
+      		android:action="android.intent.action.MAIN"
+      		android:targetPackage="com.mediatek.teledongledemo"
+      		android:targetClass="com.mediatek.teledongledemo.TedongleSupportListActivity"/>
+         </PreferenceScreen>
+    </PreferenceCategory>
+    
+</PreferenceScreen>
+    

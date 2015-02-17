@@ -1,0 +1,32 @@
+#!/system/bin/sh
+# An unforunate wrapper script 
+# so that the exit code of pppd may be retrieved
+
+DIALER_SCRIPT="/system/etc/zte_ppp_dialer"
+
+# this is a workaround for issue #651747
+#trap "/system/bin/sleep 1;exit 0" TERM
+
+
+PPPD_PID=
+
+/system/bin/setprop "net.gprs.ppp-exit" ""
+/system/bin/log -t pppd "starting pppd"
+/system/bin/setprop "net.ppp0.local-ip" ""
+
+#get modem interface
+
+PPPD_PORT=`/system/bin/getprop ril.datachannel`
+
+/system/bin/log -t pppd "$PPPD_PORT"
+
+/system/bin/pppd $PPPD_PORT 115200 mru 1280 mtu 1280 nodetach debug dump defaultroute usepeerdns novj novjccomp noipdefault ipcp-accept-local ipcp-accept-remote ipcp-max-configure 30 ipcp-max-failure 30 connect-delay 5000 lcp-restart 1 lcp-max-terminate 1 linkname ppp0 connect "/system/bin/chat -v -f ${DIALER_SCRIPT}"
+
+#below is config for ZTE VOUSB modem
+#/system/bin/pppd  /dev/ttyUSB3 115200 mru 1280 mtu 1280 nodetach debug dump defaultroute usepeerdns novj novjccomp noipdefault ipcp-accept-local ipcp-accept-remote connect-delay 5000 linkname ppp0
+PPPD_EXIT=$?
+PPPD_PID=$!
+
+/system/bin/log -t pppd "pppd exited with $PPPD_EXIT"
+
+/system/bin/setprop "net.gprs.ppp-exit" "$PPPD_EXIT"

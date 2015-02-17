@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">是否為彩信業務更改數據連接？</string>  
+    <string name="dialog_title">更改數據連接</string>  
+    <string name="dialog_continue">繼續</string>  
+    <string name="dialog_cancel">取消</string>  
+    <string name="wifi_failover_gprs_content">無線網路無法使用，是否嘗試連接行動網路？</string> 
+</resources>

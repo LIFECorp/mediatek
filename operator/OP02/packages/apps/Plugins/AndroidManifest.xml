@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- # Copyright Statement:
+#
+# This software/firmware and related documentation ("MediaTek Software") are
+# protected under relevant copyright laws. The information contained herein
+# is confidential and proprietary to MediaTek Inc. and/or its licensors.
+# Without the prior written permission of MediaTek inc. and/or its licensors,
+# any reproduction, modification, use or disclosure of MediaTek Software,
+# and information contained herein, in whole or in part, shall be strictly prohibited.
+
+# MediaTek Inc. (C) 2012. All rights reserved.
+#
+# BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
+# THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
+# RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
+# AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
+# NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
+# SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
+# SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
+# THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
+# THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
+# CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
+# SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
+# STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
+# CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
+# AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
+# OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
+# MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
+#
+# The following software/firmware and/or related documentation ("MediaTek Software")
+# have been modified by MediaTek Inc. All revisions are subject to any receiver's
+# applicable license agreements with MediaTek Inc. -->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.mediatek.op02.plugin"
+          android:versionCode="1"
+          android:versionName="1.0">
+
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_MEDIA_STORAGE"/>
+
+    <uses-sdk android:minSdkVersion="5"/>
+
+    <!-- Add your plug-in service here -->
+    <application android:label="OperatorPlugin">
+        <service android:name=".Op02MovieExtension"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.gallery3d.ext.IMovieExtension"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.gallery3d.ext.video.Op02MovieExtension"/>
+        </service>
+
+        <service android:name=".Op02ImageOptions"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.gallery3d.ext.IImageOptions"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.gallery3d.ext.image.Op02ImageOptions"/>
+        </service>
+
+        <!-- Mms Plugin Start-->
+        <service android:name=".Op02MmsConfig"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsConfig" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.mms.op02.Op02MmsConfigExt" />
+        </service>
+
+        <service android:name=".Op02MmsConversation"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsConversation" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.mms.op02.Op02MmsConversationExt" />
+        </service>
+
+        <service android:name=".Op02MmsPlayer"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsPlayer" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.mms.op02.Op02MmsPlayerExt" />
+        </service>
+
+        <service android:name=".Op02MmsCompose"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsCompose" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.mms.op02.Op02MmsComposeExt" />
+        </service>
+        <!-- Mms Plugin End-->
+        <service
+            android:name=".ContactsPlugin"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="com.android.contacts.ext.IOPContactPlugin" />
+            </intent-filter>
+            <meta-data
+                android:name="class"
+                android:value="com.mediatek.contacts.plugin.OP02ContactsPlugin" />
+        </service>
+
+        <!-- Calendar Plugin Start -->
+        <service android:name=".TCLunar"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.calendar.ext.ILunarExtension" />
+            </intent-filter>
+            <meta-data
+                android:name="class" 
+                android:value="com.mediatek.calendar.plugin.TCLunarPlugin" />
+            <meta-data
+                android:name="version"
+                android:value="1.0.2" />
+        </service>
+        <!-- Calendar Plugin End -->
+
+       <!-- Setting Plugin Start-->
+       <service 
+            android:name=".IStatusGeminiExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IStatusGeminiExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.OP02StatusGeminiExt" />
+        </service>
+        <service 
+            android:name=".IDeviceInfoSettingsExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IDeviceInfoSettingsExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.OP02DeviceInfoSettingsExt" />
+        </service>
+        <service 
+            android:name=".ISimManagementExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.ISimManagementExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.OP02SimManagementExt" />
+        </service>
+        <service 
+            android:name=".ISettingsMiscExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.ISettingsMiscExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.OP02SettingsMiscExt" />
+        </service>
+        <service 
+            android:name=".IReplaceApnProfileExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IReplaceApnProfileExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.OP02ReplaceApnProfileExt" />
+        </service>
+        <service 
+            android:name=".IApnSettingsExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IApnSettingsExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.OP02ApnSettingsExt" />
+        </service>
+        <service
+            android:name=".IDataUsageSummaryExt"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IDataUsageSummaryExt" />
+            </intent-filter>
+            <meta-data
+                android:name="class"
+                android:value="com.mediatek.settings.plugin.OP02DataUsageSummaryExt" />
+        </service>
+        <!-- Setting Plugin End-->
+
+        <!-- SystemUI Plugin Start-->
+        <service android:name=".Op02StatusBarPlugin"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.systemui.ext.IStatusBarPlugin"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.systemui.plugin.Op02StatusBarPlugin"/>
+            <meta-data android:name="version" android:value="1.0.0"/>
+        </service>
+        <!-- SystemUI Plugin End-->
+
+        <!-- Keyguard Plugin Start-->
+        <service android:name=".OP02EmergencyButtonExt"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.keyguard.ext.IEmergencyButtonExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.keyguard.plugin.OP02EmergencyButtonExt"/>
+            <meta-data android:name="version" android:value="1.0.0"/>
+        </service>
+        <service android:name=".OP02CarrierTextExt"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.keyguard.ext.ICarrierTextExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.keyguard.plugin.OP02CarrierTextExt"/>
+            <meta-data android:name="version" android:value="1.0.0"/>
+        </service>
+        <!-- Keyguard Plugin End-->
+
+        <!-- FileManager Plugin Start -->
+        <service
+            android:name=".FileManagerIconExtension"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="com.mediatek.filemanager.ext.IIconExtension" />
+            </intent-filter>
+            <meta-data
+                android:name="class"
+                android:value="com.mediatek.filemanager.plugin.SystemIconExtension" />
+        </service>
+        <!-- FileManager Plugin End -->
+        <!-- Browser Plugin Start-->
+        <service android:name=".Op02BrowserSmallFeatureEx"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.browser.ext.IBrowserSmallFeatureEx" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.browser.plugin.Op02BrowserSmallFeatureEx" />
+        </service>
+        
+        <service android:name=".Op02BrowserSmsHandlerEx"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.browser.ext.IBrowserSmsHandlerEx" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.browser.plugin.Op02BrowserSmsHandlerEx" />
+        </service>
+        
+        <service android:name=".Op02BrowserDownloadEx"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.browser.ext.IBrowserDownloadEx" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.browser.plugin.Op02BrowserDownloadEx" />
+        </service>
+        <!-- Browser Plugin End-->
+        
+        <!-- DownloadManager Plugin Start-->
+        <service android:name=".Op02DownloadProviderFeatureEx"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.downloadmanager.ext.IDownloadProviderFeatureEx" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.downloadmanager.plugin.Op02DownloadProviderFeatureEx" />
+        </service>
+        <!-- DownloadManager Plugin End-->
+    </application>
+</manifest>

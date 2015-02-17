@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="?android:attr/listPreferredItemHeight"
+    android:paddingRight="?android:attr/scrollbarSize"
+    android:gravity="center_vertical"
+    android:id="@+id/tedongle_info_layout"
+    android:background="@drawable/list_selector_holo_dark">
+    <LinearLayout
+        android:id="@android:id/widget_frame"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="vertical" />   
+    <LinearLayout
+        android:layout_width="0dip"
+        android:layout_height="wrap_content"
+    	android:gravity="center_vertical"
+    	android:layout_centerVertical="true"
+        android:layout_weight="1">
+        <RelativeLayout 
+			android:layout_width="48dip"
+			android:layout_height="32dip"
+			android:id="@+id/tedongleIcon"
+			android:layout_marginRight="6dip"
+			android:layout_centerVertical="true">
+  			<ImageView
+        		android:id="@+id/tedongleStatus"
+        		android:layout_width="wrap_content"
+        		android:layout_height="wrap_content"
+        		android:layout_alignParentRight="true" 
+                android:layout_alignParentTop="true"
+                android:layout_marginTop="4dip"
+                android:layout_marginRight="4dip"
+                android:src="@drawable/ic_default_user"/>
+   			<TextView 
+	   			android:id="@+id/tedongleNum" 
+	   			android:layout_width="wrap_content" 
+	   			android:layout_height="wrap_content" 
+	   			android:layout_marginBottom="2dip"
+                android:layout_marginRight="4dip"
+	       		android:layout_alignParentRight="true" 
+	       		android:layout_alignParentBottom="true" 
+	   			android:textSize="12sp"
+	   			android:singleLine="true"
+	   			android:textColor="@android:color/white"
+	   			android:includeFontPadding="false"/>
+		</RelativeLayout>
+	
+	<RelativeLayout
+		android:id="@+id/text_layout_tedongle_enabler"
+		android:layout_width="fill_parent"
+ 	    android:layout_height="wrap_content"
+       	android:layout_weight="1"
+       	android:layout_centerVertical="true">
+   
+        	<TextView 
+        	    android:id="@+android:id/title"
+            	android:layout_width="fill_parent"
+            	android:layout_height="wrap_content"
+            	android:singleLine="true"
+            	android:ellipsize="middle"  
+            	android:textAppearance="?android:attr/textAppearanceMedium"
+            	android:textColor="?android:attr/textColorPrimary"
+	   			android:text="@string/tedongle_radio_enable"/>
+            
+        	<TextView 
+        	    android:id="@+android:id/summary"
+            	android:layout_width="wrap_content"
+            	android:layout_height="wrap_content"
+            	android:layout_below="@android:id/title"
+            	android:layout_alignLeft="@android:id/title"
+				android:singleLine="true"
+				android:ellipsize="middle"
+            	android:textAppearance="?android:attr/textAppearanceSmall"
+            	android:textColor="?android:attr/textColorSecondary"/>
+		</RelativeLayout>
+    </LinearLayout>
+    
+    <Switch 
+    	android:layout_width="wrap_content" 
+    	android:id="@+id/Check_Enable"
+    	android:focusable="false" 
+    	android:clickable="false" 
+    	android:layout_height="wrap_content" 
+    	android:gravity="center_vertical|center" 
+    	android:layout_centerVertical="true"/>
+    
+</LinearLayout>

@@ -1,0 +1,16 @@
+<FindBugsFilter>
+    <Match>
+        <Class name="com.mediatek.videofavorites.R" />
+    </Match>
+    <Match>
+        <Class name="~com\.mediatek\.videofavorites\.R\$.*" />
+    </Match>
+    <Match>
+        <Package name="~com\.mediatek\.videofavorites\.R.*" />
+    </Match>
+    <Match>
+        <Class name="com\.mediatek\.videofavorites\.WIdgetHostActivity" />
+        <Method name="findWidgetViewById" />
+        <Bug pattern="BC_UNCONFIRMED_CAST" />
+    </Match>
+</FindBugsFilter>

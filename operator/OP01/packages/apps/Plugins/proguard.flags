@@ -1,0 +1,4 @@
+# do not warn the build warning, or else may cause build failed.
+-dontwarn com.mediatek.incallui.ext.**
+
+-verbose

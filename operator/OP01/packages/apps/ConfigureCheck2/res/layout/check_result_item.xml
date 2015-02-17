@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:descendantFocusability="blocksDescendants">
+    
+	<ImageView
+		android:id="@+id/check_result_icon"
+		android:layout_centerVertical="true"
+		android:layout_alignParentLeft="true"
+		android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+	
+	<CheckBox
+        android:id="@+id/check_item_checkbox"
+        android:layout_centerVertical="true"
+        android:layout_alignParentRight="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="5dip"/>
+
+	<LinearLayout
+	    android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:layout_toRightOf="@id/check_result_icon"
+        android:layout_toLeftOf="@id/check_item_checkbox"
+        android:minHeight="?android:attr/listPreferredItemHeight">
+		<TextView
+			android:id="@+id/check_item_name"
+			android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+			android:textAppearance="?android:attr/textAppearanceMedium"/>
+		<TextView
+			android:id="@+id/check_item_value_or_info"
+			android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+			android:textAppearance="?android:attr/textAppearanceSmall"/>	
+	</LinearLayout>
+	
+</RelativeLayout>

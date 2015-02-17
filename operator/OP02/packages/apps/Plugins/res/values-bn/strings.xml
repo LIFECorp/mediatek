@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+   <!-- MMS String Start-->
+       <string name="menu_sim_sms">সিম এসএমএস</string>
+   <!-- MMS String End-->
+   <!--Setting String Start-->
+		<string name="screen_timeout_CU">স্ক্রিন টাইমআউট</string> 
+   <!--Setting String End-->      
+</resources>
+

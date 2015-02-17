@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDiyalogo</string>  
+    <string name="dialog_content">Papalitan ang Koneksyon ng Data para sa MMS na Transaksyon?</string>  
+    <string name="dialog_title">Pagpalit ng Koneksyon ng Datos</string>  
+    <string name="dialog_continue">Magpatuloy</string>  
+    <string name="dialog_cancel">Kanselahin</string>  
+    <string name="wifi_failover_gprs_content">Walang WIFI, subukang kumonekta sa mobile na network?</string> 
+</resources>

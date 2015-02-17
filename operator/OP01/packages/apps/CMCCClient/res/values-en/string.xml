@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Customer Services</string>
+    <string name="customer_service">Customer Services</string>
+    <string name="customer_service_set">Settings</string>
+    <string name="set_name_tip">Name</string>
+    <string name="set_number_tip">PhoneNumber</string>
+    <string name="set_save_btn">Save</string>
+    <string name="set_cancel_btn">Cancel</string>
+    <string name="set_number_or_name_empty">The input name and number can not be empty!</string>
+    <string name="str_ok">OK</string>
+    <string name="save_success">Save Success</string>
+    <string name="sms_send_tips">Have send SMS to 10086</string>
+    <string name="sim_card_tips">Please make sure your SIM card is available.</string>
+    <string name="service_web">http://www.monternet.com</string>
+    <string name="service_num">10086</string>
+    <string name="after_service_phone_text">After Service Number:</string>
+    <string name="after_service_phone_num">01056900888</string>
+    <string name="after_service">After Service</string>
+    <string name="phone_type">Phone Type:</string>
+    <string name="phone_type_content">MT6582</string>
+    <string name="web_address_text">Web Address:</string>
+    <string name="web_address">http://www.mediatek.com</string>
+    <string name="web_not_available">The web is not available!</string>
+    
+</resources>

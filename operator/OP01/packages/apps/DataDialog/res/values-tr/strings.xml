@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">MMS İşlemi için Veri Bağlantısı Değiştirilsin mi?</string>  
+    <string name="dialog_title">Veri Bağlantısı Değiştir</string>  
+    <string name="dialog_continue">Devam Et</string>  
+    <string name="dialog_cancel">İptal</string>  
+    <string name="wifi_failover_gprs_content">WIFI kullanılamıyor, mobil ağa bağlanılmaya çalışılsın mı?</string> 
+</resources>

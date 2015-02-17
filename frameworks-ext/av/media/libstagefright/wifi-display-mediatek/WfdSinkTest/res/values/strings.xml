@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WFD Sink Test</string>
+    <string name="action_settings">Settings</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="ip_addr">IP addr</string>
+    <string name="dot">.</string>
+    <string name="port">Port</string>
+    <string name="connect">Connect</string>
+</resources>

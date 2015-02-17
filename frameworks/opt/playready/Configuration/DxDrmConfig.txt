@@ -1,0 +1,25 @@
+#Filter the log output from irrelevant modules
+DisabledModules = 10
+DebugLevel = 40
+
+LogFile=/data/DxDrm/Logs/cln
+
+LogcatLogs=True
+
+#log the HTTP communication
+JavaHTTPLog=true
+
+PlayReadyLog = /data/Dxdrm/Logs
+
+#Provisioning data
+KeyFilePath = /data/DxDrm/
+SecureDBPath = /data/DxDrm/DxSecureDB
+NVSPath = /data/DxDrm/NVS
+DeviceKeyPath = /data/DxDrm/DxDeviceKey
+PlayReadyStorePath = /data/DxDrm/DxPlayReadyDB.hds
+AutoProvisionPlayReady = PlayReady, /data/DxDrm/Credentials/PlayReady
+#SfsLocation = /persist/data
+SupportAllMimeTypes=true
+
+# uncomment this line in order to support multi-user file name translation
+#TranslateUserPath=true

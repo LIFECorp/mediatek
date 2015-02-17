@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">Servicio de atención al cliente</string>  
+    <string name="hotLine">Línea directa de atención al cliente de China Unicom</string>
+</resources>

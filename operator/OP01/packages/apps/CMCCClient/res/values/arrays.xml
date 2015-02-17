@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources> 
+    <string-array name="names"> 
+        <item>服务指南</item> 
+        <item>客户服务热线</item> 
+        <item>短信营业厅</item> 
+        <item>掌上营业厅</item> 
+        <item>客户经理</item> 
+        <item>客户服务设置</item> 
+    </string-array> 
+</resources>

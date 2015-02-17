@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style
+      name="MyTheme"
+      parent="@android:style/Theme.NoTitleBar">
+    </style>
+  
+<!--   <style name="CustomDlgTitleStyle">-->
+<!--     <item name="android:maxLines">2</item>-->
+<!--     <item name="android:singleLine">false</item>-->
+<!--     <item name="android:textAppearance">@android:style/TextAppearance.DialogWindowTitle</item>-->
+<!--   </style> -->
+  
+</resources>

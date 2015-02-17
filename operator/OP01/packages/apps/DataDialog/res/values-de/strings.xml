@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">Datenverbindung für MMS-Transaktion ändern?</string>  
+    <string name="dialog_title">Datenverbindung ändern</string>  
+    <string name="dialog_continue">Fortfahren</string>  
+    <string name="dialog_cancel">Abbrechen</string>  
+    <string name="wifi_failover_gprs_content">Wi-Fi ist nicht verfügbar; soll versucht werden, eine Verbindung zum Mobilnetzwerk herzustellen?</string> 
+</resources>

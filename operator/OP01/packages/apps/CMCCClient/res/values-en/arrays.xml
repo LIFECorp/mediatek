@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources> 
+    <string-array name="names"> 
+        <item>Service Guide</item> 
+        <item>Service Hotline</item> 
+        <item>SMS Center Online</item> 
+        <item>Customer Center Online</item> 
+        <item>Customer Manager</item> 
+        <item>Settings</item> 
+    </string-array> 
+</resources>

@@ -1,0 +1,38 @@
+if ARCH_MT6571
+
+menu "MT6571 Board Support Package"
+
+config MT6571_EVB_BOARD
+        bool "MT6571 EVB BOARD"
+        select ARM_GIC
+	select ARM_L1_CACHE_SHIFT_6
+        help
+          Select if you are using an EVB board.
+
+config MAX_DRAM_SIZE_SUPPORT
+	hex "The maximum size of the DRAM can be supported in the kernel"
+	default 0x10000000
+	depends on ARCH_MT6571
+	help
+		Define the maximum size of the kernel can be supported.
+	        If will modify the memory size if it size is smaller than 
+                the memory size passed by the boot loader to the MAX_DRAM_SIZE_SUPPORT.
+   		Notice that the maximum DRAM size is including the memory size
+	        reserved for the modem and the PMEM.
+
+config MTK_SIMULATE_MT6571M
+    bool "Simulate mt6571m chip"
+    default n
+    help
+		Simulate mt6571m on mt6571 for evaluation.
+
+config MTK_SIMULATE_MT6571L
+    bool "Simulate mt6571l chip"
+    default n
+    help
+		Simulate mt6571l on mt6571 for evaluation.
+    
+endmenu
+
+
+endif

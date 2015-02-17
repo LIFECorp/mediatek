@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.mediatek.backuprestore.modules"
+          android:versionCode="1"
+          android:versionName="1.0"
+          android:sharedUserId="android.uid.system"
+          >
+
+  <uses-sdk android:minSdkVersion="14" />
+
+  <application>
+    <service android:name=".AidlService">
+      <intent-filter>
+        <action android:name="com.mediatek.backuprestore.modules.AIDL_SERVICE" />
+      </intent-filter>
+    </service>
+
+  </application>
+</manifest>

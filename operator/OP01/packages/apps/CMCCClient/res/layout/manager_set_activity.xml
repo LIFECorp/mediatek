@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_height="wrap_content" 
+  android:orientation="vertical" 
+  android:layout_width="fill_parent"
+  android:padding="10.0dip" >
+
+    <TextView 
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:text="@string/customer_service_set"
+      android:textAppearance="?android:attr/textAppearanceMedium"
+      android:background="@drawable/black_gradient">
+    </TextView>  
+	<TextView 
+	  android:layout_height="wrap_content" 
+	  android:layout_width="fill_parent" 
+	  android:id="@+id/TextViewSetNameTip" 
+	  android:text="@string/set_name_tip" 
+	  android:textAppearance="?android:attr/textAppearanceMedium" >
+	</TextView>
+	<EditText 
+	  android:layout_height="wrap_content" 
+	  android:layout_width="fill_parent" 
+	  android:id="@+id/EditTextSetName"
+	  android:singleLine="true"
+	  android:maxLength="15">
+	</EditText>
+	<TextView 
+	  android:layout_height="wrap_content" 
+	  android:layout_width="fill_parent" 
+	  android:id="@+id/TextViewSetNumberTip" 
+	  android:text="@string/set_number_tip" 
+	  android:textAppearance="?android:attr/textAppearanceMedium" >
+	</TextView>
+	<EditText 
+	  android:layout_height="wrap_content" 
+	  android:layout_width="fill_parent" 
+	  android:id="@+id/EditTextSetNumber" 
+	  android:phoneNumber="true"
+	  android:singleLine="true"
+	  android:maxLength="25"
+	  android:shadowDy="0.0"
+	  android:shadowDx="0.0">
+	</EditText>
+
+
+    <RelativeLayout 
+      android:id="@+id/RelativeLayout01" 
+      android:layout_height="wrap_content" 
+      android:layout_width="fill_parent">
+        <Button 
+          android:layout_height="wrap_content" 
+          android:id="@+id/ButtonSetSave" 
+          android:text="@string/set_save_btn" 
+          android:layout_width="100dip" 
+          android:textAppearance="?android:attr/textAppearanceMedium"
+          android:layout_toLeftOf="@+id/ButtonSetCancel">
+        </Button>
+        <Button 
+          android:layout_height="wrap_content" 
+          android:id="@+id/ButtonSetCancel" 
+          android:text="@string/set_cancel_btn" 
+          android:layout_width="100dip" 
+          android:textAppearance="?android:attr/textAppearanceMedium"
+          android:layout_alignParentRight="true">
+        </Button>
+    </RelativeLayout>
+</LinearLayout>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">고객 서비스</string>  
+    <string name="hotLine">China Unicom 고객 핫라인</string>
+</resources>

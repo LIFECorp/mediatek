@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+<!DOCTYPE operator [
+<!ATTLIST operator xml:id ID #IMPLIED>
+]>
+-->
+<smsselfreg><customized>on</customized><operatorcustomized>cu</operatorcustomized><manufacturer>MTK</manufacturer><operator xml:id="cu"><operatorname>cu</operatorname><networknumber><number>46001</number></networknumber><smsnumber>10655464</smsnumber><smsport>26680</smsport><srcport>26680</srcport><content><segment><prefix>IMEI:</prefix><method>getimei</method><postfix>/</postfix></segment><segment><prefix></prefix><method>getimsi</method><postfix>/</postfix></segment><segment><prefix></prefix><method>getvendor</method><postfix>/</postfix></segment><segment><prefix></prefix><method>getproduct</method><postfix>/</postfix></segment><segment><prefix></prefix><method>getversion</method><postfix></postfix></segment></content></operator></smsselfreg>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="tedongle_security_width">320dp</dimen>
+
+   <dimen name="tedongle_security_height">400dp</dimen>
+</resources>

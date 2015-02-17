@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--* Copyright Statement:
+ *
+ * This software/firmware and related documentation ("MediaTek Software") are
+ * protected under relevant copyright laws. The information contained herein
+ * is confidential and proprietary to MediaTek Inc. and/or its licensors.
+ * Without the prior written permission of MediaTek inc. and/or its licensors,
+ * any reproduction, modification, use or disclosure of MediaTek Software,
+ * and information contained herein, in whole or in part, shall be strictly prohibited.
+ *
+ * MediaTek Inc. (C) 2012. All rights reserved.
+ *
+ * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
+ * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
+ * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
+ * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
+ * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
+ * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
+ * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
+ * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
+ * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
+ * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
+ * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
+ * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
+ * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
+ * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
+ * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
+ * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
+ *
+ * The following software/firmware and/or related documentation ("MediaTek Software")
+ * have been modified by MediaTek Inc. All revisions are subject to any receiver's
+ * applicable license agreements with MediaTek Inc.
+ */  -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="exceed_subject_length_limitation">已达到最大长度</string>
+    <string name="select_text">选择部分文本</string>
+    <string name="changeview">"切换模式"</string>
+    <string name="menu_sim_sms" >"SIM卡短信"</string>   
+    <string name="screen_timeout_CU">屏幕延时</string>
+    
+  <!-- Browser String Start-->
+    <string-array name="pref_op02_text_encoding_choices">
+    <item>"自动检测"</item>
+    <item msgid="7275223955790513818">"拉丁语-1 (ISO-8859-1)"</item>
+    <item msgid="2456597866837587140">"Unicode (UTF-8)"</item>
+    <item>"Unicode (UTF-16)"</item>
+    <item>"中文 (GB2312)"</item>
+    <item msgid="6122474363777211732">"中文 (GBK)"</item>
+    <item msgid="373372275931607040">"中文 (Big5)"</item>
+    <item msgid="891615911084608570">"日语 (ISO-2022-JP)"</item>
+    <item msgid="5589150448475151241">"日语 (SHIFT_JIS)"</item>
+    <item msgid="7356792686950371843">"日语 (EUC-JP)"</item>
+    <item msgid="2193955365569270096">"韩语 (EUC-KR)"</item>
+    </string-array>
+  <!-- Browser String End-->
+
+    <!-- SystemUI String start-->
+    <string name="gemini_3g_disable_warning">"此 SIM 卡不支持 3G 服务。  数据链接速度可能变慢。 您可以进入 设置 > SIM 卡管理  进行修改。"</string>
+    <!-- SystemUI String end-->
+    
+    <!-- Settings String Start-->
+    <string name="data_background_restrict_CU">限制背景数据</string>
+    <string name="data_usage_app_restrict_background_summary_CU" >"使用移动网络时停用背景数据。系统会尽量使用非移动网络。"</string>
+    <string name="data_usage_app_restrict_dialog_title_CU" >"限制背景数据？"</string>
+    <string name="data_usage_app_restrict_dialog_CU" >"只能连接到移动网络时，此功能可能会导致需要使用背景数据的应用停止运行。"\n\n"您可以在相关应用的设置中查找更合适的数据流量控制选项。"</string>
+    <string name="data_usage_restrict_denied_dialog_CU" >"您只有在设置移动数据上限后才能限制背景数据。"</string>
+    <string name="data_usage_restrict_background_CU" >"如果限制背景移动数据，那么除非您已连接到 WLAN 网络，否则部分应用和服务会无法运行。"</string>
+    <!-- Settings String End-->
+</resources>

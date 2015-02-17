@@ -1,0 +1,19 @@
+$@Do Not Remove this line
+$M:19d2:fff1|libzteevdo-ril.so
+$D:19d2:fff5
+$@Do Not Remove this line
+
+#Paras are writen below
+
+@:19d2:XXXX
+cimiPrefix=1
+pppdUsrName=card
+pppdPwd=card
+pppdTelNub=#777
+###cfunOffValue=5
+cfunOffValue=0
+zpwronEx=1
+simstEx=0
+
+
+

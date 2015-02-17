@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- MMS String Start-->
+        <string name="menu_sim_sms">سم ایس ایم ایس</string>
+    <!-- MMS String End-->
+    
+    <!-- Phone String start -->
+    <string name="vt_start_time_from">سے شروع ہوا</string>
+    <!-- Phone String end -->
+    
+</resources>
+

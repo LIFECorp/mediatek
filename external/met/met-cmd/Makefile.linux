@@ -1,0 +1,16 @@
+CC:=$(CROSS_COMPILE)gcc
+LD:=$(CROSS_COMPILE)LD
+STRIP:=$(CROSS_COMPILE)strip
+
+OBJS = interface.o \
+	met-cmd.o \
+	pmu_l2.o 
+
+met-cmd: $(OBJS)
+	$(CC) $(OBJS) -o $@ 
+	$(STRIP) $@
+
+clean:
+	touch *.c *.h
+	rm -f *.o met-cmd
+

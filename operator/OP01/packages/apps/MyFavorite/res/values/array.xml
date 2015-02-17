@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+	<string-array name="foldername">
+		<item>@string/music</item>
+		<item>@string/video</item>
+		<item>@string/picture</item>
+		<item>@string/allfiles</item>
+	</string-array>
+</resources>

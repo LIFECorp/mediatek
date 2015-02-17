@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+      package="com.mediatek.cmcc"
+      android:versionCode="1"
+      android:versionName="1.0">
+    <application android:icon="@drawable/icon" android:label="@string/app_name">
+        <provider 
+            android:name="CustomerServiceProvider"
+            android:authorities="com.mediatek.cmcc.provider">
+        </provider>
+
+        <activity android:name=".MainActivity"
+                  android:label="@string/app_name"
+                  android:theme="@style/MyTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        
+        <activity android:name=".AfterServiceActivity"
+                  android:label="AfterServiceActivity"
+                  android:theme="@style/MyTheme">
+        </activity>
+        
+        <activity android:name=".ManagerSetActivity"
+                  android:label="ManagerSetActivity"
+                  android:theme="@style/MyTheme">
+        </activity>
+
+    </application>
+    <uses-sdk android:minSdkVersion="8" />
+    <uses-permission android:name="android.permission.CALL_PHONE"></uses-permission>
+    <uses-permission android:name="android.permission.SEND_SMS"></uses-permission>
+    <uses-permission android:name="android.permission.READ_SMS"></uses-permission>
+    <uses-permission android:name="android.permission.WRITE_SMS"></uses-permission>
+    <uses-permission android:name="android.permission.INTERNET"></uses-permission>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"></uses-permission>
+
+</manifest> 

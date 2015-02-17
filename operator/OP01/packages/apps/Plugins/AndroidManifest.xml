@@ -1,0 +1,660 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- # Copyright Statement:
+#
+# This software/firmware and related documentation ("MediaTek Software") are
+# protected under relevant copyright laws. The information contained herein
+# is confidential and proprietary to MediaTek Inc. and/or its licensors.
+# Without the prior written permission of MediaTek inc. and/or its licensors,
+# any reproduction, modification, use or disclosure of MediaTek Software,
+# and information contained herein, in whole or in part, shall be strictly prohibited.
+
+# MediaTek Inc. (C) 2012. All rights reserved.
+#
+# BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
+# THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
+# RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
+# AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
+# NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
+# SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
+# SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
+# THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
+# THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
+# CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
+# SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
+# STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
+# CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
+# AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
+# OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
+# MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
+#
+# The following software/firmware and/or related documentation ("MediaTek Software")
+# have been modified by MediaTek Inc. All revisions are subject to any receiver's
+# applicable license agreements with MediaTek Inc. -->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.mediatek.op01.plugin"
+          android:versionCode="1"
+          android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="5"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+	<uses-permission android:name="android.permission.READ_SMS"/>
+    <uses-permission android:name="android.permission.WRITE_SMS"/>
+    <uses-permission android:name="android.permission.GET_TASKS"/>
+    <uses-permission android:name="android.permission.INJECT_EVENTS"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS" />
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <uses-permission android:name="android.permission.READ_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_APN_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <permission android:name="android.permission.READ_REJECT" />
+    <permission android:name="android.permission.WRITE_REIECT" />
+    <!-- Add your plug-in service here -->
+    <application android:label="OperatorPlugin"
+                 android:icon="@mipmap/ic_launcher_settings">
+        <service android:name=".Op01MovieExtension"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.gallery3d.ext.IMovieExtension"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.gallery3d.ext.video.Op01MovieExtension"/>
+        </service>
+
+        <service android:name=".Op01ImageOptions"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.gallery3d.ext.IImageOptions"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.gallery3d.ext.image.Op01ImageOptions"/>
+        </service>
+
+        <!-- Camera Plugin Start-->
+        <service android:name=".Op01CameraExtension"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.camera.ext.ICameraExtension"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.camera.ext.Op01CameraExtension"/>
+        </service>
+        <!-- Camera Plugin End-->
+
+        <!-- Mms Plugin Start-->
+        <service android:name=".Op01MmsConfig"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsConfig"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.mms.op01.Op01MmsConfigExt"/>
+        </service>
+
+        <service android:name=".Op01MmsConversation"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsConversation"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.mms.op01.Op01MmsConversationExt"/>
+        </service>
+
+        <service android:name=".Op01MmsSlideShow"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsSlideShow"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.mms.op01.Op01MmsSlideShowExt"/>
+        </service>
+
+        <service android:name=".Op01MmsCompose"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsCompose"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.mms.op01.Op01MmsComposeExt"/>
+        </service>
+        <service android:name=".Op01MmsAttachmentEnhance"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsAttachmentEnhance"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.mms.op01.Op01MmsAttachmentEnhanceExt"/>
+        </service>
+        <service android:name=".Op01MmsMultiDeleteAndForward"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsMultiDeleteAndForward" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.mms.op01.Op01MmsMultiDeleteAndForwardExt" />
+        </service>
+
+        <service android:name=".Op01MmsTextSizeAdjust"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsTextSizeAdjust" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.mms.op01.Op01MmsTextSizeAdjustExt" />
+        </service>
+
+        <service android:name=".Op01SmsReceiver"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.ISmsReceiver" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.mms.op01.Op01SmsReceiverExt" />
+        </service>
+
+        <service android:name=".Op01MmsTransaction"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsTransaction"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.mms.op01.Op01MmsTransactionExt"/>
+        </service>
+
+        <service android:name=".Op01MmsMessageListItem"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsMessageListItem"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.mms.op01.Op01MmsMessageListItemExt"/>
+        </service>
+        
+        <!-- Mms Plugin End-->
+        
+        <service android:name=".ContactsPlugin" android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.contacts.ext.IContactPlugin"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.contacts.plugin.OP01ContactsPlugin"/>
+        </service>
+
+        <service android:name=".DialerPlugin" android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.dialer.ext.IDialerPlugin"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.dialer.plugin.OP01DialerPlugin"/>
+        </service>
+
+        <service android:name=".Op01MmsSlideshowEditorExt"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.mms.ext.IMmsSlideshowEditor"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.mms.op01.Op01MmsSlideshowEditorExt"/>
+        </service>
+
+        <!-- QSB Plugin Start -->
+        <service android:name=".Op01WebSearchHandler" android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.qsb.ext.IWebSearchHandler"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.qsb.plugin.OP01WebSearchHandler"/>
+            <meta-data android:name="version" android:value="1.0.0"/>
+        </service>
+        
+        <service android:name=".OP01DefaultSearchEngine" android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.qsb.ext.IPreferenceSetting"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.qsb.plugin.OP01DefaultSearchEngine"/>
+            <meta-data android:name="version" android:value="1.0.0"/>
+        </service>
+        <!-- QSB Plugin End -->
+        
+        <!-- CMCC DM setting Plugin Start-->
+        <service
+                android:name=".IMdmPermissionControlExt"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IMdmPermissionControlExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.settings.plugin.CMCCMdmPermControlExt"/>
+        </service>
+        <!-- CMCC DM setting Plugin End -->
+        
+		<!-- Setting Plugin Start-->
+        <service
+                android:name=".IWifiSettingsExt"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IWifiSettingsExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.settings.plugin.WifiSettingsExt"/>
+        </service>
+        <service
+                android:name=".IWifiExt"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IWifiExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.settings.plugin.WifiExt"/>
+        </service>
+
+        <activity android:name=".WifiPrioritySettings"
+                android:icon="@drawable/ic_launcher_settings"
+                android:label="@string/wifi_priority_settings_label"
+		        android:configChanges="orientation|keyboardHidden|screenSize|mcc|mnc">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="com.mediatek.OP01.PRIORITY_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".WifiNotifyDialog"
+                  android:configChanges="orientation|keyboardHidden|screenSize"
+                  android:launchMode="singleTop"
+                  android:excludeFromRecents="true"
+                  android:theme="@*android:style/Theme.Holo.Dialog.Alert">
+            <intent-filter>
+                <action android:name="android.net.wifi.WIFI_NOTIFICATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".Op01WifisettingsActivity"
+                  android:label="@string/wifi_settings"
+                  android:configChanges="orientation|keyboardHidden|screenSize"
+                  android:launchMode="singleTop"
+                  android:excludeFromRecents="true"
+                  android:theme="@*android:style/Theme.Holo.Dialog.Alert">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".WifiReselectApDialog"
+                  android:configChanges="orientation|keyboardHidden|screenSize"
+                  android:launchMode="singleTop"
+                  android:excludeFromRecents="true"
+                  android:theme="@*android:style/Theme.Holo.Dialog.Alert">
+            <intent-filter>
+                <action android:name="android.net.wifi.WIFI_RESELECTION_AP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+                android:name=".AudioProfileExt"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IAudioProfileExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.settings.plugin.AudioProfileExt"/>
+        </service>
+        <service
+                android:name=".ISettingsMiscExt"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.ISettingsMiscExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.settings.plugin.SettingsMiscExt"/>
+        </service>
+        <service
+                android:name=".IStatusExt"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IStatusExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.settings.plugin.StatusExt"/>
+        </service>
+        <service 
+            android:name=".ISimManagementExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.ISimManagementExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.SimManagementExt" />
+        </service>
+        <service 
+            android:name=".IApnSettingsExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IApnSettingsExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.ApnSettingsExt" />
+        </service>
+        <service 
+            android:name=".IDataUsageSummaryExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.settings.ext.IDataUsageSummaryExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.settings.plugin.DataUsageSummaryExt" />
+        </service>
+        <!-- Setting Plugin sub item for wifi setting -->
+        <receiver android:name=".WifiSettingsReceiver">
+            <intent-filter>
+            <action android:name="android.intent.action.SIM_STATE_CHANGED" />
+            </intent-filter>
+            <intent-filter>
+            <action android:name="android.net.wifi.WIFI_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+		<!-- Setting Plugin End-->
+		
+		<!-- Add for lbs Receiver begin-->
+        <receiver android:name="com.mediatek.settings.plugin.AgpsReceiver">
+            <intent-filter android:priority="1000">
+                <action android:name="com.mediatek.agps.PROFILE_UPDATED" />
+                <action android:name="com.mediatek.agps.STATUS_UPDATED" />
+                <action android:name="com.mediatek.agps.DISABLE_UPDATED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        <!-- Add for lbs Receiver end-->
+        
+        <!-- Phone Plugin Start-->
+        <service
+                android:name=".PhonePlugin"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.phone.ext.IPhonePlugin"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.phone.plugin.OP01PhonePlugin"/>
+        </service>
+        <!-- Phone Plugin End-->
+
+        <!-- InCallUI Plugin End-->
+        <service
+                android:name=".InCallUIPlugin"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.incallui.ext.IInCallUIPlugin"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.InCallUI.plugin.OP01InCallUIPlugin"/>
+        </service>
+        <!-- InCallUI Plugin End-->
+
+        <!-- SystemUI Plugin Start-->
+        <service android:name=".Op01StatusBarPlugin"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.systemui.ext.IStatusBarPlugin"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.systemui.plugin.Op01StatusBarPlugin"/>
+            <meta-data android:name="version" android:value="1.0.0"/>
+        </service>
+        <!-- SystemUI Plugin End-->
+
+        <!-- Keyguard Plugin Start-->
+        <service android:name=".OP01EmergencyButtonExt"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.keyguard.ext.IEmergencyButtonExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.keyguard.plugin.OP01EmergencyButtonExt"/>
+            <meta-data android:name="version" android:value="1.0.0"/>
+        </service>
+        <!-- Keyguard Plugin End-->
+
+        <!-- Music Plugin Start-->
+        <service android:name=".MusicTrackBrowserExtension"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.music.ext.IMusicTrackBrowser"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.music.ext.Op01MusicTrackBrowserExtension"/>
+        </service>
+        <!-- Music Plugin End-->
+
+        <!--DeskClock Plugin Begin-->
+        <service android:name=".Op01CMCCSpecialSpecExtension"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.deskclock.ext.ICMCCSpecialSpecExtension"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.deskclock.plugin.Op01CMCCSpecialSpecExtension"/>
+            <meta-data android:name="version" android:value="1.0.0"/>
+        </service>
+       <!--DeskClock Plugin End -->
+
+        <!-- Launcher Plugin Start-->
+        <service android:name=".Op01AllAppsListExt"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.launcher2.ext.IAllAppsListExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.launcher2.plugin.Op01AllAppsListExt"/>
+        </service>
+
+	<service android:name=".Op01SearchButtonExt"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.launcher2.ext.ISearchButtonExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.launcher2.plugin.Op01SearchButtonExt"/>
+        </service> 
+
+	<service android:name=".Op01SearchButtonExtLauncher3"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.launcher3.ext.ISearchButtonExt"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.launcher3.plugin.Op01SearchButtonExtLauncher3"/>
+        </service>
+        <!-- Launcher Plugin End-->
+        <!-- Browser Plugin Start-->
+        <service android:name=".Op01BrowserSmallFeatureEx"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.browser.ext.IBrowserSmallFeatureEx"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.browser.plugin.Op01BrowserSmallFeatureEx"/>
+        </service>
+
+        <service android:name=".Op01BrowserProcessNetworkEx"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.browser.ext.IBrowserProcessNetworkEx"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.browser.plugin.Op01BrowserProcessNetworkEx"/>
+        </service>
+
+        <service android:name=".Op01BrowserDownloadEx"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.browser.ext.IBrowserDownloadEx"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.browser.plugin.Op01BrowserDownloadEx"/>
+        </service>
+        <!-- Browser Plugin End-->
+
+        <!-- DownloadManager Plugin Start-->
+        <service android:name=".Op01DownloadProviderFeatureEx"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.downloadmanager.ext.IDownloadProviderFeatureEx"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.downloadmanager.plugin.Op01DownloadProviderFeatureEx"/>
+        </service>
+        <!-- DownloadManager Plugin End-->
+       <!-- FMRadio Plugin Start-->
+       <service 
+            android:name=".ProjectStringExt" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.FMRadio.ext.IProjectStringExt" />
+            </intent-filter>
+            <meta-data 
+                android:name="class" 
+                android:value="com.mediatek.FMRadio.plugin.ProjectStringExt" />
+        </service>
+        <!-- FMRadio Plugin End-->
+
+       <!--SettingsProvider Plugin Begin-->
+       <service android:name=".IDatabaseHelperExt" 
+                android:exported="true">
+           <intent-filter>
+               <action android:name="com.mediatek.providers.settings.ext.IDatabaseHelperExt"/>
+           </intent-filter>
+           <meta-data android:name="class" android:value="com.mediatek.settingsprovider.plugin.DatabaseHelperExt"/>
+           <meta-data android:name="version" android:value="1.0.0"/>
+       </service>
+       <!--SettingsProvider Plugin End-->
+        <!-- SoundRecorder Plugin Start-->
+        <service android:name=".Op01QualityLevel"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="com.mediatek.soundrecorder.ext.IQualityLevel"/>
+            </intent-filter>
+            <meta-data
+                    android:name="class"
+                    android:value="com.mediatek.soundrecorder.plugin.Op01QualityLevel"/>
+        </service>
+        <!-- SoundRecorder Plugin End-->
+
+        <!-- Location and Agps-->
+        <activity android:name="com.mediatek.settings.plugin.CMCCLocationSettings"
+		        android:configChanges="keyboardHidden|screenSize|mcc|mnc">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="com.mediatek.settings.launch_cmcc_location_setting" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.mediatek.settings.plugin.AgpsSettingEnter"
+		        android:configChanges="keyboardHidden|screenSize|mcc|mnc">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="com.mediatek.settings.launch_agps_setting_enter" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.mediatek.settings.plugin.AgpsSettings"
+		        android:configChanges="keyboardHidden|screenSize|mcc|mnc">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="com.mediatek.settings.launch_agps_settings" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <!-- Location and Agps End-->
+        <activity android:name="com.mediatek.phone.callrejection.CallRejectSetting"
+            android:label="@string/call_reject_title"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:icon="@drawable/ic_launcher_phone"
+            android:theme="@style/SettingsLight">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.mediatek.phone.callrejection.CallRejectListSetting"
+            android:label="@string/voice_call_reject_list_title"
+            android:uiOptions = "splitActionBarWhenNarrow"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:icon="@drawable/ic_launcher_phone"
+            android:theme="@style/SettingsLight">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.mediatek.phone.callrejection.CallRejectListModify"
+            android:uiOptions = "splitActionBarWhenNarrow"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:theme="@style/SettingsLight">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+        <provider android:name="com.mediatek.phone.callrejection.CallRejectContentProvider" 
+            android:authorities="reject"
+            android:exported="true"
+            android:multiprocess="true"
+            android:readPermission="android.permission.READ_REJECT"
+            android:writePermission="android.permission.WRITE_REIECT"/>
+    </application>
+</manifest>

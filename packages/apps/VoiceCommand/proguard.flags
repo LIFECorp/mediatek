@@ -1,0 +1,81 @@
+-keep class * extends android.app.Activity
+-keep class com.mediatek.voicecommand.R
+-keep class com.mediatek.voicecommand.R$attr
+-keep class com.mediatek.voicecommand.R$drawable
+-keep class com.mediatek.voicecommand.R$id
+-keep class com.mediatek.voicecommand.R$layout
+-keep class com.mediatek.voicecommand.R$mipmap
+-keep class com.mediatek.voicecommand.R$string
+-keep class com.mediatek.voicecommand.R$xml
+
+-keep public class com.mediatek.voicecommand.adapter.IVoiceAdapter {
+    public abstract boolean isNativePrepared();
+    public abstract int stopVoicePWRecognition(java.lang.String,int);
+    public abstract int startVoiceContacts(java.lang.String,int,int);
+    public abstract int stopVoiceContacts(java.lang.String,int);
+    public abstract int sendContactsName(java.lang.String,java.lang.String,java.lang.String[]);
+    public abstract int sendContactsSelected(java.lang.String);
+    public abstract int sendContactsSearchCnt(int);
+    public abstract int sendContactsOrientation(int);
+}
+
+-keep public class com.mediatek.voicecommand.adapter.JNICommandAdapter {
+    private static void postEventFromNative(java.lang.Object,int,int,int,java.lang.Object);
+    public int sendContactsName(java.lang.String,java.lang.String,java.lang.String[]);
+    public int sendContactsSelected(java.lang.String);
+    public int sendContactsSearchCnt(int);
+    public int sendContactsOrientation(int);
+}
+
+-keep public class com.mediatek.voicecommand.adapter.JNITestAdapter
+
+-keep public class com.mediatek.voicecommand.adapter.JNITestAdapter$1
+
+-keep public class com.mediatek.voicecommand.adapter.RecognitionResult {
+    public RecognitionResult(int,int);
+    public RecognitionResult(com.mediatek.voicecommand.adapter.RecognitionResult);
+    public void set(int,int);
+}
+
+-keep public class com.mediatek.voicecommand.business.VoiceContacts {
+    private int handleContactsStart(com.mediatek.voicecommand.mgr.VoiceMessage);
+    private int handleContactsStop(com.mediatek.voicecommand.mgr.VoiceMessage);
+    private int handleContactsEnable(com.mediatek.voicecommand.mgr.VoiceMessage,boolean);
+    private int handleContactsIntensity(com.mediatek.voicecommand.mgr.VoiceMessage);
+    private int handleContactsSelected(com.mediatek.voicecommand.mgr.VoiceMessage);
+    private int handleContactsName(com.mediatek.voicecommand.mgr.VoiceMessage);
+    private int handleContactsSearchCnt(com.mediatek.voicecommand.mgr.VoiceMessage);
+    private int handleContactsOrientation(com.mediatek.voicecommand.mgr.VoiceMessage);
+}
+
+-keep public class com.mediatek.voicecommand.data.DataPackage {
+    public static android.os.Bundle packageResultInfo(int,java.lang.String[],int);
+}
+
+-keep public class com.mediatek.voicecommand.mgr.AppDataManager {
+    public void setUpDispatcher(com.mediatek.voicecommand.mgr.IMessageDispatcher);
+}
+
+-keep public class com.mediatek.voicecommand.mgr.ConfigurationManager {
+    public int getUiFeatureNumber();
+    public com.mediatek.voicecommand.cfg.VoiceProcessInfo getProcessInfo(java.lang.String);
+    public java.lang.String getContactsdbFilePath();
+    public java.lang.String getContactsModelFile();
+}
+
+-keep public class com.mediatek.voicecommand.mgr.IMessageDispatcher {
+    public abstract void setDownDispatcher(com.mediatek.voicecommand.mgr.IMessageDispatcher);
+    public abstract void setUpDispatcher(com.mediatek.voicecommand.mgr.IMessageDispatcher);
+}
+
+-keep public class com.mediatek.voicecommand.mgr.NativeDataManager {
+    public void setDownDispatcher(com.mediatek.voicecommand.mgr.IMessageDispatcher);
+}
+
+-keep public class com.mediatek.voicecommand.mgr.VoiceMessage {
+    public com.mediatek.voicecommand.mgr.VoiceMessage copySelf(boolean);
+}
+
+-keep public class com.mediatek.voicecommand.voiceunlock.PswPreview {
+    public void onDurationUpdate(android.media.MediaPlayer,int);
+}

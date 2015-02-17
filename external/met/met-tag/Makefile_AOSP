@@ -1,0 +1,19 @@
+
+.PHONY: met-tag
+
+ifeq ($(KDIR),)
+$(error Error! You should execute "make" in parent directory)
+endif
+
+MET_APP_SRC=$(PWD)/met-tag
+
+met-tag:
+	cd $(ALPS); source build/envsetup.sh; lunch $(TARGET_CONFIG); mmm $(MET_APP_SRC); cd -
+	cp -f $(ALPS)/out/target/product/$(PROJECT_SHORT)/system/lib/libmet-tag.so $$PWD
+	$(MAKE) -C test -f Makefile_AOSP
+
+clean:
+	touch *.c *.h
+	rm -f libmet-tag.so
+	$(MAKE) -C test clean
+

@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--* Copyright Statement:
+ *
+ * This software/firmware and related documentation ("MediaTek Software") are
+ * protected under relevant copyright laws. The information contained herein
+ * is confidential and proprietary to MediaTek Inc. and/or its licensors.
+ * Without the prior written permission of MediaTek inc. and/or its licensors,
+ * any reproduction, modification, use or disclosure of MediaTek Software,
+ * and information contained herein, in whole or in part, shall be strictly prohibited.
+ *
+ * MediaTek Inc. (C) 2012. All rights reserved.
+ *
+ * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
+ * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
+ * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
+ * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
+ * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
+ * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
+ * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
+ * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
+ * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
+ * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
+ * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
+ * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
+ * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
+ * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
+ * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
+ * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
+ *
+ * The following software/firmware and/or related documentation ("MediaTek Software")
+ * have been modified by MediaTek Inc. All revisions are subject to any receiver's
+ * applicable license agreements with MediaTek Inc.
+ */  -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="app_label">Operator Plugin APK</string>
+    <string name="wifi_tether_configure_ssid_default_for_cmcc">MTK Athens15</string>
+
+    <!-- MMS String Start-->
+    <string name="exceed_subject_length_limitation">Reached max length</string>
+    <string name="select_text">Select text</string>
+    <string name="changeview">Change Mode</string>
+    <string name="menu_sim_sms" >"SIM SMS"</string>
+    <string name="multi_files">Multi-files</string>
+    <string name="download_failed_due_to_full_memory">Download message failed due to memory full.</string>
+    <!-- MMS String End-->
+
+    <!-- Browser String Start-->
+    <string name="homepage_base_site_navigation" translatable="false">
+        content://com.android.browser.site_navigation/websites</string>
+    <string-array name="predefined_websites_op01">
+        <item>about:blank</item>
+        <item>about:blank1</item>
+        <item>sitenavigation_thumbnail_default</item>
+        
+        <item>about:blank</item>
+        <item>about:blank2</item>
+        <item>sitenavigation_thumbnail_default</item>
+        
+        <item>about:blank</item>
+        <item>about:blank3</item>
+        <item>sitenavigation_thumbnail_default</item>
+        
+        <item>about:blank</item>
+        <item>about:blank4</item>
+        <item>sitenavigation_thumbnail_default</item>
+
+        <item>about:blank</item>
+        <item>about:blank5</item>
+        <item>sitenavigation_thumbnail_default</item>
+
+        <item>about:blank</item>
+        <item>about:blank6</item>
+        <item>sitenavigation_thumbnail_default</item>
+
+        <item>about:blank</item>
+        <item>about:blank7</item>
+        <item>sitenavigation_thumbnail_default</item>
+        
+        <item>about:blank</item>
+        <item>about:blank8</item>
+        <item>sitenavigation_thumbnail_default</item>
+        
+        <item>about:blank</item>
+        <item>about:blank9</item>
+        <item>sitenavigation_thumbnail_default</item>
+    </string-array>
+    <!--  The build-in bookmark for op01 -->
+    <string-array name="bookmarks_for_op01" translatable="false">
+        <item>MM综合门户</item>
+        <item>http://mm.10086.cn/a/j/2743/</item>
+        <item>手机阅读</item>
+        <item>http://wap.cmread.com</item>
+        <item>手机游戏</item>
+        <item>http://g.10086.cn</item>
+        <item>手机视频</item>
+        <item>http://wap.cmvideo.cn</item>
+        <item>无线音乐</item>
+        <item>http://m.10086.cn</item>
+        <item>12580</item>
+        <item>http://12580wap.10086.cn/?pid=PCM002942000</item>
+        <item>飞信首页</item>
+        <item>http://f.10086.cn</item>
+        <item>139邮箱</item>
+        <item>http://mail.10086.cn</item>
+        <item>冲浪网址</item>
+        <item>http://go.10086.cn/?coc=6GG2GGRq</item>
+    </string-array>
+    <array name="bookmark_preloads_for_op01">       
+        <item>@raw/op01_favicon_mm</item>
+        <item>@raw/op01_thumb_mm</item>
+        <item>@raw/op01_favicon_cmread</item>
+        <item>@raw/op01_thumb_cmread</item>
+        <item>@raw/op01_favicon_10086_game</item>
+        <item>@raw/op01_thumb_game</item>
+        <item>@raw/op01_favicon_cmvideo</item>
+        <item>@raw/op01_thumb_cmvideo</item>
+        <item>@raw/op01_favicon_10086_music</item>
+        <item>@raw/op01_thumb_music</item>
+        <item>@raw/op01_favicon_12580</item>
+        <item>@raw/op01_thumb_12580</item>
+        <item>@raw/op01_favicon_fetion</item>
+        <item>@raw/op01_thumb_fetion</item>
+        <item>@raw/op01_favicon_139mail</item>
+        <item>@raw/op01_thumb_139mail</item>
+        <item>@raw/op01_favicon_webaddress</item>
+        <item>@raw/op01_thumb_webaddress</item>        
+    </array>
+    <string name="add_new_bookmark">Add bookmark</string>
+    <string name="new_folder">New folder</string>
+    <string name="clear_history">Clear history</string>
+    <!-- Browser String End-->
+    
+    <!-- DownloadManager String Start-->
+    <string name="notification_download_complete">Download complete.</string>
+    <string name="notification_download_complete_op01">File is saved to: </string>
+    <!-- DownloadManager String End-->
+
+    <string name="loop">"Loop"</string>
+    <string name="next">"Next"</string>
+    <string name="previous">"Previous"</string>
+    <string name="stop">"Stop"</string>
+    <string name="single_track">"Single track"</string>
+    <string name="bookmark_add">"Add bookmark"</string>
+    <string name="bookmark_display">"Show bookmarks"</string>
+    <string name="media_detail">"Media details"</string>
+    <string name="input_url">"Input URL"</string>
+    <string name="streaming_settings">"Streaming Settings"</string>
+    <string name="stereo">"Stereo"</string>
+    <string name="single">"Single"</string>
+    <!--Wifi Settings String start-->
+    <string name="wifi_security_cmcc">Security</string>
+    <string name="proxy_exclusionlist_label_cmcc">Bypass proxy for</string>
+    <string name="wifi_priority_label">Priority</string>
+    <string name="status_unavailable">Unavailable</string>
+    <string name="wifi_gateway">Gateway</string>
+    <string name="wifi_network_netmask">Netmask</string>
+    <string name="wifi_connect_ap_title">Network auto connect</string>
+    <string name="wifi_connect_ap_summary">Connect to the recently used AP automatically when Wi-Fi enabled</string>
+    <string name="wifi_connect_type_title">Set network connection method</string>
+    <string name="wifi_signal_found_msg">Current connection signal is weak, would you like to use another WLAN network?</string>
+    <string name="wifi_priority_type_title">Set AP priority manually</string>
+    <string name="wifi_priority_type_summary">Allow to set priority for each access point manually</string>
+    <string name="wifi_priority_settings_title">AP priority settings</string>
+    <string name="wifi_priority_settings_summary">Click to set priority of each access point</string>
+    <string name="wifi_priority_changed">Priority old value=<xliff:g id="old_value">%s</xliff:g>,new value=<xliff:g id="new_value">%s</xliff:g></string>
+    <string name="wifi_priority_settings_label">Priority settings</string>
+    <string name="wifi_configured_ap_list">Remembered access point list</string>
+
+    <string name="confirm_title">Confirm</string>
+    <string name="msg_wlan_signal_found">Found WLAN signal %s, would you like to use this WLAN network? Using this network will interrupt the data service partially.</string>
+    <string name="msg_wlan_signal_found_manul">Found WLAN signal, would you like to use this WLAN network?</string>
+    <string name="gemini_default_sim_auto">Auto</string>   
+    <string name="wifi_settings">Wi\u2011Fi</string>
+    <!--Wifi Settings String End-->
+
+    <!-- Contact String Start -->
+    <string name="look_simstorage">View SIM Card Capacity</string>
+	<string name="dlg_simstorage_content">phone number book Storage Capacity <xliff:g id="items">%d</xliff:g>, has been used <xliff:g id="items">%d</xliff:g>.</string>
+	<string name="multichoice_contacts_limit">"Selected contacts can't be more than "<xliff:g id="count">%d</xliff:g></string>
+    <!-- Contact String End -->
+
+	<!-- Camera white balance start -->
+	<string name="pref_camera_whitebalance_entry_auto">Auto</string>
+    <string name="pref_camera_whitebalance_entry_incandescent">Incandescent</string>
+    <string name="pref_camera_whitebalance_entry_daylight">Daylight</string>
+    <string name="pref_camera_whitebalance_entry_fluorescent">Fluorescent</string>
+    <string name="pref_camera_whitebalance_entry_cloudy">Cloudy</string>
+    <string name="pref_camera_whitebalance_entry_twilight">Twilight</string>
+    <string name="pref_camera_whitebalance_entry_shade">Shade</string>
+    <string name="pref_camera_whitebalance_entry_warm_fluorescent">Warm fluorescent</string>
+    <string name="pref_camera_whitebalance_entry_tungsten">Tungsten</string>
+    <string name="pref_camera_scene_entryvalue_normal" translatable="false">normal</string>
+    <string name="pref_camera_scene_entry_normal">Normal</string>
+	<!-- Camera white balance end -->
+
+    <!--SystemUI String start-->
+    <!-- Content description of the phone signal when no signal for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+    <string name="accessibility_no_phone">No phone.</string>
+    <!-- Content description of the phone signal when it is one bar for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+    <string name="accessibility_phone_one_bar">Phone one bar.</string>
+    <!-- Content description of the phone signal when it is two bars for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+    <string name="accessibility_phone_two_bars">Phone two bars.</string>
+    <!-- Content description of the phone signal when it is three bars for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+    <string name="accessibility_phone_three_bars">Phone three bars.</string>
+    <!-- Content description of the phone signal when it is three bars for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+    <string name="accessibility_phone_four_bars">Phone four bars.</string>
+    <!-- Content description of the phone signal when it is full for accessibility (not shown on the screen). [CHAR LIMIT=NONE] -->
+    <string name="accessibility_phone_signal_full">Phone signal full.</string>
+    <!--SystemUI String end-->
+
+    <!--Music String start-->
+    <string name="add_file">Add file</string>
+    <string name="non_audio_file">Failed to add, selected is not an audio file.</string>
+    <!--Music String End-->
+    <!--Storage Settings String start-->
+    <string name="SD_ready_title">SD card ready</string>
+    <string name="default_storage_path_change_msg">Do you want to change the default write disk?</string>
+    <!--Storage String End-->
+
+    <!-- Phone String start -->
+    <string name="call_video_call">Video call</string>
+    <string name="vt_start_time_from">Start</string>
+    <!-- Phone String end -->
+    
+    <!-- Change data connection -->
+    <string name="change_data_conn_title">Change data connection</string>
+    <string name="change_data_conn_message">" is not availible now, change the default data connection to "</string>
+    <string name="change_data_conn_progress_message">"Please wait..."</string>
+
+    <string name="privacy_settings">Reset</string>
+    <string name="configed_access_points">Credible access points</string>
+    <string name="new_access_points">Unknown access points</string>
+<!--Callrejection String start-->
+    <string translatable="false" name="menu_select_all">"Select all"</string>
+    <string translatable="false" name="menu_select_none">"Deselect all"</string>
+    <string name="call_reject_title">Call Rejection</string>
+    <string name="call_reject_sum">Manage auto-rejection mode and list</string>
+    <string name="voice_call_reject_mode_title">Voice call auto reject mode</string>
+    <string name="voice_call_all_numbers">Voice call auto reject mode: All numbers</string>
+    <string name="video_call_all_numbers">Video call auto reject mode: All numbers</string>
+    <string name="reject_list_full">Reject list is full.</string>
+    
+    <string-array name="call_reject_mode_entries">
+        <item>Off</item>
+        <item>All numbers</item>
+        <item>Auto reject list</item>
+    </string-array>
+    <string-array name="call_reject_mode_values">
+        <item>"0"</item>
+        <item>"1"</item>
+        <item>"2"</item>
+    </string-array>
+    <string name="voice_call_reject_list_title">Voice call auto reject list</string>
+    <string name="voice_call_reject_list_sum">Manage voice call auto reject list</string>
+    <string name="video_call_reject_mode_title">Video call auto reject mode</string>
+    <string name="video_call_reject_list_title">Video call auto reject list</string>
+    <string name="video_call_reject_list_sum">Manage video call auto reject list</string>
+    <string name="call_reject_list_delete">DELETE</string>
+    <string name="call_reject_list_add">ADD</string>
+    <string name="add_call_reject_number">Add auto reject number</string>
+    <string name="select_from">Select from</string>
+    <string name="select_all">Select all</string>
+    <string name="select_clear">Clear selected</string>
+    <string name="select_trash">Trash</string>
+    <string name="selected_item_count"><xliff:g id="count">%d</xliff:g> selected</string>
+    <string-array name="call_reject_dialog_array">
+        <item>Contacts</item>
+        <item>Call logs</item>
+    </string-array>
+    <string name="call_reject_please_wait">Please wait\u2026</string>
+    <string name="call_reject_no_name">No name</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <!--Callrejection String End-->
+    <!--CMCC DM setting String begin-->
+    <string name="cmcc_dm_settings_title">Device Management Permission</string>
+    <string name="cmcc_dm_settings_enable_summary">Enable auto boot</string>
+    <string name="cmcc_dm_settings_disable_summary">Disable auto boot</string>
+    <!--CMCC DM setting String End-->
+    <!--Agps String begin-->
+    <string name="gps_settings_title">GPS settings</string>
+    <string name="location_settings_title">Location access</string>
+    <!-- [CHAR LIMIT=30] Security & location settings screen, setting check box label for Google location service (cell ID, wifi, etc.) -->
+    <string name="location_network_based">Wi\u2011Fi &amp; mobile network location</string>
+    <!-- [CHAR LIMIT=130] Security & location settings screen, setting summary for Google location service check box-->
+    <string name="location_neighborhood_level">Let apps use Google\'s location service to estimate your location faster. Anonymous location data will be collected and sent to Google.</string>
+    <!-- [CHAR LIMIT=30] Security & location settings screen, setting check box label for GPS satellites -->
+    <string name="location_gps">GPS satellites</string>
+    <!-- [CHAR LIMIT=45] Label for turning on/off location access completely. -->
+    <string name="location_access_title">Access to my location</string>
+    <!-- [CHAR LIMIT=none] Description text for location access switch -->
+    <string name="location_access_summary">Let apps that have asked your permission use your location information</string>
+    <!-- [CHAR LIMIT=45] Section heading for location sources -->
+    <string name="location_sources_heading">Location sources</string>
+    
+    <string name="agps_OK">OK</string>
+    <string name="agps_enable_confirm_title">A-GPS Enable Confirm</string>
+    <string name="agps_enable_confirm">A-GPS needs a wireless data connection to acquire the assistant data that may cause extra fees. Are you sure to turn on the A-GPS?</string>
+    <string name="agps_enable_confirm_allow">Continue</string>
+    <string name="agps_enable_confirm_deny">Cancel</string>
+    <string name="agps_settings_enable">A-GPS</string>
+    <string name="agps_settings_enable_on">GPS can speed up the fixed time of location with assistant data via wireless data connection</string>
+    <string name="agps_settings_enable_off">Use assistant data to speed up the fixed time of location with GPS</string>
+    <string name="agps_settings_eng_enable">A-GPS settings</string>
+    <string name="agps_settings_eng_summary">Set up A-GPS settings</string>   
+    <string name="agps_disable_on_reboot">Disable after Reboot</string>
+    <string name="agps_disable_on_reboot_summary">Disable A-GPS capability after reboot</string>
+    <string name="Network_Initiate">Network Request</string>
+    <string name="Network_Initiate_Summary_on">Allow network to request position</string>
+    <string name="Network_Initiate_Summary_off">Deny network to request position</string>
+    <string name="Network_Used">Network Used</string>
+    <string name="agps_profile_select">Profile Selector</string>
+    <string name="agps_profile_SLP_address_editbox_title">SLP Address</string>
+    <string name="port_title">SLP Port</string>
+    <string name="tls_title">TLS</string>
+    <string name="tls_summary_off">TLS is turned off</string>
+    <string name="tls_summary_on">TLS is turned on</string>
+    <string name="MobileNetwork_Category">Mobile Network</string>
+    <string name="AgpsHelp_Category">Help</string>
+    <string name="about_agps_title">About A-GPS</string>
+    <string name="about_agps_message">\t A-GPS (Assisted-GPS) is the system that can improve the startup performance and time-to-first-fix (TTFF) of GPS satellites.
+    \n\t An A-GPS capable device can connect to location servers to acquire the assist data through mobile network data connection.
+    \n\t Notice that the data traffic may cause extra fees under network roaming conditions. Please contact with your operators for the details.</string>
+    <string name="Network_Local_and_Roaming_Summary">Use A-GPS both under home and roaming network</string>
+    <string name="Network_Only_Local_Summary">Use A-GPS only under home network</string>
+    <string name="MobileNetwork_DataConn_off">Data Connection is Off</string>
+    <string name="MobileNetwork_off_Summary">Please turn on data connection before using A-GPS</string>
+    <string name="WiFiNetwork_on_title">Wi-Fi is Active</string>    
+    <string name="MobileNetwork_on_Summary">A-GPS needs to access the mobile network via data connections</string> 
+    <string name="MobileNetwork_SIM_Active">SIM<xliff:g id="active_sim_id">%1$s</xliff:g> is Active</string>
+    <string name="Network_Roaming_dialog_title">Attention</string>
+    <string name="Network_Roaming_dialog_content">If the network under roaming condition, A-GPS data traffic may cause extra roaming fees.</string>
+    <!--Agps String end-->
+    <!-- Help menu label [CHAR LIMIT=20] -->
+    <string name="help_label">Help</string>
+
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="alertTitle">Attention</string>
+    <string name="noNetworkMsg">No Network Connection</string>
+    <string name="requireCUMsg">This business is China Unicom\'s own business, it is recommended to use China Unicom USIM card data connection!</string>
+    <string name="setupCUMsg">This business is China Unicom\'s own business, it is recommended to use China Unicom USIM card data connection!</string>
+    <string name="ok">Continue</string>
+    <string name="ok1">Ok</string>
+    <string name="cancel">Cancel</string>
+    <string name="app_name">沃门户</string>
+</resources>

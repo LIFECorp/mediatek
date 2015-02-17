@@ -1,0 +1,16 @@
+CC=$(CROSS_COMPILE)gcc
+LD=$(CROSS_COMPILE)LD
+STRIP=$(CROSS_COMPILE)strip
+
+OBJS= met_tag.o
+CFLAGS:=-fPIC 
+CFLAGS+=-DMET_USER_EVENT_SUPPORT
+
+libmet-tag: $(OBJS)
+	$(CC) -shared -o $@.so $< 
+#	$(STRIP) $@.so
+
+clean:
+	touch *.c *.h
+	rm -f *.so
+

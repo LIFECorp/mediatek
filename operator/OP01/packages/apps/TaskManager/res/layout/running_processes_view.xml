@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+ * Copyright (C) 2010 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ -->
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+      
+	<LinearLayout android:id = "@+id/content"
+		android:layout_width = "match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical" >
+	    <RelativeLayout android:id="@+id/all_control"
+	            android:layout_width="match_parent"
+	            android:layout_height="?android:attr/listPreferredItemHeight"
+	            style="?android:attr/listSeparatorTextViewStyle">
+	        <TextView android:id="@+id/count_running_app"
+	            android:layout_width="wrap_content"
+	            android:layout_height="?android:attr/listPreferredItemHeight"
+	            android:layout_alignParentLeft="true"
+	            android:layout_marginLeft="10dip"
+	            android:gravity="left|center"
+	            android:textAppearance="?android:attr/textAppearanceMedium" />
+	        <TextView android:id="@+id/label_running_app"
+	            android:text="@string/running_app"
+	            android:layout_width="wrap_content"
+	            android:layout_height="?android:attr/listPreferredItemHeight"
+	            android:layout_toRightOf="@id/count_running_app"
+	            android:layout_marginLeft="3dip"
+	            android:gravity="left|center"
+	            android:textAppearance="?android:attr/textAppearanceMedium" 
+	            android:singleLine="true"
+	            android:requiresFadingEdge="horizontal"
+	            android:ellipsize="none"
+	            android:layout_marginRight="@android:dimen/app_icon_size"/>
+            <ImageView android:id="@+id/kill_all"
+                android:src="@drawable/ic_kill"
+                android:layout_width="@android:dimen/app_icon_size"
+                android:layout_height="match_parent" 
+                android:minHeight="?android:attr/listPreferredItemHeight"
+                android:background="@drawable/kill_icon_selector" 
+                android:layout_alignParentRight="true"
+                android:layout_centerInParent="true"
+                android:clickable="true"
+                android:focusable="false"
+                android:scaleType="center">                      
+            </ImageView> 
+	    </RelativeLayout>
+	    <FrameLayout
+	            android:layout_width="match_parent"
+	            android:layout_height="0px"
+	            android:layout_weight="1">
+	        <ListView android:id="@android:id/list"
+	                android:layout_width="match_parent" 
+	                android:layout_height="match_parent"
+	                android:drawSelectorOnTop="false"
+	                android:fastScrollEnabled="false" />
+	        <TextView android:id="@android:id/empty"
+	                android:layout_width="match_parent"
+	                android:layout_height="match_parent"
+	                android:gravity="center"
+	                android:text="@string/no_running_services"
+	                android:textAppearance="?android:attr/textAppearanceLarge" />
+	    </FrameLayout>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/loading_container"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:gravity="center">
+
+        <ProgressBar style="?android:attr/progressBarStyleLarge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        <TextView android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceSmall"
+                android:text="@string/settings_safetylegal_activity_loading"
+                android:paddingTop="4dip"
+                android:singleLine="true" />
+    </LinearLayout>
+</LinearLayout>

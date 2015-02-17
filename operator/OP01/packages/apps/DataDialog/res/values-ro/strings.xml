@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">Dialog date</string>  
+    <string name="dialog_content">Modificaţi conexiunea de date pentru tranzacţie MMS?</string>  
+    <string name="dialog_title">Modificare conexiune de date</string>  
+    <string name="dialog_continue">Continuare</string>  
+    <string name="dialog_cancel">Revocare</string>  
+    <string name="wifi_failover_gprs_content">WIFI nu este disponibilă, încercaţi să vă conectaţi la reţeaua mobilă?</string> 
+</resources>

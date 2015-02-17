@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">Có Đổi Kết Nối Dữ Liệu cho Giao Dịch MMS Không?</string>  
+    <string name="dialog_title">Đổi Kết Nối Dữ Liệu</string>  
+    <string name="dialog_continue">Tiếp tục</string>  
+    <string name="dialog_cancel">Hủy</string>  
+    <string name="wifi_failover_gprs_content">WIFI không có sẵn, thử kết nối với mạng di động?</string> 
+</resources>

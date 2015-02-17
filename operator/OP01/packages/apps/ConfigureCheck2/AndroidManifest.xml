@@ -1,0 +1,90 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.mediatek.configurecheck2"
+    android:sharedUserId="android.uid.phone"
+    android:versionCode="1"
+    android:versionName="2.1" >
+
+    <uses-sdk
+        android:minSdkVersion="8"
+        android:targetSdkVersion="15" />
+
+    <!-- for write sd card-->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>    
+    <!-- for IMEI -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- for WIFI sleep policy -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!---for read phone state and network state-->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>  
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!---for bookmark-->
+    <uses-permission android:name="com.android.browser.permission.READ_HISTORY_BOOKMARKS"/>
+    <uses-permission android:name="com.android.browser.permission.WRITE_HISTORY_BOOKMARKS"/>
+    <!---for oritation-->
+    <uses-permission android:name="android.permission.SET_ORIENTATION" />
+    
+    <!---for shortcut-->
+    <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT"/>
+    <uses-permission android:name="com.android.launcher.permission.UNINSTALL_SHORTCUT"/>
+    <uses-permission android:name="com.android.launcher3.permission.WRITE_SETTINGS"/>
+    <uses-permission android:name="com.android.launcher3.permission.READ_SETTINGS"/>
+
+    <!-- for Write APN -->
+    <uses-permission android:name="android.permission.WRITE_APN_SETTINGS" />
+    
+    <application
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name">
+        <activity
+            android:name=".CMCCSendTestActivity"
+            android:label="@string/activity_title_send_test"
+            android:process="com.android.phone" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+<!--                 <category android:name="android.intent.category.LAUNCHER" /> -->
+            </intent-filter>
+        </activity>
+        
+        <activity
+            android:name=".ManSelfTestActivity"
+            android:label="@string/activity_title_self_test"
+            android:process="com.android.phone" >
+<!--             <intent-filter> -->
+<!--                 <action android:name="android.intent.action.MAIN" /> -->
+<!--                 <category android:name="android.intent.category.LAUNCHER" /> -->
+<!--             </intent-filter> -->
+        </activity>
+        
+        <activity
+            android:label="@string/activity_title_category"
+            android:process="com.android.phone"
+            android:name=".CategoryListActivity" >
+        </activity>
+        
+        <activity
+            android:label="@string/activity_title_category"
+            android:process="com.android.phone"
+            android:name=".SubCategoryListActivity" >
+        </activity>
+        
+        <activity
+            android:label="@string/activity_title_check_result"
+            android:process="com.android.phone"
+            android:name=".CheckResultActivity"
+            android:configChanges="orientation|screenSize" >
+        </activity>
+        
+        <activity
+            android:label="@string/activity_title_check_report"
+            android:process="com.android.phone"
+            android:name=".CheckReportActivity" >
+        </activity>
+        
+        <activity
+            android:label="@string/activity_title_help"
+            android:name=".HelpActivity" >
+        </activity>
+        
+    </application>
+
+</manifest>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">Сменить соединение передачи данных для операций MMS?</string>  
+    <string name="dialog_title">Смена соединения передачи данных</string>  
+    <string name="dialog_continue">Продолжить</string>  
+    <string name="dialog_cancel">Отменить</string>  
+    <string name="wifi_failover_gprs_content">WIFI недоступен, попытаться подключиться к мобильной сети?</string> 
+</resources>

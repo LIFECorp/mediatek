@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="wrap_content"
+  android:orientation="vertical"
+  android:padding="10.0dip">
+    <TextView 
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:text="@string/after_service"
+      android:textAppearance="?android:attr/textAppearanceMedium"
+      android:background="@drawable/black_gradient">
+    </TextView> 
+    
+    <TextView 
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:text="@string/phone_type"
+      android:textAppearance="?android:attr/textAppearanceMedium">
+    </TextView>
+    
+    <TextView 
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:text="@string/phone_type_content"
+      android:textAppearance="?android:attr/textAppearanceMedium">
+    </TextView>
+    
+    <TextView 
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/after_service_phone_text"
+      android:textAppearance="?android:attr/textAppearanceMedium">
+    </TextView>
+    <TextView 
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:id="@+id/after_service_phone"
+      android:textAppearance="?android:attr/textAppearanceMedium">
+    </TextView>
+    
+    <TextView 
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:text="@string/web_address_text"
+      android:textAppearance="?android:attr/textAppearanceMedium">
+    </TextView>
+    
+    <TextView 
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      android:id="@+id/after_service_domain"
+      android:textAppearance="?android:attr/textAppearanceMedium">
+    </TextView>
+</LinearLayout>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <color name="item_title_background">#FF636363</color>
+    <color name="red">#DB1313</color>
+    <color name="green">#75A800</color>
+    <color name="yellow">#FFA713</color>
+
+</resources>

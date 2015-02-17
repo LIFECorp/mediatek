@@ -1,0 +1,17 @@
+#!/system/bin/sh
+case $1 in
+    ppp1)
+	echo 0 > /proc/sys/net/ipv4/ip_forward;
+	;;
+esac
+
+rm /etc/ppp/ppp*.pid
+
+# Use interface name if linkname is not available
+NAME=${LINKNAME:-"$1"}
+
+#/system/bin/setprop "net.dns1" ""
+#/system/bin/setprop "net.dns2" "" 
+/system/bin/setprop "net.$NAME.local-ip" "" 
+/system/bin/setprop "net.$NAME.remote-ip" "" 
+/system/bin/setprop "net.$NAME.gw" ""

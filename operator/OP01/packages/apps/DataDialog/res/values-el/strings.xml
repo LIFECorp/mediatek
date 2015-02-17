@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">Αλλαγή σύνδεσης δεδομένων για συναλλαγή MMS;</string>  
+    <string name="dialog_title">Αλλαγή σύνδεσης δεδομένων</string>  
+    <string name="dialog_continue">Συνέχεια</string>  
+    <string name="dialog_cancel">Άκυρο</string>  
+    <string name="wifi_failover_gprs_content">Το WiFi δεν είναι διαθέσιμο. Να γίνει προσπάθεια σύνδεσης σε δίκτυο κινητής τηλεφωνίας;</string> 
+</resources>

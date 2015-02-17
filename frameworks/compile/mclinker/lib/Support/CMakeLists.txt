@@ -1,0 +1,28 @@
+add_mcld_library(MCLDSupport
+  CommandLine.cpp
+  Directory.cpp
+  FileHandle.cpp
+  FileOutputBuffer.cpp
+  FileSystem.cpp
+  LEB128.cpp
+  MemoryArea.cpp
+  MemoryAreaFactory.cpp
+  MsgHandling.cpp
+  Path.cpp
+  raw_ostream.cpp
+  RealPath.cpp
+  SystemUtils.cpp
+  Target.cpp
+  TargetRegistry.cpp
+  ToolOutputFile.cpp
+  Unix/FileSystem.inc
+  Unix/PathV3.inc
+  Unix/System.inc
+  Windows/FileSystem.inc
+  Windows/PathV3.inc
+  Windows/System.inc
+  )
+
+target_link_libraries(MCLDSupport
+  MCLDLD
+  )

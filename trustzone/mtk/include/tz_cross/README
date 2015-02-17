@@ -1,0 +1,15 @@
+1. If your header files should be shared between MTEE and Linux Kernel, 
+   those header files should be put in the folders both below.
+   1-1. alps/mediatek/kernel/include/trustzone/tz_cross
+   1-2. alps/mediatek/trustzone/mtk/include/tz_cross
+
+2. If your header files should be shared between MTEE, Linux Kernel and Linux User Space
+   those header files should be put in the folders both below.
+   2-1. alps/mediatek/kernel/include/trustzone/tz_cross
+   2-2. alps/mediatek/trustzone/mtk/include/tz_cross
+
+3. If your header files should be shared between MTEE and Linux User Space
+   those header files should be put in the folders both below.
+   3-1. alps/mediatek/trustzone/mtk/include/tz_cross
+
+4. It is noted that head files in Linux Kernel should not include MTK License Disclaimer

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">ডাটাডায়ালগ</string>  
+    <string name="dialog_content">এমএমএস বিনিময়ের জন্য ডাটা সংযোগ পরিবর্তন করবেন?</string>  
+    <string name="dialog_title">ডাটা সংযোগ পরিবর্তন</string>  
+    <string name="dialog_continue">অব্যাহত রাখুন</string>  
+    <string name="dialog_cancel">বাতিল করুন</string>  
+    <string name="wifi_failover_gprs_content">ওয়াইফাই পাওয়া যাচ্ছে না, মোবাইল নেটওয়ার্কের সাথে সংযুক্ত হবার জন্য চেষ্টা করবেন?</string> 
+</resources>

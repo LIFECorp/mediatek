@@ -1,0 +1,32 @@
+#init.protect.rawfs.rc
+
+on early-init
+#create mount point for protect partition
+
+    mkdir /protect_f 0771 system system
+    symlink /protect_f protect_s
+    chown system system /protect_s
+    chmod 0771 /protect_s
+
+# mount protected partitions
+
+on fs_property:ro.mount.fs=UBIFS
+	write /proc/bootprof "INIT:PROTECT_RAW_DISK:Mount_START"
+	mount rawfs mtd@protect_f /protect_f nosuid nodev mtd
+	write /proc/bootprof "INIT:PROTECT_RAW_DISK:Mount_END"
+
+on fs_property:ro.mount.fs=YAFFS
+	write /proc/bootprof "INIT:PROTECT_RAW_DISK:Mount_START"
+	mount rawfs mtd@protect_f /protect_f nosuid nodev mtd
+	write /proc/bootprof "INIT:PROTECT_RAW_DISK:Mount_END"
+
+#end of mount protected partition
+
+on post-fs-data
+    # We chown/chmod /protect_f and /protect_s again so because mount is run as root + defaults
+    chown system system /protect_f
+    chmod 0771 /protect_f
+
+    chown system system /protect_s
+    chmod 0771 /protect_s
+

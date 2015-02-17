@@ -1,0 +1,2011 @@
+Device 0x34 TFA9887 "TFA9887 N1D"
+  Datasheet "Unknown"
+  Revision "N1D"
+End Device
+Registers
+  Register 0x40:2 Hide_Unhide_Key " "
+    Bits
+      0 hid_code_0 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 0" -
+      1 hid_code_1 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 1" -
+      2 hid_code_2 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 2" -
+      3 hid_code_3 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 3" -
+      4 hid_code_4 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 4" -
+      5 hid_code_5 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 5" -
+      6 hid_code_6 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 6" -
+      7 hid_code_7 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 7" -
+      8 hid_code_8 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 8" -
+      9 hid_code_9 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 9" -
+      10 hid_code_10 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 10" -
+      11 hid_code_11 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 11" -
+      12 hid_code_12 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 12" -
+      13 hid_code_13 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 13" -
+      14 hid_code_14 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 14" -
+      15 hid_code_15 "5A6Bh, 23147d To access hidden registers (=Default for engineering) bit 15" -
+    End bits
+  End Register
+  Register 0x60:2 Hidden_mtp_key1 " "
+    Bits
+      0 MTP_key1_0 "5Ah, 90d To access hidden registers (=Default for engineering) bit 0" -
+      1 MTP_key1_1 "5Ah, 90d To access hidden registers (=Default for engineering) bit 1" -
+      2 MTP_key1_2 "5Ah, 90d To access hidden registers (=Default for engineering) bit 2" -
+      3 MTP_key1_3 "5Ah, 90d To access hidden registers (=Default for engineering) bit 3" -
+      4 MTP_key1_4 "5Ah, 90d To access hidden registers (=Default for engineering) bit 4" -
+      5 MTP_key1_5 "5Ah, 90d To access hidden registers (=Default for engineering) bit 5" -
+      6 MTP_key1_6 "5Ah, 90d To access hidden registers (=Default for engineering) bit 6" -
+      7 MTP_key1_7 "5Ah, 90d To access hidden registers (=Default for engineering) bit 7" -
+    End bits
+  End Register
+  Register 0x0B:2 Hidden_mtp_key2 " "
+    Bits
+      0 MTP_key2_0 "5Ah, 90d To access hidden registers (=Default for engineering) bit 0" -
+      1 MTP_key2_1 "5Ah, 90d To access hidden registers (=Default for engineering) bit 1" -
+      2 MTP_key2_2 "5Ah, 90d To access hidden registers (=Default for engineering) bit 2" -
+      3 MTP_key2_3 "5Ah, 90d To access hidden registers (=Default for engineering) bit 3" -
+      4 MTP_key2_4 "5Ah, 90d To access hidden registers (=Default for engineering) bit 4" -
+      5 MTP_key2_5 "5Ah, 90d To access hidden registers (=Default for engineering) bit 5" -
+      6 MTP_key2_6 "5Ah, 90d To access hidden registers (=Default for engineering) bit 6" -
+      7 MTP_key2_7 "5Ah, 90d To access hidden registers (=Default for engineering) bit 7" -
+    End bits
+  End Register
+  Register 0x01:2 BatteryVoltage "ADC-10 Read-out"
+    Bits
+      0 bat_adc_0 "Battery voltage readout; 0[V]..5.5[V] bit 0" R-
+      1 bat_adc_1 "Battery voltage readout; 0[V]..5.5[V] bit 1" R-
+      2 bat_adc_2 "Battery voltage readout; 0[V]..5.5[V] bit 2" R-
+      3 bat_adc_3 "Battery voltage readout; 0[V]..5.5[V] bit 3" R-
+      4 bat_adc_4 "Battery voltage readout; 0[V]..5.5[V] bit 4" R-
+      5 bat_adc_5 "Battery voltage readout; 0[V]..5.5[V] bit 5" R-
+      6 bat_adc_6 "Battery voltage readout; 0[V]..5.5[V] bit 6" R-
+      7 bat_adc_7 "Battery voltage readout; 0[V]..5.5[V] bit 7" R-
+      8 bat_adc_8 "Battery voltage readout; 0[V]..5.5[V] bit 8" R-
+      9 bat_adc_9 "Battery voltage readout; 0[V]..5.5[V] bit 9" R-
+    End bits
+  End Register
+  Register 0x02:2 Temperature "ADC-10 Read-out"
+    Bits
+      0 temp_adc_0 "Temperature readout bit 0" R-
+      1 temp_adc_1 "Temperature readout bit 1" R-
+      2 temp_adc_2 "Temperature readout bit 2" R-
+      3 temp_adc_3 "Temperature readout bit 3" R-
+      4 temp_adc_4 "Temperature readout bit 4" R-
+      5 temp_adc_5 "Temperature readout bit 5" R-
+      6 temp_adc_6 "Temperature readout bit 6" R-
+      7 temp_adc_7 "Temperature readout bit 7" R-
+      8 temp_adc_8 "Temperature readout bit 8" R-
+    End bits
+  End Register
+  Register 0x31:2 Hidden_mtp_data_outp_reg " "
+    Bits
+      0 mtp_man_data_out_0 "single word read from MTP (manual copy) bit 0" R-
+      1 mtp_man_data_out_1 "single word read from MTP (manual copy) bit 1" R-
+      2 mtp_man_data_out_2 "single word read from MTP (manual copy) bit 2" R-
+      3 mtp_man_data_out_3 "single word read from MTP (manual copy) bit 3" R-
+      4 mtp_man_data_out_4 "single word read from MTP (manual copy) bit 4" R-
+      5 mtp_man_data_out_5 "single word read from MTP (manual copy) bit 5" R-
+      6 mtp_man_data_out_6 "single word read from MTP (manual copy) bit 6" R-
+      7 mtp_man_data_out_7 "single word read from MTP (manual copy) bit 7" R-
+      8 mtp_man_data_out_8 "single word read from MTP (manual copy) bit 8" R-
+      9 mtp_man_data_out_9 "single word read from MTP (manual copy) bit 9" R-
+      10 mtp_man_data_out_10 "single word read from MTP (manual copy) bit 10" R-
+      11 mtp_man_data_out_11 "single word read from MTP (manual copy) bit 11" R-
+      12 mtp_man_data_out_12 "single word read from MTP (manual copy) bit 12" R-
+      13 mtp_man_data_out_13 "single word read from MTP (manual copy) bit 13" R-
+      14 mtp_man_data_out_14 "single word read from MTP (manual copy) bit 14" R-
+      15 mtp_man_data_out_15 "single word read from MTP (manual copy) bit 15" R-
+    End bits
+  End Register
+  Register 0x32:2 Hidden_mtp_status_reg " "
+    Bits
+      0 key01_locked "key01_locked, indication key 1 is locked" R-
+      1 key02_locked "key02_locked, indication key 2 is locked" R-
+      2 mtp_ecc_tcout_2 "mtp_ecc_tcout bit 2" R-
+      3 mtp_ecc_tcout_3 "mtp_ecc_tcout bit 3" R-
+      4 mtp_ecc_tcout_4 "mtp_ecc_tcout bit 4" R-
+      5 mtp_ecc_tcout_5 "mtp_ecc_tcout bit 5" R-
+      6 mtp_ecc_tcout_6 "mtp_ecc_tcout bit 6" R-
+      7 mtp_ecc_tcout_7 "mtp_ecc_tcout bit 7" R-
+      8 mtpctrl_valid_test_rd "mtp test readout for read" R-
+      9 mtpctrl_valid_test_wr "mtp test readout for write" R-
+      10 flag_in_alarm_state "alarm state" R-
+      11 mtp_ecc_err2 "two or more bit errors detected in MTP, can not reconstruct value" R-
+      12 mtp_ecc_err1 "one bit error detected in MTP, reconstructed value" R-
+      13 mtp_mtp_hvf "high voltage ready flag for MTP" R-
+      14 flag_enbl_cgu "cgu is enabled by manager" R-
+      15 mtp_zero_check_fail "zero check failed (tbd) for MTP" R-
+    End bits
+    Bitgroups
+      flag_in_alarm_state 10:10 "alarm state"
+        0 "manager is not in alarm state"
+        1 "manager is in alarm state"
+      End flag_in_alarm_state
+      flag_enbl_cgu 14:14 "cgu is enabled by manager"
+        0 "cgu is not enabled"
+        1 "cgu is enabled"
+      End flag_enbl_cgu
+    End Bitgroups
+  End Register
+  Register 0x00:2 StatusReg " "
+    Bits
+      0 POR "POR" R-
+      1 PLL_LOCK "PLL" R-
+      2 flag_otpok "OTP" R-
+      3 flag_ovpok "OVP" R-
+      4 flag_uvpok "UVP" R-
+      5 flag_OCP_alarm "OCP" R-
+      6 flag_clocks_stable "Clocks" R-
+      7 CLIP "CLIP" R-
+      8 mtp_busy "MTP" R-
+      9 flag_pwrokbst "BOOST" R-
+      10 flag_cf_speakererror "Speaker" R-
+      11 flag_cold_started "cold start flag" R-
+      12 flag_engage "flag engage" R-
+      13 flag_watchdog_reset "flag watchdog reset" R-
+      14 flag_enbl_amp "amplifier is enabled by manager" R-
+      15 flag_enbl_ref "references are enabled by manager" R-
+    End bits
+    Bitgroups
+      POR 0:0 "POR"
+        0 "VddD is below 1.2V"
+        1 "VddD is OK"
+      End POR
+      PLL_LOCK 1:1 "PLL"
+        0 "PLL not in lock"
+        1 "PLL in lock"
+      End PLL_LOCK
+      flag_otpok 2:2 "OTP"
+        0 "Temperature To High"
+        1 "Temperature OK"
+      End flag_otpok
+      flag_ovpok 3:3 "OVP"
+        0 "VddP is To High"
+        1 "VddP is OK"
+      End flag_ovpok
+      flag_uvpok 4:4 "UVP"
+        0 "VddP is To Low"
+        1 "VddP is OK"
+      End flag_uvpok
+      flag_OCP_alarm 5:5 "OCP"
+        0 "Current is OK"
+        1 "Current is to High"
+      End flag_OCP_alarm
+      flag_clocks_stable 6:6 "Clocks"
+        0 "Clock is unstable"
+        1 "Clock is Stable"
+      End flag_clocks_stable
+      CLIP 7:7 "CLIP"
+        0 "Not clipping"
+        1 "Clipping"
+      End CLIP
+      mtp_busy 8:8 "MTP"
+        0 "MTP Vacant"
+        1 "MTP Busy"
+      End mtp_busy
+      flag_pwrokbst 9:9 "BOOST"
+        0 "Vboost not in window"
+        1 "Vboost in window (OK)"
+      End flag_pwrokbst
+      flag_cf_speakererror 10:10 "Speaker"
+        0 "Speaker is OK"
+        1 "Speaker error"
+      End flag_cf_speakererror
+      flag_cold_started 11:11 "cold start flag"
+        0 "Not a cold start, already running"
+        1 "Cold start (via POR)"
+      End flag_cold_started
+      flag_engage 12:12 "flag engage"
+        0 "amplifier is not switching"
+        1 "amplifier is switching"
+      End flag_engage
+      flag_watchdog_reset 13:13 "flag watchdog reset"
+        0 "no reset due to watchdog"
+        1 "reset due to watchdog"
+      End flag_watchdog_reset
+      flag_enbl_amp 14:14 "amplifier is enabled by manager"
+        0 "amplifier is not enabled"
+        1 "amplifier is enabled"
+      End flag_enbl_amp
+      flag_enbl_ref 15:15 "references are enabled by manager"
+        0 "references are not enabled"
+        1 "references are enabled"
+      End flag_enbl_ref
+    End Bitgroups
+  End Register
+  Register 0x30:2 Hidden_Flags1 ""
+    Bits
+      0 flag_hi_small "positive small window dcdc converter" R-
+      1 flag_hi_large "positive large window dcdc converter" R-
+      2 flag_lo_small "negative small window dcdc converter" R-
+      3 flag_lo_large "negative large window dcdc converter" R-
+      4 flag_voutcomp "flag_voutcomp, indication Vset is larger than Vbat" R-
+      5 flag_voutcomp93 "flag_voutcomp93, indication Vset is larger than 1.07* Vbat" R-
+      6 flag_voutcomp86 "flag_voutcomp86, indication Vset is larger than 1.14* Vbat" R-
+      7 flag_hiz "flag_hiz, indication Vbst is larger than	Vbat" R-
+      8 flag_hi_peak "flag_hi_peak, indication hi_peak" R-
+      9 flag_ocpokbst "flag_ocpokbst, indication no over current in boost converter pmos switch" R-
+      10 flag_peakcur "flag_peakcur, indication current is max in dcdc converter" R-
+      11 flag_ocpokap "flag_ocpokap, indication no over current in amplifier 'a' pmos output stage" R-
+      12 flag_ocpokan "flag_ocpokan, indication no over current in amplifier 'a' nmos output stage" R-
+      13 flag_ocpokbp "flag_ocpokbp, indication no over current in amplifier 'b' pmos output stage" R-
+      14 flag_ocpokbn "flag_ocpokbn, indication no over current in amplifier'b' nmos output stage" R-
+      15 lost_clk "lost_clk, lost clock indication CGU" R-
+    End bits
+  End Register
+  Register 0x33:2 Hidden_Flags2 " "
+    Bits
+      0 flag_adc10_ready "flag_adc10_ready, indication adc10 is ready" R-
+      1 flag_clipa_high "flag_clipa_high, indication pmos amplifier 'a' is clipping" R-
+      2 flag_clipa_low "flag_clipa_low, indication nmos amplifier 'a' is clipping" R-
+      3 flag_clipb_high "flag_clipb_high, indication pmos amplifier 'b' is clipping" R-
+      4 flag_clipb_low "flag_clipb_low, indication nmos amplifier 'b' is clipping" R-
+      5 data_adc10_tempbat_5 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 5" R-
+      6 data_adc10_tempbat_6 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 6" R-
+      7 data_adc10_tempbat_7 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 7" R-
+      8 data_adc10_tempbat_8 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 8" R-
+      9 data_adc10_tempbat_9 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 9" R-
+      10 data_adc10_tempbat_10 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 10" R-
+      11 data_adc10_tempbat_11 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 11" R-
+      12 data_adc10_tempbat_12 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 12" R-
+      13 data_adc10_tempbat_13 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 13" R-
+      14 data_adc10_tempbat_14 "data_adc10_tempbat[9:0], adc 10 data output for testing bit 14" R-
+    End bits
+  End Register
+  Register 0x09:2 sys_ctrl " "
+    Bits
+      0 PowerDown "ON/OFF" -
+      1 reset "I2CReset" -
+      2 enbl_coolflux "EnableCoolFlux" -
+      3 enbl_amplifier "EnableAmplifier" -
+      4 enbl_boost "EnableBoost" -
+      5 cf_configured "Coolflux configured" -
+      6 sel_enbl_amplifier "Selection on how AmplifierEnabling" -
+      7 dcdcoff_mode "DCDC switch off" -
+      8 cttr_iddqtest "Iddq test amplifier" -
+      9 ctrl_coil_value_9 "Coil Value bit 9" -
+      10 ctrl_coil_value_10 "Coil Value bit 10" -
+      11 ctrl_sel_cf_clock_11 "Selection CoolFluxClock bit 11" -
+      12 ctrl_sel_cf_clock_12 "Selection CoolFluxClock bit 12" -
+      13 intf_sel "selection input 1 or 2" -
+      14 sel_ws_bck "selection input PLL for lock" -
+      15 datao_sel "selection data out" -
+    End bits
+    Bitgroups
+      PowerDown 0:0 "ON/OFF"
+        0 "Operating"
+        1 "Powerdown [default]"
+      End PowerDown
+      reset 1:1 "I2CReset"
+        0 "Normal operation [default]"
+        1 "Reset all register to default"
+      End reset
+      enbl_coolflux 2:2 "EnableCoolFlux"
+        0 "Coolflux OFF"
+        1 "Coolflux ON [default]"
+      End enbl_coolflux
+      enbl_amplifier 3:3 "EnableAmplifier"
+        0 "Amplifier OFF"
+        1 "Amplifier ON [default]"
+      End enbl_amplifier
+      enbl_boost 4:4 "EnableBoost"
+        0 "Boost OFF (Follower mode)"
+        1 "Boost ON [default]"
+      End enbl_boost
+      cf_configured 5:5 "Coolflux configured"
+        0 "coolflux not configured [default]"
+        1 "coolflux configured"
+      End cf_configured
+      sel_enbl_amplifier 6:6 "Selection on how AmplifierEnabling"
+        0 "Enable amplifier independent of CoolFlux [default]"
+        1 "CoolFlux enables amplifier (SW_Bit: cf_enabl_amplifier)"
+      End sel_enbl_amplifier
+      dcdcoff_mode 7:7 "DCDC switch off"
+        0 "normal DCDC functionality [default]"
+        1 "DCDC switched off"
+      End dcdcoff_mode
+      cttr_iddqtest 8:8 "Iddq test amplifier"
+        0 "amplifier is normal mode [default]"
+        1 "amplifier is in the test mode"
+      End cttr_iddqtest
+      ctrl_coil_value 9:10 "Coil Value"
+        0 "0.7 uH"
+        1 "1.0 uH"
+        2 "1.5 uH [default]"
+        3 "2.2 uH"
+      End ctrl_coil_value
+      ctrl_sel_cf_clock 11:12 "Selection CoolFluxClock"
+        0 "clk_d (100MHz at 48kHz input) [default]"
+        1 "clk_d/2 (50MHz at 48kHz input)"
+        2 "clk_d*3/4 (75MHz at 48kHz input)"
+        3 "clk_d (100MHz at 48kHz input)"
+      End ctrl_sel_cf_clock
+      intf_sel 13:13 "selection input 1 or 2"
+        0 "input 1 [default]"
+        1 "input 2"
+      End intf_sel
+      sel_ws_bck 14:14 "selection input PLL for lock"
+        0 "BCK [default]"
+        1 "WS"
+      End sel_ws_bck
+      datao_sel 15:15 "selection data out"
+        0 "I2S-TX [default]"
+        1 "datai3"
+      End datao_sel
+    End Bitgroups
+  End Register
+  Register 0x0A:2 I2S_sel_reg " "
+    Bits
+      0 sel_i2so_l_0 "Output selection dataout left channel bit 0" -
+      1 sel_i2so_l_1 "Output selection dataout left channel bit 1" -
+      2 sel_i2so_l_2 "Output selection dataout left channel bit 2" -
+      3 sel_i2so_r_3 "Output selection dataout right channel bit 3" -
+      4 sel_i2so_r_4 "Output selection dataout right channel bit 4" -
+      5 sel_i2so_r_5 "Output selection dataout right channel bit 5" -
+      6 ctrl_spkr_coil_6 "Selection speaker induction bit 6" -
+      7 ctrl_spkr_coil_7 "Selection speaker induction bit 7" -
+      8 ctrl_spkr_coil_8 "Selection speaker induction bit 8" -
+      9 ctrl_spr_res_9 "Selection speaker impedance bit 9" -
+      10 ctrl_spr_res_10 "Selection speaker impedance bit 10" -
+      11 ctrl_dcdc_spkr_i_comp_gain_11 "DCDC speaker current compensation gain bit 11" -
+      12 ctrl_dcdc_spkr_i_comp_gain_12 "DCDC speaker current compensation gain bit 12" -
+      13 ctrl_dcdc_spkr_i_comp_gain_13 "DCDC speaker current compensation gain bit 13" -
+      14 ctrl_dcdc_spkr_i_comp_gain_14 "DCDC speaker current compensation gain bit 14" -
+      15 ctrl_dcdc_spkr_i_comp_sign "DCDC speaker current compensation sign" -
+    End bits
+    Bitgroups
+      sel_i2so_l 0:2 "Output selection dataout left channel"
+        0 "CurrentSense signal"
+        1 "Coolflux output 3 (e.g. gain)"
+        2 "Coolflux output 2 (second channel)"
+        3 "Coolflux output 1 (main channel) [default]"
+        4 "datai3 left"
+        5 "datai3 right"
+        6 "dcdc feedforward audio current"
+      End sel_i2so_l
+      sel_i2so_r 3:5 "Output selection dataout right channel"
+        0 "CurrentSense signal [default]"
+        1 "Coolflux output 3 (e.g. gain)"
+        2 "Coolflux output 2 (second channel)"
+        3 "Coolflux output 1 (main channel)"
+        4 "datai3 left"
+        5 "datai3 right"
+        6 "dcdc feedforward audio current"
+      End sel_i2so_r
+      ctrl_spkr_coil 6:8 "Selection speaker induction"
+        0 "22 uH"
+        1 "27 uH"
+        2 "33 uH"
+        3 "39 uH [default]"
+        4 "47 uH"
+        5 "56 uH"
+        6 "68 uH"
+        7 "82 uH"
+      End ctrl_spkr_coil
+      ctrl_spr_res 9:10 "Selection speaker impedance"
+        0 "defined by DSP"
+        1 "4 ohm"
+        2 "6 ohm"
+        3 "8 ohm [default]"
+      End ctrl_spr_res
+      ctrl_dcdc_spkr_i_comp_gain 11:14 "DCDC speaker current compensation gain"
+        0 "Off"
+        1 "70%"
+        2 "75%"
+        3 "80%"
+        4 "85%"
+        5 "90%"
+        6 "95%"
+        7 "100% [default]"
+        8 "105%"
+        9 "110%"
+        10 "115%"
+        11 "120%"
+        12 "125%"
+        13 "130%"
+        14 "135%"
+        15 "140%"
+      End ctrl_dcdc_spkr_i_comp_gain
+      ctrl_dcdc_spkr_i_comp_sign 15:15 "DCDC speaker current compensation sign"
+        0 "positive [default]"
+        1 "negative"
+      End ctrl_dcdc_spkr_i_comp_sign
+    End Bitgroups
+  End Register
+  Register 0x04:2 I2SReg "Audio Format"
+    Bits
+      0 i2s_seti_0 "I2SFormat data 1 input: bit 0" -
+      1 i2s_seti_1 "I2SFormat data 1 input: bit 1" -
+      2 i2s_seti_2 "I2SFormat data 1 input: bit 2" -
+      3 chan_sel1_3 "ChannelSelection data1 input	(In CoolFlux) bit 3" -
+      4 chan_sel1_4 "ChannelSelection data1 input	(In CoolFlux) bit 4" -
+      5 lr_sw_i2si2 "ChannelSelection data 2 input (coolflux input, the DCDC converter gets the other signal)" -
+      6 input_sel_6 "Input selection for amplifier bit 6" -
+      7 input_sel_7 "Input selection for amplifier bit 7" -
+      8 reserve_I2Sreg_8 "reserved bit 8" -
+      9 reserve_I2Sreg_9 "reserved bit 9" -
+      10 reserve_I2Sreg_10 "reserved bit 10" -
+      11 enbl_datao "Enable data output" -
+      12 i2s_fs_12 "sample rate setting bit 12" -
+      13 i2s_fs_13 "sample rate setting bit 13" -
+      14 i2s_fs_14 "sample rate setting bit 14" -
+      15 i2s_fs_15 "sample rate setting bit 15" -
+    End bits
+    Bitgroups
+      i2s_seti 0:2 "I2SFormat data 1 input:"
+        0 "Philips standard I2S"
+        1 "Philips standard I2S"
+        2 "MSB justify"
+        3 "Philips standard I2S [default]"
+        4 "LSB Justify 16 bits"
+        5 "LSB Justify 18 bits"
+        6 "LSB Justify 20 bits"
+        7 "LSB Justify 24 bits"
+      End i2s_seti
+      chan_sel1 3:4 "ChannelSelection data1 input	(In CoolFlux)"
+        0 "Stereo"
+        1 "Left [default]"
+        2 "Right"
+        3 "Mono"
+      End chan_sel1
+      lr_sw_i2si2 5:5 "ChannelSelection data 2 input (coolflux input, the DCDC converter gets the other signal)"
+        0 "Left channel to CF DSP right channel to other vamp mux [default]"
+        1 "Right channel to CF DSP left channel to other vamp mux"
+      End lr_sw_i2si2
+      input_sel 6:7 "Input selection for amplifier"
+        0 "I2S input 1 left channel (CoolFlux bypassed)"
+        1 "I2S input 1 Right channel (CoolFlux bypassed)"
+        2 "Output Coolflux DSP [default]"
+        3 "Output Collflux DSP"
+      End input_sel
+      enbl_datao 11:11 "Enable data output"
+        0 "data output in tristate"
+        1 "normal mode [default]"
+      End enbl_datao
+      i2s_fs 12:15 "sample rate setting"
+        0 "8kHk"
+        1 "11.025kHz"
+        2 "12kHz"
+        3 "16kHz"
+        4 "22.05kHz"
+        5 "24kHz"
+        6 "32kHz"
+        7 "44.1kHz"
+        8 "48kHz [default]"
+      End i2s_fs
+    End Bitgroups
+  End Register
+  Register 0x42:2 Hidden_AmplifierControl ""
+    Bits
+      0 ctrl_drive_0 "drive bits to select amount of power stages amplifier bit 0" -
+      1 ctrl_drive_1 "drive bits to select amount of power stages amplifier bit 1" -
+      2 ctrl_drive_2 "drive bits to select amount of power stages amplifier bit 2" -
+      3 ctrl_drive_3 "drive bits to select amount of power stages amplifier bit 3" -
+      4 ctrl_drive_4 "drive bits to select amount of power stages amplifier bit 4" -
+      5 ctrl_drive_5 "drive bits to select amount of power stages amplifier bit 5" -
+      6 ctrl_drive_6 "drive bits to select amount of power stages amplifier bit 6" -
+      7 ctrl_drive_7 "drive bits to select amount of power stages amplifier bit 7" -
+      8 dpsalevel_8 "DPSA Threshold level bit 8" -
+      9 dpsalevel_9 "DPSA Threshold level bit 9" -
+      10 dpsa_release_10 "DPSA Release time bit 10" -
+      11 dpsa_release_11 "DPSA Release time bit 11" -
+      12 ctrl_coincidence "Prevent simultaneously switching of output stage" -
+      13 ctrl_kickback "Prevent double pulses of output stage" -
+      14 ctrl_test_sdeltaoffset "ctrl_test_sdeltaoffset" -
+      15 ctrl_test_sdeltaclk "ctrl_test_sdeltaclk" -
+    End bits
+    Bitgroups
+      dpsalevel 8:9 "DPSA Threshold level"
+        0 "-6	 dB"
+        1 "-12 dB"
+        2 "-18 dB [default]"
+        3 "-24 dB"
+      End dpsalevel
+      dpsa_release 10:11 "DPSA Release time"
+        0 "0 ms"
+        1 "1 ms"
+        2 "10 ms"
+        3 "20 ms [default]"
+      End dpsa_release
+      ctrl_coincidence 12:12 "Prevent simultaneously switching of output stage"
+        0 "bypass coincidence function"
+        1 "coincidence function output stage active [default]"
+      End ctrl_coincidence
+      ctrl_kickback 13:13 "Prevent double pulses of output stage"
+        0 "bypass kickback function"
+        1 "kickback function active [default]"
+      End ctrl_kickback
+      ctrl_test_sdeltaclk 15:15 "ctrl_test_sdeltaclk"
+        1 "128Fs [default]"
+        0 "64Fs"
+      End ctrl_test_sdeltaclk
+    End Bitgroups
+  End Register
+  Register 0x41:2 Hidden_Pwm_mute_set ""
+    Bits
+      0 bypass_hp "Bypass_High Pass Filter" -
+      1 hard_mute "Hard Mute" -
+      2 soft_mute "Soft Mute" -
+      3 PWM_Delay_3 "PWM DelayBits to set the delay bit 3" -
+      4 PWM_Delay_4 "PWM DelayBits to set the delay bit 4" -
+      5 PWM_Delay_5 "PWM DelayBits to set the delay bit 5" -
+      6 PWM_Delay_6 "PWM DelayBits to set the delay bit 6" -
+      7 PWM_Delay_7 "PWM DelayBits to set the delay bit 7" -
+      8 PWM_Shape "PWM Shape" -
+      9 PWM_BitLength "PWM Bitlength in noise shaper" -
+    End bits
+    Bitgroups
+      bypass_hp 0:0 "Bypass_High Pass Filter"
+        0 "High Pass Filter Enabled [default]"
+        1 "High Pass Filter Bypassed"
+      End bypass_hp
+      hard_mute 1:1 "Hard Mute"
+        0 "No Mute [default]"
+        1 "Hard Muted"
+      End hard_mute
+      soft_mute 2:2 "Soft Mute"
+        0 "No Mute [default]"
+        1 "Soft Muted"
+      End soft_mute
+      PWM_Shape 8:8 "PWM Shape"
+        0 "Single sided"
+        1 "Double sided [default]"
+      End PWM_Shape
+      PWM_BitLength 9:9 "PWM Bitlength in noise shaper"
+        0 "7 Bits"
+        1 "8 Bits [default]"
+      End PWM_BitLength
+    End Bitgroups
+  End Register
+  Register 0x06:2 audio_ctr ""
+    Bits
+      0 dpsa "Enable dynamic powerstage activation" -
+      1 ctrl_slope_1 "control slope bit 1" -
+      2 ctrl_slope_2 "control slope bit 2" -
+      3 ctrl_slope_3 "control slope bit 3" -
+      4 ctrl_slope_4 "control slope bit 4" -
+      5 cf_mute "Soft mute in CoolFlux" -
+      6 sel_other_vamp "Input selection for the second channel of the DCDC inteligent mode detector" -
+      8 vol_8 "volume control (in CoolFlux) bit 8" -
+      9 vol_9 "volume control (in CoolFlux) bit 9" -
+      10 vol_10 "volume control (in CoolFlux) bit 10" -
+      11 vol_11 "volume control (in CoolFlux) bit 11" -
+      12 vol_12 "volume control (in CoolFlux) bit 12" -
+      13 vol_13 "volume control (in CoolFlux) bit 13" -
+      14 vol_14 "volume control (in CoolFlux) bit 14" -
+      15 vol_15 "volume control (in CoolFlux) bit 15" -
+    End bits
+    Bitgroups
+      dpsa 0:0 "Enable dynamic powerstage activation"
+        0 "	dpsa off"
+        1 "dpsa on [default]"
+      End dpsa
+      ctrl_slope 1:4 "control slope"
+        0 "	minimal"
+        15 "maximal [default]"
+      End ctrl_slope
+      cf_mute 5:5 "Soft mute in CoolFlux"
+        0 "no mute [default]"
+        1 "muted"
+      End cf_mute
+      sel_other_vamp 6:6 "Input selection for the second channel of the DCDC inteligent mode detector"
+        0 "I2S input2 [default]"
+        1 "CoolFlux second channel"
+      End sel_other_vamp
+    End Bitgroups
+  End Register
+  Register 0x43:2 Hidden_DCDC_Control1 " "
+    Bits
+      0 ctrl_drivebst_0 "drive bits to select amount of power stages dcdc converter bit 0" -
+      1 ctrl_drivebst_1 "drive bits to select amount of power stages dcdc converter bit 1" -
+      2 ctrl_drivebst_2 "drive bits to select amount of power stages dcdc converter bit 2" -
+      3 ctrl_drivebst_3 "drive bits to select amount of power stages dcdc converter bit 3" -
+      4 ctrl_drivebst_4 "drive bits to select amount of power stages dcdc converter bit 4" -
+      5 ctrl_drivebst_5 "drive bits to select amount of power stages dcdc converter bit 5" -
+      6 ctrl_drivebst_6 "drive bits to select amount of power stages dcdc converter bit 6" -
+      7 ctrl_drivebst_7 "drive bits to select amount of power stages dcdc converter bit 7" -
+      8 ctrl_drivebst_8 "drive bits to select amount of power stages dcdc converter bit 8" -
+      9 ctrl_drivebst_9 "drive bits to select amount of power stages dcdc converter bit 9" -
+      10 ctrl_ocptestbst "Boost OCP" -
+      11 reserve10 "Not Used" -
+      13 test_abistfft_enbl "FFT coolflux" -
+      14 ctrl_sensetest_amp "sensetest amplifier" -
+      15 test_bcontrol "test _bcontrol" -
+    End bits
+    Bitgroups
+      ctrl_ocptestbst 10:10 "Boost OCP"
+        0 "OCP ON"
+        1 "Ignore OCP"
+      End ctrl_ocptestbst
+      test_abistfft_enbl 13:13 "FFT coolflux"
+        0 "default"
+        1 "switch to abist fft mode such that CoolFlux does fft"
+      End test_abistfft_enbl
+    End Bitgroups
+  End Register
+  Register 0x44:2 Hidden_DCDC_Control2 " "
+    Bits
+      0 ctrl_reversebst "Reverse recovery control activation power stage boost converter" -
+      1 ctrl_sensetest "To control the sense NMOS (0: disconnected)" -
+      2 enbl_engagebst "Enable power stage dcdc controller" -
+      3 enbl_hi_small "Enable bit of hi (small) comparator" -
+      4 enbl_hi_large "Enable bit of hi (large) comparator" -
+      5 enbl_lo_small "Enable bit of lo (small) comparator" -
+      6 enbl_lo_large "Enable bit of lo (large) comparator" -
+      7 enbl_slopecur "Enable bit of max-current dac" -
+      8 enbl_voutcomp "Enable vout comparators" -
+      9 enbl_voutcomp93 "Enable vout-93 comparators" -
+      10 enbl_voutcomp86 "Enable vout-86 comparators" -
+      11 enbl_hizcom "Enable hiz comparator" -
+      12 enbl_pcdac "Enable peak current dac" -
+      13 enbl_pccomp "Enable peak current comparator" -
+      14 enbl_windac "Enable window dac" -
+      15 enbl_powerbst "Enable line of the powerstage" -
+    End bits
+    Bitgroups
+      enbl_engagebst 2:2 "Enable power stage dcdc controller"
+        0 "Tristate"
+        1 "	Active switching"
+      End enbl_engagebst
+    End Bitgroups
+  End Register
+  Register 0x4D:2 Hidden_DCDC_Control3 ""
+    Bits
+      0 ctrl_windac_0 "for testing direct control windac bit 0" -
+      1 ctrl_windac_1 "for testing direct control windac bit 1" -
+      2 ctrl_windac_2 "for testing direct control windac bit 2" -
+      3 ctrl_windac_3 "for testing direct control windac bit 3" -
+      4 ctrl_windac_4 "for testing direct control windac bit 4" -
+      5 ctrl_windac_5 "for testing direct control windac bit 5" -
+      6 ctrl_peakcur_6 "for testing direct control peakcur bit 6" -
+      7 ctrl_peakcur_7 "for testing direct control peakcur bit 7" -
+      8 ctrl_peakcur_8 "for testing direct control peakcur bit 8" -
+      9 ctrl_peakcur_9 "for testing direct control peakcur bit 9" -
+      10 ctrl_peakcur_10 "for testing direct control peakcur bit 10" -
+      11 ctrl_peakcur_11 "for testing direct control peakcur bit 11" -
+    End bits
+  End Register
+  Register 0x4E:2 Hidden_DCDC_Control4 ""
+    Bits
+      0 ctrl_slopecur_0 "for testing direct control slopecur bit 0" -
+      1 ctrl_slopecur_1 "for testing direct control slopecur bit 1" -
+      2 ctrl_slopecur_2 "for testing direct control slopecur bit 2" -
+      3 ctrl_slopecur_3 "for testing direct control slopecur bit 3" -
+      4 ctrl_slopecur_4 "for testing direct control slopecur bit 4" -
+    End bits
+  End Register
+  Register 0x07:2 DCDCboost " "
+    Bits
+      0 ctrl_bstvolt_0 "Boost voltage bit 0" -
+      1 ctrl_bstvolt_1 "Boost voltage bit 1" -
+      2 ctrl_bstvolt_2 "Boost voltage bit 2" -
+      3 ctrl_bstcur_3 "Max boost coil current bit 3" -
+      4 ctrl_bstcur_4 "Max boost coil current bit 4" -
+      5 ctrl_bstcur_5 "Max boost coil current bit 5" -
+      6 ctrl_slopebst_6 "setting for the slope of thedcdc output stages bit 6" -
+      7 ctrl_slopebst_7 "setting for the slope of thedcdc output stages bit 7" -
+      8 ctrl_slopebst_8 "setting for the slope of thedcdc output stages bit 8" -
+      9 ctrl_slopebst_9 "setting for the slope of thedcdc output stages bit 9" -
+      10 boost_intel "Intelligent boost mode" -
+      11 boost_speed "Soft RampUp/Down mode for DCDC controller" -
+      12 ctrl_delay_comp_dcdc_12 "delay compensation in current patg compared to delay in the audio path (relative) bit 12" -
+      13 ctrl_delay_comp_dcdc_13 "delay compensation in current patg compared to delay in the audio path (relative) bit 13" -
+      14 boost_input "Selection intelligent boost detector input" -
+    End bits
+    Bitgroups
+      ctrl_bstvolt 0:2 "Boost voltage"
+        0 "4.0 V"
+        1 "4.2 V"
+        2 "4.4 V"
+        3 "4.6 V"
+        4 "4.8 V"
+        5 "5.0 V"
+        6 "5.2 V [default]"
+        7 "5.4 V"
+      End ctrl_bstvolt
+      ctrl_bstcur 3:5 "Max boost coil current"
+        0 "0.42 A"
+        1 "0.90 A"
+        2 "1.38 A"
+        3 "1.86 A"
+        4 "2.34 A [default]"
+        5 "2.82 A"
+        6 "3.3 A"
+        7 "3.78 A"
+      End ctrl_bstcur
+      ctrl_slopebst 6:9 "setting for the slope of thedcdc output stages"
+        0 "minimal"
+        15 "maximal [default]"
+      End ctrl_slopebst
+      boost_intel 10:10 "Intelligent boost mode"
+        0 "Off"
+        1 "On [default]"
+      End boost_intel
+      boost_speed 11:11 "Soft RampUp/Down mode for DCDC controller"
+        0 "	Immediate"
+        1 "	Fast"
+      End boost_speed
+      ctrl_delay_comp_dcdc 12:13 "delay compensation in current patg compared to delay in the audio path (relative)"
+        0 "0 clk_c clock delay [default]"
+        1 "-1 clk_c clock delay"
+        2 "+1 clk_c clock delay"
+        3 "+2 clk_c clock delay"
+      End ctrl_delay_comp_dcdc
+      boost_input 14:14 "Selection intelligent boost detector input"
+        0 "Class-D input [default]"
+        1 "Max(L,R)"
+      End boost_input
+    End Bitgroups
+  End Register
+  Register 0x46:2 CurrentSense1 " "
+    Bits
+      0 bypass_gc "bypass_gc, bypasses the CS gain correction" -
+      1 cs_gain_control "gain control by means of MTP or i2c; 0 = MTP" -
+      2 cs_gain_2 "+ / - 128 steps in steps of 1/4 %	2's compliment bit 2" -
+      3 cs_gain_3 "+ / - 128 steps in steps of 1/4 %	2's compliment bit 3" -
+      4 cs_gain_4 "+ / - 128 steps in steps of 1/4 %	2's compliment bit 4" -
+      5 cs_gain_5 "+ / - 128 steps in steps of 1/4 %	2's compliment bit 5" -
+      6 cs_gain_6 "+ / - 128 steps in steps of 1/4 %	2's compliment bit 6" -
+      7 cs_gain_7 "+ / - 128 steps in steps of 1/4 %	2's compliment bit 7" -
+      8 cs_gain_8 "+ / - 128 steps in steps of 1/4 %	2's compliment bit 8" -
+      9 cs_gain_9 "+ / - 128 steps in steps of 1/4 %	2's compliment bit 9" -
+      10 bypass_lp "bypass Low-Pass filter in temperature sensor" -
+      11 bypass_pwmcounter "bypass_pwmcounter" -
+      12 ctrl_cs_negfixed "does not switch to neg" -
+      13 ctrl_cs_neghyst_13 "switches to neg depending on level bit 13" -
+      14 ctrl_cs_neghyst_14 "switches to neg depending on level bit 14" -
+      15 ctrl_cs_neghyst_15 "switches to neg depending on level bit 15" -
+    End bits
+  End Register
+  Register 0x47:2 CurrentSense2 " "
+    Bits
+      0 switch_fb "switch_fb" -
+      1 se_hyst_1 "se_hyst bit 1" -
+      2 se_hyst_2 "se_hyst bit 2" -
+      3 se_hyst_3 "se_hyst bit 3" -
+      4 se_hyst_4 "se_hyst bit 4" -
+      5 se_level_5 "se_level bit 5" -
+      6 se_level_6 "se_level bit 6" -
+      7 se_level_7 "se_level bit 7" -
+      8 se_level_8 "se_level bit 8" -
+      9 se_level_9 "se_level bit 9" -
+      10 ktemp_10 "temperature compensation trimming bit 10" -
+      11 ktemp_11 "temperature compensation trimming bit 11" -
+      12 ktemp_12 "temperature compensation trimming bit 12" -
+      13 ktemp_13 "temperature compensation trimming bit 13" -
+      14 ktemp_14 "temperature compensation trimming bit 14" -
+      15 ktemp_15 "temperature compensation trimming bit 15" -
+    End bits
+  End Register
+  Register 0x48:2 CurrentSense3 " "
+    Bits
+      0 ctrl_negin "negin" -
+      1 ctrl_cs_sein "cs_sein" -
+      2 ctrl_coincidencecs "coincidence current sense" -
+      7 delay_se_neg_7 "delay of se and neg bit 7" -
+      8 delay_se_neg_8 "delay of se and neg bit 8" -
+      9 delay_se_neg_9 "delay of se and neg bit 9" -
+      10 delay_se_neg_10 "delay of se and neg bit 10" -
+      11 delay_se_neg_11 "delay of se and neg bit 11" -
+      12 delay_se_neg_12 "delay of se and neg bit 12" -
+      13 delay_se_neg_13 "delay of se and neg bit 13" -
+      14 ctrl_cs_ttrack_14 "sample & hold track time: bit 14" -
+      15 ctrl_cs_ttrack_15 "sample & hold track time: bit 15" -
+    End bits
+    Bitgroups
+      ctrl_coincidencecs 2:2 "coincidence current sense"
+        0 "Allow switch of dcdc during clk_cs_clksh"
+        1 "Prevent dcdc switching during clk_cs_clksh [default]"
+      End ctrl_coincidencecs
+      ctrl_cs_ttrack 14:15 "sample & hold track time:"
+        0 "2 clock cycles; 20.3[ns] [default]"
+        1 "4 clock cycles; 40.7[ns]"
+        2 "8 clock cycles; 81.4[ns]"
+        3 "is no fixed time, but as N1B"
+      End ctrl_cs_ttrack
+    End Bitgroups
+  End Register
+  Register 0x49:2 CurrentSense4 " "
+    Bits
+      0 ctrl_bypassclip_0 "Bypass clip control (function depending on digimux clip_x) bit 0" -
+      1 ctrl_bypassclip_1 "Bypass clip control (function depending on digimux clip_x) bit 1" -
+      5 ctrl_cs_8ohm "8 ohm mode for current sense (gain mode)" -
+      6 Reserve11 "" -
+      7 delay_clock_sh_7 "delay_sh, tunes S7H delay bit 7" -
+      8 delay_clock_sh_8 "delay_sh, tunes S7H delay bit 8" -
+      9 delay_clock_sh_9 "delay_sh, tunes S7H delay bit 9" -
+      10 delay_clock_sh_10 "delay_sh, tunes S7H delay bit 10" -
+      11 delay_clock_sh_11 "delay_sh, tunes S7H delay bit 11" -
+      12 inv_clksh "Invert the sample/hold clock for current sense ADC" -
+      13 inv_neg "Invert neg signal" -
+      14 inv_se "Invert se signal" -
+      15 setse "switches between Single Ende and differentail mode; 1 = single ended" -
+    End bits
+    Bitgroups
+      ctrl_bypassclip 0:1 "Bypass clip control (function depending on digimux clip_x)"
+        0 "clip control new"
+        1 "clip control test mode"
+        2 "clip control old"
+        3 "clip control bypassed [default]"
+      End ctrl_bypassclip
+      ctrl_cs_8ohm 5:5 "8 ohm mode for current sense (gain mode)"
+        0 "4 ohm (default)"
+        1 "8 ohm"
+      End ctrl_cs_8ohm
+    End Bitgroups
+  End Register
+  Register 0x4A:2 Hidden_ADC10 " "
+    Bits
+      1 ctrl_adc10_sel_1 "select the input to convert the 10b ADC bit 1" -
+      2 ctrl_adc10_sel_2 "select the input to convert the 10b ADC bit 2" -
+      3 ctrl_adc10_sel_3 "select the input to convert the 10b ADC bit 3" -
+      6 ctrl_adc10_reset "Global asynchronous reset (active HIGH) 10 bit ADC" -
+      8 ctrl_adc10_test_8 "Test mode selection signal 10 bit ADC bit 8" -
+      9 ctrl_adc10_test_9 "Test mode selection signal 10 bit ADC bit 9" -
+      10 ctrl_bypass_lp_vbat "lp filter in batt sensor" -
+      14 ctrl_dc_offset "switch offset control on/off, is decimator offset control" -
+      15 ctrl_tsense_hibias "bit to set the biasing in temp sensor to high" -
+    End bits
+    Bitgroups
+      ctrl_adc10_sel 1:3 "select the input to convert the 10b ADC"
+        0 "batt sensor [default]"
+        1 "temp sensor"
+        2 "not used"
+        3 "not used"
+        4 "not used"
+        5 "not used"
+        6 "not used"
+        7 "not used"
+      End ctrl_adc10_sel
+      ctrl_bypass_lp_vbat 10:10 "lp filter in batt sensor"
+        0 "low pass filter battery sensor"
+        1 "bypass low pass filter battery sensor"
+      End ctrl_bypass_lp_vbat
+    End Bitgroups
+  End Register
+  Register 0x4B:2 Hidden_MicADC "Setting for the 8-bit ADC"
+    Bits
+      0 ctrl_adc13_iset "Micadc Setting of current consumption. Debug use only" -
+      1 ctrl_adc13_gain_1 "Micadc gain setting (2-compl) bit 1" -
+      2 ctrl_adc13_gain_2 "Micadc gain setting (2-compl) bit 2" -
+      3 ctrl_adc13_gain_3 "Micadc gain setting (2-compl) bit 3" -
+      4 ctrl_adc13_gain_4 "Micadc gain setting (2-compl) bit 4" -
+      5 ctrl_adc13_gain_5 "Micadc gain setting (2-compl) bit 5" -
+      6 ctrl_adc13_slowdel_6 "Micadc Delay setting for internal clock. Debug use only bit 6" -
+      7 ctrl_adc13_slowdel_7 "Micadc Delay setting for internal clock. Debug use only bit 7" -
+      8 ctrl_adc13_offset_8 "Micadc ADC offset setting bit 8" -
+      9 ctrl_adc13_offset_9 "Micadc ADC offset setting bit 9" -
+      10 ctrl_adc13_offset_10 "Micadc ADC offset setting bit 10" -
+      11 ctrl_adc13_offset_11 "Micadc ADC offset setting bit 11" -
+      12 ctrl_adc13_bsoinv "Micadc bit stream output invert mode for test" -
+      13 ctrl_adc13_resonator_enable "Micadc Give extra SNR with less stability. Debug use only" -
+      14 ctrl_testmicadc "Mux at input of MICADC for test purpose" -
+    End bits
+    Bitgroups
+      ctrl_adc13_gain 1:5 "Micadc gain setting (2-compl)"
+        0 "typical (80mV input range )"
+        16 "maximal (60 mV input range)"
+        15 "minimal gain (100 mV input range) [default]"
+      End ctrl_adc13_gain
+      ctrl_adc13_offset 8:11 "Micadc ADC offset setting"
+        1 "positive offset 10% of fullscale"
+        2 "positve offset 2x10% of fullscale"
+        4 "negative offset 10% of fullscale"
+        8 "negativ offset 2x10% of fullscale"
+      End ctrl_adc13_offset
+    End Bitgroups
+  End Register
+  Register 0x45:2 Hidden_Protection_Set " "
+    Bits
+      0 ocp_thr_0 "ocp_thr threshold level for OCP bit 0" -
+      1 ocp_thr_1 "ocp_thr threshold level for OCP bit 1" -
+      2 ocp_thr_2 "ocp_thr threshold level for OCP bit 2" -
+      3 ocp_thr_3 "ocp_thr threshold level for OCP bit 3" -
+      4 ocp_thr_4 "ocp_thr threshold level for OCP bit 4" -
+      5 ocp_thr_5 "ocp_thr threshold level for OCP bit 5" -
+      6 ocp_thr_6 "ocp_thr threshold level for OCP bit 6" -
+      7 ocp_thr_7 "ocp_thr threshold level for OCP bit 7" -
+      8 bypass_glitchfilter "Bypass glitchfilter" -
+      9 bypass_ovp "Bypass OVP" -
+      10 bypass_uvp "Bypass UVP" -
+      11 bypass_otp "Bypass OTP" -
+      12 bypass_ocp "Bypass OCP" -
+      13 bypass_ocpcounter "BypassOCPCounter" -
+      14 bypass_lost_clk "Bypasslost_clk detector" -
+      15 vpalarm "vpalarm (uvp ovp handling)" -
+    End bits
+    Bitgroups
+      bypass_glitchfilter 8:8 "Bypass glitchfilter"
+        0 "Glitchfilter active [default]"
+        2 "Glitchfilter bypassed"
+      End bypass_glitchfilter
+      bypass_ovp 9:9 "Bypass OVP"
+        0 "OVP active [default]"
+        1 "OVP bypassed"
+      End bypass_ovp
+      bypass_uvp 10:10 "Bypass UVP"
+        0 "UVP	active [default]"
+        1 "UVP	bypassed"
+      End bypass_uvp
+      bypass_otp 11:11 "Bypass OTP"
+        0 "OTP active [default]"
+        1 "OTP bypassed"
+      End bypass_otp
+      bypass_ocp 12:12 "Bypass OCP"
+        0 "OCP active [default]"
+        2 "OCP bypassed"
+      End bypass_ocp
+      bypass_ocpcounter 13:13 "BypassOCPCounter"
+        0 "OCPcounter active [default]"
+        1 "OCPocpcounter bypassed"
+      End bypass_ocpcounter
+      bypass_lost_clk 14:14 "Bypasslost_clk detector"
+        0 "lost_clk active [default]"
+        2 "lost_clk bypassed"
+      End bypass_lost_clk
+      vpalarm 15:15 "vpalarm (uvp ovp handling)"
+        0 "vpalarm with 200 msec wait time [default]"
+        1 "vpalarm without 200msec wait time"
+      End vpalarm
+    End Bitgroups
+  End Register
+  Register 0x05:2 bat_prot ""
+    Bits
+      0 bypass_clipper "bypass clipper battery protection" -
+      1 vbat_prot_attacktime_1 "ProtectionAttackTime bit 1" -
+      2 vbat_prot_attacktime_2 "ProtectionAttackTime bit 2" -
+      3 vbat_prot_thlevel_3 "ProtectionThreshold bit 3" -
+      4 vbat_prot_thlevel_4 "ProtectionThreshold bit 4" -
+      5 vbat_prot_thlevel_5 "ProtectionThreshold bit 5" -
+      6 vbat_prot_max_reduct_6 "ProtectionMaximumReduction bit 6" -
+      7 vbat_prot_max_reduct_7 "ProtectionMaximumReduction bit 7" -
+      8 vbat_prot_release_t_8 "Protection Release Timer bit 8" -
+      9 vbat_prot_release_t_9 "Protection Release Timer bit 9" -
+      10 vbat_prot_release_t_10 "Protection Release Timer bit 10" -
+      11 vbat_prot_hysterese_11 "ProtectionHysterese bit 11" -
+      12 vbat_prot_hysterese_12 "ProtectionHysterese bit 12" -
+      13 reset_min_vbat "reset clipper" -
+      14 sel_vbat "battery voltage for I2C read out only" -
+    End bits
+    Bitgroups
+      bypass_clipper 0:0 "bypass clipper battery protection"
+        0 "clipper active [default]"
+        1 "clipper bypassed"
+      End bypass_clipper
+      vbat_prot_attacktime 1:2 "ProtectionAttackTime"
+        0 "0.56 dB/Sample"
+        1 "1.12 dB/sample"
+        2 "2.32 dB/Sample [default]"
+        3 "infinite dB/Sample"
+      End vbat_prot_attacktime
+      vbat_prot_thlevel 3:5 "ProtectionThreshold"
+        0 "2.92V"
+        1 "3.05 V"
+        2 "3.17"
+        3 "3.3	V"
+        4 "3.42 V"
+        5 "3.55 V [default]"
+        6 "3.67 V"
+        7 "3.8 V"
+      End vbat_prot_thlevel
+      vbat_prot_max_reduct 6:7 "ProtectionMaximumReduction"
+        0 "2V"
+        1 "2.5V"
+        2 "3V [default]"
+        3 "infinite"
+      End vbat_prot_max_reduct
+      vbat_prot_release_t 8:10 "Protection Release Timer"
+        0 "0.4 sec"
+        1 "0.8 sec"
+        2 "1.2 sec"
+        3 "1.6 sec [default]"
+        4 "2 sec"
+        5 "2,4 sec"
+        6 "2.8 sec"
+        7 "3.2 sec"
+      End vbat_prot_release_t
+      vbat_prot_hysterese 11:12 "ProtectionHysterese"
+        0 "no hysterese"
+        1 "0.05V"
+        2 "0.1V [default]"
+        3 "0.2V"
+      End vbat_prot_hysterese
+      reset_min_vbat 13:13 "reset clipper"
+        0 "clipper is not reset if CF is bypassed [default]"
+        1 "reset the clipper via I2C in case the CF is bypassed"
+      End reset_min_vbat
+      sel_vbat 14:14 "battery voltage for I2C read out only"
+        0 "minimum battery value [reset]"
+        1 "avarage battery value"
+      End sel_vbat
+    End Bitgroups
+  End Register
+  Register 0x58:2 Hidden_PLLtest0 " "
+    Bits
+      0 pll_mdec_msb_0 "most significant bits pll_mdec bit 0" -
+      1 pll_mdec_msb_1 "most significant bits pll_mdec bit 1" -
+      2 pll_mdec_msb_2 "most significant bits pll_mdec bit 2" -
+      3 pll_selr_3 "pll_selr bit 3" -
+      4 pll_selr_4 "pll_selr bit 4" -
+      5 pll_selr_5 "pll_selr bit 5" -
+      6 pll_selr_6 "pll_selr bit 6" -
+      7 pll_selp_7 "pll_selp bit 7" -
+      8 pll_selp_8 "pll_selp bit 8" -
+      9 pll_selp_9 "pll_selp bit 9" -
+      10 pll_selp_10 "pll_selp bit 10" -
+      11 pll_selp_11 "pll_selp bit 11" -
+      12 pll_seli_12 "pll_seli bit 12" -
+      13 pll_seli_13 "pll_seli bit 13" -
+      14 pll_seli_14 "pll_seli bit 14" -
+      15 pll_seli_15 "pll_seli bit 15" -
+    End bits
+  End Register
+  Register 0x59:2 Hidden_PLLtest1 " "
+    Bits
+      0 pll_psel "pll_psel" -
+      1 use_direct_pll_psel "use_direct_pll_psel" -
+      2 nbck_2 "NBCK bit 2" -
+      3 nbck_3 "NBCK bit 3" -
+      4 nbck_4 "NBCK bit 4" -
+      5 nbck_5 "NBCK bit 5" -
+      6 auto_nbck "AUTO_NBCK" -
+      7 pll_frm "pll_frm" -
+      8 pll_directi "pll_directi" -
+      9 pll_directo "pll_directo" -
+      10 enbl_PLL "enbl_PLL" -
+      11 sel_clkout "SEL_CLKOUT" -
+      14 fr_lost_clk "fr_lost_clk" -
+      15 pll_bypass "pll_bypass" -
+    End bits
+    Bitgroups
+      nbck 2:5 "NBCK"
+        0 "bck/ws ratio"
+        1 "bck/ws ratio"
+        2 "bck/ws ratio"
+        3 "bck/ws ratio"
+        4 "bck/ws ratio"
+        5 "bck/ws ratio"
+        6 "bck/ws ratio"
+        7 "bck/ws ratio"
+        8 "bck/ws ratio"
+        9 "reserved"
+        10 "reserved"
+        11 "reserved"
+        12 "reserved"
+        13 "reserved"
+        14 "reserved"
+        15 "reserved"
+      End nbck
+      auto_nbck 6:6 "AUTO_NBCK"
+        0 "use user defined nbck"
+        1 "use auto detected nbck"
+      End auto_nbck
+      sel_clkout 11:11 "SEL_CLKOUT"
+        0 "pll - output [default]"
+        1 "inverted pll output"
+      End sel_clkout
+    End Bitgroups
+  End Register
+  Register 0x5C:2 Hidden_PLLtest2 " "
+    Bits
+      0 pll_ndec_msb_0 "most significant bits of pll_ndec bit 0" -
+      1 pll_ndec_msb_1 "most significant bits of pll_ndec bit 1" -
+      2 pll_mdec_2 "bits 13..0 of pll_mdec bit 2" -
+      3 pll_mdec_3 "bits 13..0 of pll_mdec bit 3" -
+      4 pll_mdec_4 "bits 13..0 of pll_mdec bit 4" -
+      5 pll_mdec_5 "bits 13..0 of pll_mdec bit 5" -
+      6 pll_mdec_6 "bits 13..0 of pll_mdec bit 6" -
+      7 pll_mdec_7 "bits 13..0 of pll_mdec bit 7" -
+      8 pll_mdec_8 "bits 13..0 of pll_mdec bit 8" -
+      9 pll_mdec_9 "bits 13..0 of pll_mdec bit 9" -
+      10 pll_mdec_10 "bits 13..0 of pll_mdec bit 10" -
+      11 pll_mdec_11 "bits 13..0 of pll_mdec bit 11" -
+      12 pll_mdec_12 "bits 13..0 of pll_mdec bit 12" -
+      13 pll_mdec_13 "bits 13..0 of pll_mdec bit 13" -
+      14 pll_mdec_14 "bits 13..0 of pll_mdec bit 14" -
+      15 pll_mdec_15 "bits 13..0 of pll_mdec bit 15" -
+    End bits
+  End Register
+  Register 0x5D:2 Hidden_PLLtest3 " "
+    Bits
+      0 pll_pdec_0 "pll_pdec bit 0" -
+      1 pll_pdec_1 "pll_pdec bit 1" -
+      2 pll_pdec_2 "pll_pdec bit 2" -
+      3 pll_pdec_3 "pll_pdec bit 3" -
+      4 pll_pdec_4 "pll_pdec bit 4" -
+      5 pll_pdec_5 "pll_pdec bit 5" -
+      6 pll_pdec_6 "pll_pdec bit 6" -
+      8 pll_ndec_8 "bits 7..0 of pll_ndec bit 8" -
+      9 pll_ndec_9 "bits 7..0 of pll_ndec bit 9" -
+      10 pll_ndec_10 "bits 7..0 of pll_ndec bit 10" -
+      11 pll_ndec_11 "bits 7..0 of pll_ndec bit 11" -
+      12 pll_ndec_12 "bits 7..0 of pll_ndec bit 12" -
+      13 pll_ndec_13 "bits 7..0 of pll_ndec bit 13" -
+      14 pll_ndec_14 "bits 7..0 of pll_ndec bit 14" -
+      15 pll_ndec_15 "bits 7..0 of pll_ndec bit 15" -
+    End bits
+  End Register
+  Register 0x4C:2 abisttest ""
+    Bits
+      0 ctrl_offset_0 "offset control for ABIST testing bit 0" -
+      1 ctrl_offset_1 "offset control for ABIST testing bit 1" -
+      2 ctrl_offset_2 "offset control for ABIST testing bit 2" -
+      3 ctrl_offset_3 "offset control for ABIST testing bit 3" -
+      4 ctrl_offset_4 "offset control for ABIST testing bit 4" -
+      5 ctrl_offset_5 "offset control for ABIST testing bit 5" -
+      6 ctrl_offset_6 "offset control for ABIST testing bit 6" -
+      7 ctrl_offset_7 "offset control for ABIST testing bit 7" -
+      8 ctrl_offset_8 "offset control for ABIST testing bit 8" -
+      9 ctrl_offset_9 "offset control for ABIST testing bit 9" -
+      10 ctrl_offset_10 "offset control for ABIST testing bit 10" -
+      11 ctrl_offset_11 "offset control for ABIST testing bit 11" -
+      12 ctrl_offset_12 "offset control for ABIST testing bit 12" -
+      13 ctrl_offset_13 "offset control for ABIST testing bit 13" -
+      14 ctrl_offset_14 "offset control for ABIST testing bit 14" -
+      15 ctrl_offset_15 "offset control for ABIST testing bit 15" -
+    End bits
+  End Register
+  Register 0x50:2 Hidden_Dft1 ""
+    Bits
+      0 gain_0 "gain setting of the gain multiplier: gain need to increase with factor 1.41 (3dB); N1B was 10101011b bit 0" -
+      1 gain_1 "gain setting of the gain multiplier: gain need to increase with factor 1.41 (3dB); N1B was 10101011b bit 1" -
+      2 gain_2 "gain setting of the gain multiplier: gain need to increase with factor 1.41 (3dB); N1B was 10101011b bit 2" -
+      3 gain_3 "gain setting of the gain multiplier: gain need to increase with factor 1.41 (3dB); N1B was 10101011b bit 3" -
+      4 gain_4 "gain setting of the gain multiplier: gain need to increase with factor 1.41 (3dB); N1B was 10101011b bit 4" -
+      5 gain_5 "gain setting of the gain multiplier: gain need to increase with factor 1.41 (3dB); N1B was 10101011b bit 5" -
+      6 gain_6 "gain setting of the gain multiplier: gain need to increase with factor 1.41 (3dB); N1B was 10101011b bit 6" -
+      7 gain_7 "gain setting of the gain multiplier: gain need to increase with factor 1.41 (3dB); N1B was 10101011b bit 7" -
+      8 ctrl_sourceb_8 "Set OUTB to bit 8" -
+      9 ctrl_sourceb_9 "Set OUTB to bit 9" -
+      10 ctrl_sourcea_10 "Set OUTA to bit 10" -
+      11 ctrl_sourcea_11 "Set OUTA to bit 11" -
+      12 ctrl_sourcebst_12 "Sets the source of the pwmbst output to boost converter input for testing bit 12" -
+      13 ctrl_sourcebst_13 "Sets the source of the pwmbst output to boost converter input for testing bit 13" -
+      14 ctrl_test_mono_14 "ABIST mode to add both amplifier halfs as stereo or one amplifier half as mono bit 14" -
+      15 ctrl_test_mono_15 "ABIST mode to add both amplifier halfs as stereo or one amplifier half as mono bit 15" -
+    End bits
+    Bitgroups
+      ctrl_sourceb 8:9 "Set OUTB to"
+        0 "PWM (Default)"
+        1 "TEST1"
+        2 "1"
+        3 "Internal Pulse generator"
+      End ctrl_sourceb
+      ctrl_sourcea 10:11 "Set OUTA to"
+        0 "PWM (Default)"
+        1 "TEST2"
+        2 "1"
+        3 "Internal Pulse generator"
+      End ctrl_sourcea
+    End Bitgroups
+  End Register
+  Register 0x51:2 Hidden_Dft2 " "
+    Bits
+      0 pulselengthbst_0 "pulselength setting test input for boost converter bit 0" -
+      1 pulselengthbst_1 "pulselength setting test input for boost converter bit 1" -
+      2 pulselengthbst_2 "pulselength setting test input for boost converter bit 2" -
+      3 pulselengthbst_3 "pulselength setting test input for boost converter bit 3" -
+      4 pulselengthbst_4 "pulselength setting test input for boost converter bit 4" -
+      5 ctrl_bypasslatchbst "bypass_latch in boost converter" -
+      6 invertbst "invert pwmbst test signal" -
+      7 pulselength_7 "pulselength setting test input for amplifier bit 7" -
+      8 pulselength_8 "pulselength setting test input for amplifier bit 8" -
+      9 pulselength_9 "pulselength setting test input for amplifier bit 9" -
+      10 pulselength_10 "pulselength setting test input for amplifier bit 10" -
+      11 pulselength_11 "pulselength setting test input for amplifier bit 11" -
+      12 ctrl_bypasslatch "bypass_latch in boost convert" -
+      13 invertb "invert pwmb test signal" -
+      14 inverta "invert pwma test signal" -
+      15 ctrl_bypass_ctrlloop "bypass_ctrlloop bypasses the control loop of the amplifier" -
+    End bits
+    Bitgroups
+      ctrl_bypasslatchbst 5:5 "bypass_latch in boost converter"
+        0 "	latch on"
+        1 "	latch bypassed [default]"
+      End ctrl_bypasslatchbst
+      invertbst 6:6 "invert pwmbst test signal"
+        0 "pwm booster not inverted [default]"
+        1 "pwm booster inverted"
+      End invertbst
+      ctrl_bypasslatch 12:12 "bypass_latch in boost convert"
+        0 "latch on [default]"
+        1 "latch bypassed"
+      End ctrl_bypasslatch
+    End Bitgroups
+  End Register
+  Register 0x52:2 Hidden_Dft3 " "
+    Bits
+      0 ctrl_test_discrete "tbd for rdson testing" -
+      1 ctrl_test_rdsona "tbd for rdson testing" -
+      2 ctrl_test_rdsonb "tbd for rdson testing" -
+      3 ctrl_test_rdsonbst "tbd for rdson testing" -
+      4 ctrl_test_cvia "tbd for rdson testing" -
+      5 ctrl_test_cvib "tbd for rdson testing" -
+      6 ctrl_test_cvibst "tbd for rdson testing" -
+      7 ctrl_iddqtestbst "for iddq testing in powerstage in boost converter" -
+      8 ctrl_coincidencebst "prevent simultaneously switching power stages bst and amp, bst gets delay" -
+      9 test_bypass_pwmdiscretea "for testing ( ABIST)" -
+      10 test_bypass_pwmdiscreteb "for testing ( ABIST)" -
+      11 ctrl_clipc_forcehigh "test signal for clipcontrol" -
+      12 ctrl_clipc_forcelow "test signal for clipcontrol" -
+      13 ctrl_test_sdelta "for testing ( ABIST)" -
+      14 ctrl_test_swhvp "for testing ( ABIST)" -
+      15 test_gain_reduction "" -
+    End bits
+    Bitgroups
+      ctrl_coincidencebst 8:8 "prevent simultaneously switching power stages bst and amp, bst gets delay"
+        0 "coincidencebst bypassed"
+        1 "coincidencebst active"
+      End ctrl_coincidencebst
+    End Bitgroups
+  End Register
+  Register 0x53:2 Hidden_DigiMuxObserve " "
+    Bits
+      0 ctrl_digimux_out_test1_0 "Digimux TEST1 out bit 0" -
+      1 ctrl_digimux_out_test1_1 "Digimux TEST1 out bit 1" -
+      2 ctrl_digimux_out_test1_2 "Digimux TEST1 out bit 2" -
+      3 ctrl_digimux_out_test1_3 "Digimux TEST1 out bit 3" -
+      4 ctrl_digimux_out_test2_4 "Digimux TEST2 out (output flag_clipa_low depending on cntr_bypassclip setting) bit 4" -
+      5 ctrl_digimux_out_test2_5 "Digimux TEST2 out (output flag_clipa_low depending on cntr_bypassclip setting) bit 5" -
+      6 ctrl_digimux_out_test2_6 "Digimux TEST2 out (output flag_clipa_low depending on cntr_bypassclip setting) bit 6" -
+      7 ctrl_digimux_out_test2_7 "Digimux TEST2 out (output flag_clipa_low depending on cntr_bypassclip setting) bit 7" -
+      8 ctrl_digimux_out_data1_8 "Digimux DATA1 out (output flag_clipb_high depending on cntr_bypassclip setting) bit 8" -
+      9 ctrl_digimux_out_data1_9 "Digimux DATA1 out (output flag_clipb_high depending on cntr_bypassclip setting) bit 9" -
+      10 ctrl_digimux_out_data1_10 "Digimux DATA1 out (output flag_clipb_high depending on cntr_bypassclip setting) bit 10" -
+      11 ctrl_digimux_out_data1_11 "Digimux DATA1 out (output flag_clipb_high depending on cntr_bypassclip setting) bit 11" -
+      12 ctrl_digimux_out_data3_12 "Digimux DATA3 out	(output flag_clipx_x depending on cntr_bypassclip setting) bit 12" -
+      13 ctrl_digimux_out_data3_13 "Digimux DATA3 out	(output flag_clipx_x depending on cntr_bypassclip setting) bit 13" -
+      14 ctrl_digimux_out_data3_14 "Digimux DATA3 out	(output flag_clipx_x depending on cntr_bypassclip setting) bit 14" -
+      15 ctrl_digimux_out_data3_15 "Digimux DATA3 out	(output flag_clipx_x depending on cntr_bypassclip setting) bit 15" -
+    End bits
+    Bitgroups
+      ctrl_digimux_out_test1 0:3 "Digimux TEST1 out"
+        0 "digimux inactive (observe via TEST1 pin)"
+        1 "clkout (pll)"
+        2 "flag_hi_large (dcdc)"
+        3 "not used"
+        4 "pwmouta"
+        5 "sdaf (i2c sda filter)"
+        6 "flag_hi_peak (dcdc)"
+        7 "ringo (ring osc)"
+        8 "flag_uvpok (powerstage)"
+        9 "flag_pwrokbst"
+        10 "key01_locked"
+        11 "flag_hiz (DCDC)"
+        12 "flag_clip (same signal as going to Coolflux)"
+        13 "enbl_engagebst"
+        14 "flag_voutcomp (DCDC)"
+        15 "not used"
+      End ctrl_digimux_out_test1
+      ctrl_digimux_out_test2 4:7 "Digimux TEST2 out (output flag_clipa_low depending on cntr_bypassclip setting)"
+        0 "digimux inactive (observe via TEST2 pin)"
+        1 "clkrefo (pll)"
+        2 "flag_hi_small (dcdc)"
+        3 "flag_clipa_low	[BPclip00"
+        4 "pwmoutb"
+        5 "sclf (i2c scl filter)"
+        6 "flag_peakcur (dcdc)"
+        7 "pord (power on reset circuit)"
+        8 "flag_ovpok (powerstage)"
+        9 "clk_cs_clksh (current sense)"
+        10 "key02_locked"
+        11 "flag_otp"
+        12 "flag_voutcomp93 (DCDC)"
+        13 "flag_voutcomp86 (DCDC)"
+        14 "not used"
+        15 "data_pwmbst (DCDC)"
+      End ctrl_digimux_out_test2
+      ctrl_digimux_out_data1 8:11 "Digimux DATA1 out (output flag_clipb_high depending on cntr_bypassclip setting)"
+        0 "digimux inactive (observe via DATA1 pin)"
+        1 "flag_pll_lock (pll)"
+        2 "flag_lo_small (dcdc)"
+        3 "flag_ocpokap"
+        4 "flag_ocpokbp"
+        5 "flag_ocpokbn"
+        6 "flag_ocpokan"
+        7 "'0'"
+        8 "'0'"
+        9 "flag_clipb_high [BPclip00"
+        10 "flag_ocpokbst"
+        11 "'0'"
+        12 "mtp_zero_check_fail"
+        13 "flag_ocp_alarm"
+        14 "'0'"
+        15 "'0'"
+      End ctrl_digimux_out_data1
+      ctrl_digimux_out_data3 12:15 "Digimux DATA3 out	(output flag_clipx_x depending on cntr_bypassclip setting)"
+        0 "digimux inactive (observe via DATA2 pin)"
+        1 "clkfbo_2 (pll, clkfbo/2)"
+        2 "flag_lo_large (dcdc)"
+        3 "clkfbo_16 (pll, clkfbo/16)"
+        4 "flag_ocpokap"
+        5 "flag_ocpokbp"
+        6 "flag_ocpokbn"
+        7 "flag_ocpokan"
+        8 "flag_clipa_high [BPclip00"
+        9 "'0'"
+        10 "flag_clipb_low [BPclip00"
+        11 "clk_adc8_clkin"
+        12 "digimux inactive"
+        13 "flag_ocp_alarm"
+        14 "'0'"
+        15 "'0'"
+      End ctrl_digimux_out_data3
+    End Bitgroups
+  End Register
+  Register 0x57:2 Hidden_AnaMux " "
+    Bits
+      0 ctrl_anamux_out_test1_0 "Anamux TEST1 out bit 0" -
+      1 ctrl_anamux_out_test1_1 "Anamux TEST1 out bit 1" -
+      2 ctrl_anamux_out_test1_2 "Anamux TEST1 out bit 2" -
+      3 ctrl_anamux_out_test1_3 "Anamux TEST1 out bit 3" -
+      4 ctrl_anamux_out_test2_4 "Anamux TEST2 out bit 4" -
+      5 ctrl_anamux_out_test2_5 "Anamux TEST2 out bit 5" -
+      6 ctrl_anamux_out_test2_6 "Anamux TEST2 out bit 6" -
+      7 ctrl_anamux_out_test2_7 "Anamux TEST2 out bit 7" -
+      8 ctrl_zero_8 "Bandwith control feedbackloop bit 8" -
+      9 ctrl_zero_9 "Bandwith control feedbackloop bit 9" -
+      10 ctrl_zero_10 "Bandwith control feedbackloop bit 10" -
+      11 ctrl_zero_11 "Bandwith control feedbackloop bit 11" -
+      12 ctrl_ocptest "ctrl_ocptest, deactivates the over current protection in the power stages of the amplifier. The ocp flag signals stay active." -
+      13 ctrl_iddqtest "Reverse" -
+      14 ctrl_otptest "otptest, test mode otp amplifier" -
+      15 ctrl_reverse "Reverse" -
+    End bits
+    Bitgroups
+      ctrl_anamux_out_test1 0:3 "Anamux TEST1 out"
+        0 "anamux inactive (observe via TEST1 pin) [default]"
+        1 "Temp sensor output"
+        2 "Sense of general temp. prot"
+        3 "Input voltage to test ADC10"
+        4 "Batt sensor output"
+        5 "Slope and peak current DAC test, testing all currents seperately"
+        6 "DCDC peak cur. Dac"
+        7 "DCDC window ref (derived from bandgap)"
+        8 "Sense for MicADC LDO; 0.45*Vldo_out"
+        9 "MTP voltage (0.5*vddd)"
+        10 "Current sense adc input voltage (pos)"
+        11 "Digital ground sense"
+        12 "Input voltage for clip control, determine dir. of integrator 1"
+        13 "anamux inactive"
+        14 "anamux inactive"
+        15 "anamux inactive"
+      End ctrl_anamux_out_test1
+      ctrl_anamux_out_test2 4:7 "Anamux TEST2 out"
+        0 "anamux inactive (observe via TEST2 pin) [default]"
+        1 "v_bufhvdda"
+        2 "Bandgap current"
+        3 "classD supply sense for Rds_on"
+        4 "classD gnd sense (common node C) for Rds_on"
+        5 "DCDC gnd sense for Rds_on"
+        6 "DCDC peakcur. sense"
+        7 "DCDC shifted battery voltage"
+        8 "DCDC shifted output voltage"
+        9 "DCDC output sense for Rds_on"
+        10 "Current sense adc input voltage (neg)"
+        11 "jtag_trstn intern to determine hysteresis"
+        12 "Digital gronud sense"
+        13 "anamux inactive"
+        14 "anamux inactive"
+        15 "anamux inactive"
+      End ctrl_anamux_out_test2
+      ctrl_zero 8:11 "Bandwith control feedbackloop"
+        0 "129kHz"
+        1 "101kHz"
+        2 "83kHz"
+        3 "70kHz"
+        4 "61kHz [default]"
+        5 "54kHz"
+        6 "48kHz"
+        7 "44kHz"
+      End ctrl_zero
+    End Bitgroups
+  End Register
+  Register 0x54:2 Hidden_padtest " "
+    Bits
+      0 hs_mode "hs_mode, high speed mode I2C bus" -
+      1 test_parametric_io_1 "test_parametric_io for testing pads bit 1" -
+      2 test_parametric_io_2 "test_parametric_io for testing pads bit 2" -
+      3 test_parametric_io_3 "test_parametric_io for testing pads bit 3" -
+      4 enbl_ringo "enbl_ringo, for test purpose to check with ringo" -
+      7 disable_idp "" -
+      8 ctrl_cliplevel "Clip level" -
+    End bits
+    Bitgroups
+      hs_mode 0:0 "hs_mode, high speed mode I2C bus"
+        0 "i2c filter enabled [default]"
+        1 "no i2c filter"
+      End hs_mode
+      ctrl_cliplevel 8:8 "Clip level"
+        0 "low [default]"
+        1 "high"
+      End ctrl_cliplevel
+    End Bitgroups
+  End Register
+  Register 0x5A:2 Hidden_SineCtrl1 " "
+    Bits
+      0 tsig_freq_0 "tsig_freq, internal sinus test generator, frequency control bit 0" -
+      1 tsig_freq_1 "tsig_freq, internal sinus test generator, frequency control bit 1" -
+      2 tsig_freq_2 "tsig_freq, internal sinus test generator, frequency control bit 2" -
+      3 tsig_freq_3 "tsig_freq, internal sinus test generator, frequency control bit 3" -
+      4 tsig_freq_4 "tsig_freq, internal sinus test generator, frequency control bit 4" -
+      5 tsig_freq_5 "tsig_freq, internal sinus test generator, frequency control bit 5" -
+      6 tsig_freq_6 "tsig_freq, internal sinus test generator, frequency control bit 6" -
+      7 tsig_freq_7 "tsig_freq, internal sinus test generator, frequency control bit 7" -
+      8 tsig_freq_8 "tsig_freq, internal sinus test generator, frequency control bit 8" -
+      9 tsig_freq_9 "tsig_freq, internal sinus test generator, frequency control bit 9" -
+      10 tsig_freq_10 "tsig_freq, internal sinus test generator, frequency control bit 10" -
+      11 tsig_freq_11 "tsig_freq, internal sinus test generator, frequency control bit 11" -
+      12 tsig_freq_12 "tsig_freq, internal sinus test generator, frequency control bit 12" -
+      13 tsig_freq_13 "tsig_freq, internal sinus test generator, frequency control bit 13" -
+      14 tsig_freq_14 "tsig_freq, internal sinus test generator, frequency control bit 14" -
+      15 tsig_freq_15 "tsig_freq, internal sinus test generator, frequency control bit 15" -
+    End bits
+  End Register
+  Register 0x5B:2 Hidden_SineCtrl2 " "
+    Bits
+      0 tsig_freq_msb_0 "select internal sinus test generator, frequency control msb bits bit 0" -
+      1 tsig_freq_msb_1 "select internal sinus test generator, frequency control msb bits bit 1" -
+      2 tsig_freq_msb_2 "select internal sinus test generator, frequency control msb bits bit 2" -
+      3 inject_tsig "inject_tsig, control bit to switch to internal sinus test generator" -
+      4 ctrl_adc10_prog_sample_4 "control ADC10 bit 4" -
+      5 ctrl_adc10_prog_sample_5 "control ADC10 bit 5" -
+      6 ctrl_adc10_prog_sample_6 "control ADC10 bit 6" -
+      7 ctrl_adc10_prog_sample_7 "control ADC10 bit 7" -
+      8 ctrl_adc10_prog_sample_8 "control ADC10 bit 8" -
+    End bits
+  End Register
+  Register 0x55:2 Hidden_DirectCtrl1 " "
+    Bits
+      0 enbl_amp_0 "enbl_amp for testing to enable all analoge blocks in amplifier bit 0" -
+      1 enbl_amp_1 "enbl_amp for testing to enable all analoge blocks in amplifier bit 1" -
+      2 enbl_amp_2 "enbl_amp for testing to enable all analoge blocks in amplifier bit 2" -
+      3 enbl_amp_3 "enbl_amp for testing to enable all analoge blocks in amplifier bit 3" -
+      4 enbl_amp_4 "enbl_amp for testing to enable all analoge blocks in amplifier bit 4" -
+      5 enbl_amp_5 "enbl_amp for testing to enable all analoge blocks in amplifier bit 5" -
+      6 enbl_amp_6 "enbl_amp for testing to enable all analoge blocks in amplifier bit 6" -
+      7 enbl_amp_7 "enbl_amp for testing to enable all analoge blocks in amplifier bit 7" -
+      8 enbl_amp_8 "enbl_amp for testing to enable all analoge blocks in amplifier bit 8" -
+      9 enbl_amp_9 "enbl_amp for testing to enable all analoge blocks in amplifier bit 9" -
+      10 enbl_amp_10 "enbl_amp for testing to enable all analoge blocks in amplifier bit 10" -
+      11 enbl_amp_11 "enbl_amp for testing to enable all analoge blocks in amplifier bit 11" -
+      12 enbl_amp_12 "enbl_amp for testing to enable all analoge blocks in amplifier bit 12" -
+      13 enbl_amp_13 "enbl_amp for testing to enable all analoge blocks in amplifier bit 13" -
+      14 enbl_amp_14 "enbl_amp for testing to enable all analoge blocks in amplifier bit 14" -
+      15 fr_fsp "extr free running clock mode for testing" -
+    End bits
+    Bitgroups
+      enbl_amp 0:14 "enbl_amp for testing to enable all analoge blocks in amplifier"
+        0 "Enable of first ota in control loop A, disable puldown of this ota"
+        1 "Enable of second ota in control loop A"
+        2 "Enable of comparator in control loop A"
+        3 "Enable of clip control A"
+        4 "Enable power stage A"
+        5 "Enable of first ota in control loop B, disable puldown of this ota"
+        6 "Enable of second ota in control loop B"
+        7 "Enable of comparator in control loop B"
+        8 "Enable of clip control B"
+        9 "Enable power stage B"
+        10 "Enable one bit dac"
+        11 "Enable adc10"
+        12 "Enable tsense"
+        13 "Enable current sense (cs)"
+        14 "Not connected"
+      End enbl_amp
+    End Bitgroups
+  End Register
+  Register 0x56:2 Hidden_DirectCtrl2 " "
+    Bits
+      0 use_direct_ctrls "use_direct_ctrls, to overrule several functions direct for testing" -
+      1 rst_datapath "rst_datapath, datapath reset" -
+      2 rst_cgu "rst_cgu, cgu reset" -
+      3 enbl_ref_3 "for testing to enable all analoge blocks in references bit 3" -
+      4 enbl_ref_4 "for testing to enable all analoge blocks in references bit 4" -
+      5 enbl_ref_5 "for testing to enable all analoge blocks in references bit 5" -
+      6 enbl_ref_6 "for testing to enable all analoge blocks in references bit 6" -
+      7 enbl_ref_7 "for testing to enable all analoge blocks in references bit 7" -
+      8 enbl_ref_8 "for testing to enable all analoge blocks in references bit 8" -
+      9 enbl_ref_9 "for testing to enable all analoge blocks in references bit 9" -
+      10 enbl_ref_10 "for testing to enable all analoge blocks in references bit 10" -
+      11 enbl_engage "Enable output stage amplifier" -
+      12 use_direct_clk_ctrl "use_direct_clk_ctrl, to overrule several functions direct for testing" -
+      13 use_direct_pll_ctrl "use_direct_pll_ctrl, to overrule several functions direct for testing" -
+      14 use_direct_ctrls_2 "use_direct_sourseamp_ctrls, to overrule several functions direct for testing" -
+    End bits
+    Bitgroups
+      enbl_ref 3:10 "for testing to enable all analoge blocks in references"
+        0 "Enable of reference of UVP"
+        1 "Enable of reference of OVP"
+        2 "Enable of reference of hvdda"
+        3 "Enable of reference of otp"
+        4 "Enable of bandgap + currentdisti"
+        5 "Enable of references of 8bit adc"
+        6 "Enable of references of mic adc"
+        7 "Enable of battery sense"
+      End enbl_ref
+      enbl_engage 11:11 "Enable output stage amplifier"
+        0 "Tristate [default]"
+        1 "Active switching"
+      End enbl_engage
+    End Bitgroups
+  End Register
+  Register 0x61:2 Hidden_mtp_ctrl_reg2 ""
+    Bits
+      8 mtp_ecc_tcin_8 "Mtp_ecc_tcin bit 8" -
+      9 mtp_ecc_tcin_9 "Mtp_ecc_tcin bit 9" -
+      10 mtp_ecc_tcin_10 "Mtp_ecc_tcin bit 10" -
+      11 mtp_ecc_tcin_11 "Mtp_ecc_tcin bit 11" -
+      12 mtp_ecc_tcin_12 "Mtp_ecc_tcin bit 12" -
+      13 mtp_ecc_tcin_13 "Mtp_ecc_tcin bit 13" -
+    End bits
+  End Register
+  Register 0x62:2 Hidden_mtp_ctrl_reg3 ""
+    Bits
+      0 mtp_man_address_in_0 "address from i2cregs for writing one word single mtp bit 0" -
+      1 mtp_man_address_in_1 "address from i2cregs for writing one word single mtp bit 1" -
+      2 mtp_man_address_in_2 "address from i2cregs for writing one word single mtp bit 2" -
+      3 mtp_man_address_in_3 "address from i2cregs for writing one word single mtp bit 3" -
+      6 mtp_ecc_eeb "enable code bit generation (active low!)" -
+      7 mtp_ecc_ecb "enable correction signal (active low!)" -
+      8 man_copy_mtp_to_iic "start copying single word from mtp to i2cregs_mtp" -
+      9 man_copy_iic_to_mtp "start copying single word from i2cregs_mtp to mtp [Key 1 protected]" -
+      10 auto_copy_mtp_to_iic "start copying all the data from mtp to i2cregs_mtp" -
+      11 auto_copy_iic_to_mtp "start copying all the data from i2cregs_mtp to mtp [Key 2 protected]" -
+      13 mtp_speed_mode_13 "Speed mode bit 13" -
+      14 mtp_speed_mode_14 "Speed mode bit 14" -
+      15 mtp_speed_mode_15 "Speed mode bit 15" -
+    End bits
+    Bitgroups
+      mtp_speed_mode 13:15 "Speed mode"
+        0 "0.67 - 1.33 MHz"
+        1 "0.36 - 0.72 MHz"
+        2 "1.28 - 2.56 MHz"
+        3 "2.51 - 5.02 MHz"
+        4 "1.84 - 3.69 MHz [default]"
+      End mtp_speed_mode
+    End Bitgroups
+  End Register
+  Register 0x63:2 Hidden_mtp_ctrl_reg4 " "
+    Bits
+      4 mtp_dircet_enable "mtp_direct_enable (key1 protected)" -
+      5 mtp_direct_wr "mtp_direct_wr (key1 protected)" -
+      6 mtp_direct_rd "mtp_direct_rd	(key1 protected)" -
+      7 mtp_direct_rst "mtp_direct_rst	(key1 protected)" -
+      8 mtp_direct_ers "mtp_direct_ers	(key1 protected)" -
+      9 mtp_direct_prg "mtp_direct_prg	(key1 protected)" -
+      10 mtp_direct_epp "mtp_direct_epp	(key1 protected)" -
+      11 mtp_direct_test_11 "mtp_direct_test	(key1 protected) bit 11" -
+      12 mtp_direct_test_12 "mtp_direct_test	(key1 protected) bit 12" -
+      13 mtp_direct_test_13 "mtp_direct_test	(key1 protected) bit 13" -
+      14 mtp_direct_test_14 "mtp_direct_test	(key1 protected) bit 14" -
+      15 mtp_direct_test_15 "mtp_direct_test	(key1 protected) bit 15" -
+    End bits
+    Bitgroups
+      mtp_dircet_enable 4:4 "mtp_direct_enable (key1 protected)"
+        0 "no direct access to mtp pins, normal operation"
+        1 "direct access to mtp pins"
+      End mtp_dircet_enable
+      mtp_direct_test 11:15 "mtp_direct_test	(key1 protected)"
+        0 "normal mode"
+        1 "even row"
+        2 "odd row"
+        3 "all rows"
+        4 "no rows"
+        8 "margin test erased"
+        10 "margin test programmed"
+      End mtp_direct_test
+    End Bitgroups
+  End Register
+  Register 0x64:2 Hidden_mtp_data_inp_reg " "
+    Bits
+      0 mtp_man_data_in_0 "single wordt be written to MTP (manual copy) bit 0" -
+      1 mtp_man_data_in_1 "single wordt be written to MTP (manual copy) bit 1" -
+      2 mtp_man_data_in_2 "single wordt be written to MTP (manual copy) bit 2" -
+      3 mtp_man_data_in_3 "single wordt be written to MTP (manual copy) bit 3" -
+      4 mtp_man_data_in_4 "single wordt be written to MTP (manual copy) bit 4" -
+      5 mtp_man_data_in_5 "single wordt be written to MTP (manual copy) bit 5" -
+      6 mtp_man_data_in_6 "single wordt be written to MTP (manual copy) bit 6" -
+      7 mtp_man_data_in_7 "single wordt be written to MTP (manual copy) bit 7" -
+      8 mtp_man_data_in_8 "single wordt be written to MTP (manual copy) bit 8" -
+      9 mtp_man_data_in_9 "single wordt be written to MTP (manual copy) bit 9" -
+      10 mtp_man_data_in_10 "single wordt be written to MTP (manual copy) bit 10" -
+      11 mtp_man_data_in_11 "single wordt be written to MTP (manual copy) bit 11" -
+      12 mtp_man_data_in_12 "single wordt be written to MTP (manual copy) bit 12" -
+      13 mtp_man_data_in_13 "single wordt be written to MTP (manual copy) bit 13" -
+      14 mtp_man_data_in_14 "single wordt be written to MTP (manual copy) bit 14" -
+      15 mtp_man_data_in_15 "single wordt be written to MTP (manual copy) bit 15" -
+    End bits
+  End Register
+  Register 0x70:2 cf_controls " "
+    Bits
+      0 cf_rst_dsp "Reset CoolFlux DSP" -
+      1 cf_dmem_1 "Target memory for access bit 1" -
+      2 cf_dmem_2 "Target memory for access bit 2" -
+      3 cf_aif "Autoincrement-flag for memory-address" -
+      4 cf_int "Interrupt CoolFlux DSP" -
+      8 cf_req_8 "request for access (8 channels) bit 8" -
+      9 cf_req_9 "request for access (8 channels) bit 9" -
+      10 cf_req_10 "request for access (8 channels) bit 10" -
+      11 cf_req_11 "request for access (8 channels) bit 11" -
+      12 cf_req_12 "request for access (8 channels) bit 12" -
+      13 cf_req_13 "request for access (8 channels) bit 13" -
+      14 cf_req_14 "request for access (8 channels) bit 14" -
+      15 cf_req_15 "request for access (8 channels) bit 15" -
+    End bits
+    Bitgroups
+      cf_rst_dsp 0:0 "Reset CoolFlux DSP"
+        0 "Reset not active [default]"
+        1 "Reset active"
+      End cf_rst_dsp
+      cf_dmem 1:2 "Target memory for access"
+        0 "	pmem [default]"
+        1 "	xmem"
+        2 "	ymem"
+        3 "	iomem"
+      End cf_dmem
+      cf_aif 3:3 "Autoincrement-flag for memory-address"
+        0 "Autoincrement ON [default]"
+        1 "Autoincrement OFF"
+      End cf_aif
+    End Bitgroups
+  End Register
+  Register 0x71:2 cf_mad ""
+    Bits
+      0 cf_madd_0 "memory-address to be accessed bit 0" -
+      1 cf_madd_1 "memory-address to be accessed bit 1" -
+      2 cf_madd_2 "memory-address to be accessed bit 2" -
+      3 cf_madd_3 "memory-address to be accessed bit 3" -
+      4 cf_madd_4 "memory-address to be accessed bit 4" -
+      5 cf_madd_5 "memory-address to be accessed bit 5" -
+      6 cf_madd_6 "memory-address to be accessed bit 6" -
+      7 cf_madd_7 "memory-address to be accessed bit 7" -
+      8 cf_madd_8 "memory-address to be accessed bit 8" -
+      9 cf_madd_9 "memory-address to be accessed bit 9" -
+      10 cf_madd_10 "memory-address to be accessed bit 10" -
+      11 cf_madd_11 "memory-address to be accessed bit 11" -
+      12 cf_madd_12 "memory-address to be accessed bit 12" -
+      13 cf_madd_13 "memory-address to be accessed bit 13" -
+      14 cf_madd_14 "memory-address to be accessed bit 14" -
+      15 cf_madd_15 "memory-address to be accessed bit 15" -
+    End bits
+  End Register
+  Register 0x72:2 cf_mem ""
+    Bits
+      0 cf_mema_0 "activate memory access (24- or 32-bits data is written/read to/from memory bit 0" -
+      1 cf_mema_1 "activate memory access (24- or 32-bits data is written/read to/from memory bit 1" -
+      2 cf_mema_2 "activate memory access (24- or 32-bits data is written/read to/from memory bit 2" -
+      3 cf_mema_3 "activate memory access (24- or 32-bits data is written/read to/from memory bit 3" -
+      4 cf_mema_4 "activate memory access (24- or 32-bits data is written/read to/from memory bit 4" -
+      5 cf_mema_5 "activate memory access (24- or 32-bits data is written/read to/from memory bit 5" -
+      6 cf_mema_6 "activate memory access (24- or 32-bits data is written/read to/from memory bit 6" -
+      7 cf_mema_7 "activate memory access (24- or 32-bits data is written/read to/from memory bit 7" -
+      8 cf_mema_8 "activate memory access (24- or 32-bits data is written/read to/from memory bit 8" -
+      9 cf_mema_9 "activate memory access (24- or 32-bits data is written/read to/from memory bit 9" -
+      10 cf_mema_10 "activate memory access (24- or 32-bits data is written/read to/from memory bit 10" -
+      11 cf_mema_11 "activate memory access (24- or 32-bits data is written/read to/from memory bit 11" -
+      12 cf_mema_12 "activate memory access (24- or 32-bits data is written/read to/from memory bit 12" -
+      13 cf_mema_13 "activate memory access (24- or 32-bits data is written/read to/from memory bit 13" -
+      14 cf_mema_14 "activate memory access (24- or 32-bits data is written/read to/from memory bit 14" -
+      15 cf_mema_15 "activate memory access (24- or 32-bits data is written/read to/from memory bit 15" -
+      16 cf_mema_16 "activate memory access (24- or 32-bits data is written/read to/from memory bit 16" -
+      17 cf_mema_17 "activate memory access (24- or 32-bits data is written/read to/from memory bit 17" -
+      18 cf_mema_18 "activate memory access (24- or 32-bits data is written/read to/from memory bit 18" -
+      19 cf_mema_19 "activate memory access (24- or 32-bits data is written/read to/from memory bit 19" -
+      20 cf_mema_20 "activate memory access (24- or 32-bits data is written/read to/from memory bit 20" -
+      21 cf_mema_21 "activate memory access (24- or 32-bits data is written/read to/from memory bit 21" -
+      22 cf_mema_22 "activate memory access (24- or 32-bits data is written/read to/from memory bit 22" -
+      23 cf_mema_23 "activate memory access (24- or 32-bits data is written/read to/from memory bit 23" -
+    End bits
+  End Register
+  Register 0x73:2 cf_status "status register of interface to CoolFlux DSP"
+    Bits
+      0 cf_err_0 "cf error Flags bit 0" R-
+      1 cf_err_1 "cf error Flags bit 1" R-
+      2 cf_err_2 "cf error Flags bit 2" R-
+      3 cf_err_3 "cf error Flags bit 3" R-
+      4 cf_err_4 "cf error Flags bit 4" R-
+      5 cf_err_5 "cf error Flags bit 5" R-
+      6 cf_err_6 "cf error Flags bit 6" R-
+      7 cf_err_7 "cf error Flags bit 7" R-
+      8 cf_ack_8 "acknowledge of requests (8 channels')' bit 8" R-
+      9 cf_ack_9 "acknowledge of requests (8 channels')' bit 9" R-
+      10 cf_ack_10 "acknowledge of requests (8 channels')' bit 10" R-
+      11 cf_ack_11 "acknowledge of requests (8 channels')' bit 11" R-
+      12 cf_ack_12 "acknowledge of requests (8 channels')' bit 12" R-
+      13 cf_ack_13 "acknowledge of requests (8 channels')' bit 13" R-
+      14 cf_ack_14 "acknowledge of requests (8 channels')' bit 14" R-
+      15 cf_ack_15 "acknowledge of requests (8 channels')' bit 15" R-
+    End bits
+  End Register
+  Register 0x08:2 spkr_calibration " "
+    Bits
+      0 ext_temp_sel "select external temperature also the ext_temp will be put on the temp read out" -
+      1 ext_temp_1 "external temperature setting to be given by host bit 1" -
+      2 ext_temp_2 "external temperature setting to be given by host bit 2" -
+      3 ext_temp_3 "external temperature setting to be given by host bit 3" -
+      4 ext_temp_4 "external temperature setting to be given by host bit 4" -
+      5 ext_temp_5 "external temperature setting to be given by host bit 5" -
+      6 ext_temp_6 "external temperature setting to be given by host bit 6" -
+      7 ext_temp_7 "external temperature setting to be given by host bit 7" -
+      8 ext_temp_8 "external temperature setting to be given by host bit 8" -
+      9 ext_temp_9 "external temperature setting to be given by host bit 9" -
+      10 ctrl_spk_coilpvp_bst "peak voltage protection" -
+      11 ctrl_dcdc_synchronisation_11 "DCDC synchronisation off + 7 positions bit 11" -
+      12 ctrl_dcdc_synchronisation_12 "DCDC synchronisation off + 7 positions bit 12" -
+      13 ctrl_dcdc_synchronisation_13 "DCDC synchronisation off + 7 positions bit 13" -
+    End bits
+    Bitgroups
+      ext_temp_sel 0:0 "select external temperature also the ext_temp will be put on the temp read out"
+        0 "internal temperature"
+        1 "external temperature"
+      End ext_temp_sel
+      ctrl_spk_coilpvp_bst 10:10 "peak voltage protection"
+        0 "off [default]"
+        1 "0n"
+      End ctrl_spk_coilpvp_bst
+      ctrl_dcdc_synchronisation 11:13 "DCDC synchronisation off + 7 positions"
+        0 "off"
+        1 "on, 1 [default]"
+        2 "on, 2"
+        3 "on, 3"
+        4 "on, 4"
+        5 "on, 5"
+        6 "on, 6"
+        7 "on, 7"
+      End ctrl_dcdc_synchronisation
+    End Bitgroups
+  End Register
+  Register 0x80:2 Key2Protected_spkr_cal_mtp " "
+    Bits
+      0 calibration_onetime "Calibration schedule (key2 protected)" -
+      1 calibr_ron_done "(key2 protected)" -
+    End bits
+    Bitgroups
+      calibration_onetime 0:0 "Calibration schedule (key2 protected)"
+        0 "Calibrate after each POR [default]"
+        1 "One time calibration"
+      End calibration_onetime
+    End Bitgroups
+  End Register
+  Register 0x81:2 Key1Protected_MTP1 "MTP-controls for DCDC-converter and amplifier"
+    Bits
+      0 calibr_vout_offset_0 "calibr_vout_offset (DCDCoffset) 2's compliment (key1 protected) bit 0" -
+      1 calibr_vout_offset_1 "calibr_vout_offset (DCDCoffset) 2's compliment (key1 protected) bit 1" -
+      2 calibr_vout_offset_2 "calibr_vout_offset (DCDCoffset) 2's compliment (key1 protected) bit 2" -
+      3 calibr_vout_offset_3 "calibr_vout_offset (DCDCoffset) 2's compliment (key1 protected) bit 3" -
+      4 calibr_vout_offset_4 "calibr_vout_offset (DCDCoffset) 2's compliment (key1 protected) bit 4" -
+      5 calibr_vout_offset_5 "calibr_vout_offset (DCDCoffset) 2's compliment (key1 protected) bit 5" -
+      6 calibr_delta_gain_6 "delta gain for vamp (alpha) 2's compliment (key1 protected) bit 6" -
+      7 calibr_delta_gain_7 "delta gain for vamp (alpha) 2's compliment (key1 protected) bit 7" -
+      8 calibr_delta_gain_8 "delta gain for vamp (alpha) 2's compliment (key1 protected) bit 8" -
+      9 calibr_delta_gain_9 "delta gain for vamp (alpha) 2's compliment (key1 protected) bit 9" -
+      10 calibr_offs_amp_10 "offset for vamp (Ampoffset) 2's compliment (key1 protected) bit 10" -
+      11 calibr_offs_amp_11 "offset for vamp (Ampoffset) 2's compliment (key1 protected) bit 11" -
+      12 calibr_offs_amp_12 "offset for vamp (Ampoffset) 2's compliment (key1 protected) bit 12" -
+      13 calibr_offs_amp_13 "offset for vamp (Ampoffset) 2's compliment (key1 protected) bit 13" -
+      14 calibr_offs_amp_14 "offset for vamp (Ampoffset) 2's compliment (key1 protected) bit 14" -
+      15 calibr_offs_amp_15 "offset for vamp (Ampoffset) 2's compliment (key1 protected) bit 15" -
+    End bits
+  End Register
+  Register 0x82:2 Key1Protected_MTP2 "MTP-control current sense gain and temp"
+    Bits
+      0 calibr_gain_cs_0 "gain current sense (Imeasalpha) 2's compliment (key1 protected) bit 0" -
+      1 calibr_gain_cs_1 "gain current sense (Imeasalpha) 2's compliment (key1 protected) bit 1" -
+      2 calibr_gain_cs_2 "gain current sense (Imeasalpha) 2's compliment (key1 protected) bit 2" -
+      3 calibr_gain_cs_3 "gain current sense (Imeasalpha) 2's compliment (key1 protected) bit 3" -
+      4 calibr_gain_cs_4 "gain current sense (Imeasalpha) 2's compliment (key1 protected) bit 4" -
+      5 calibr_gain_cs_5 "gain current sense (Imeasalpha) 2's compliment (key1 protected) bit 5" -
+      6 calibr_gain_cs_6 "gain current sense (Imeasalpha) 2's compliment (key1 protected) bit 6" -
+      7 calibr_gain_cs_7 "gain current sense (Imeasalpha) 2's compliment (key1 protected) bit 7" -
+      8 calibr_temp_offset_8 "temperature offset 2's compliment (key1 protected) bit 8" -
+      9 calibr_temp_offset_9 "temperature offset 2's compliment (key1 protected) bit 9" -
+      10 calibr_temp_offset_10 "temperature offset 2's compliment (key1 protected) bit 10" -
+      11 calibr_temp_offset_11 "temperature offset 2's compliment (key1 protected) bit 11" -
+      12 calibr_temp_offset_12 "temperature offset 2's compliment (key1 protected) bit 12" -
+      13 ctrl_default_spkr_13 "default speaker setting (key1 protected) bit 13" -
+      14 ctrl_default_spkr_14 "default speaker setting (key1 protected) bit 14" -
+      15 ctrl_default_spkr_15 "default speaker setting (key1 protected) bit 15" -
+    End bits
+    Bitgroups
+      ctrl_default_spkr 13:15 "default speaker setting (key1 protected)"
+        0 "Speaker needs to be programmed"
+        1 "Speaker 1"
+        2 "Speaker 2"
+        3 "Speaker 3 [default]"
+        4 "Speaker 4"
+        5 "Speaker 5"
+        6 "Speaker 6"
+        7 "Speaker 7"
+      End ctrl_default_spkr
+    End Bitgroups
+  End Register
+  Register 0x83:2 Key1Protected_MTP3 "MTP-control Ron"
+    Bits
+      0 calibr_ron_0 "Ron resistance of coil (key1 protected) bit 0" -
+      1 calibr_ron_1 "Ron resistance of coil (key1 protected) bit 1" -
+      2 calibr_ron_2 "Ron resistance of coil (key1 protected) bit 2" -
+      3 calibr_ron_3 "Ron resistance of coil (key1 protected) bit 3" -
+      4 calibr_ron_4 "Ron resistance of coil (key1 protected) bit 4" -
+      5 calibr_ron_5 "Ron resistance of coil (key1 protected) bit 5" -
+      6 calibr_ron_6 "Ron resistance of coil (key1 protected) bit 6" -
+      7 calibr_ron_7 "Ron resistance of coil (key1 protected) bit 7" -
+      8 calibr_ron_8 "Ron resistance of coil (key1 protected) bit 8" -
+      9 calibr_ron_9 "Ron resistance of coil (key1 protected) bit 9" -
+      10 calibr_ron_10 "Ron resistance of coil (key1 protected) bit 10" -
+      11 calibr_ron_11 "Ron resistance of coil (key1 protected) bit 11" -
+      12 calibr_ron_12 "Ron resistance of coil (key1 protected) bit 12" -
+      13 calibr_ron_13 "Ron resistance of coil (key1 protected) bit 13" -
+      14 calibr_ron_14 "Ron resistance of coil (key1 protected) bit 14" -
+      15 calibr_ron_15 "Ron resistance of coil (key1 protected) bit 15" -
+    End bits
+  End Register
+  Register 0x03:2 RevisionNumber ""
+    Bits
+      0 rev_reg_0 "Hex[13] BIN[0001 0011] - TFA9887 N1D bit 0" R-
+      1 rev_reg_1 "Hex[13] BIN[0001 0011] - TFA9887 N1D bit 1" R-
+      2 rev_reg_2 "Hex[13] BIN[0001 0011] - TFA9887 N1D bit 2" R-
+      3 rev_reg_3 "Hex[13] BIN[0001 0011] - TFA9887 N1D bit 3" R-
+      4 rev_reg_4 "Hex[13] BIN[0001 0011] - TFA9887 N1D bit 4" R-
+      5 rev_reg_5 "Hex[13] BIN[0001 0011] - TFA9887 N1D bit 5" R-
+      6 rev_reg_6 "Hex[13] BIN[0001 0011] - TFA9887 N1D bit 6" R-
+      7 rev_reg_7 "Hex[13] BIN[0001 0011] - TFA9887 N1D bit 7" R-
+    End bits
+  End Register
+  Register 0x8A:2 Key1Protected_MTPA ""
+    Bits
+      0 production_data1_0 "(key1 protected) bit 0" -
+      1 production_data1_1 "(key1 protected) bit 1" -
+      2 production_data1_2 "(key1 protected) bit 2" -
+      3 production_data1_3 "(key1 protected) bit 3" -
+      4 production_data1_4 "(key1 protected) bit 4" -
+      5 production_data1_5 "(key1 protected) bit 5" -
+      6 production_data1_6 "(key1 protected) bit 6" -
+      7 production_data1_7 "(key1 protected) bit 7" -
+      8 production_data1_8 "(key1 protected) bit 8" -
+      9 production_data1_9 "(key1 protected) bit 9" -
+      10 production_data1_10 "(key1 protected) bit 10" -
+      11 production_data1_11 "(key1 protected) bit 11" -
+      12 production_data1_12 "(key1 protected) bit 12" -
+      13 production_data1_13 "(key1 protected) bit 13" -
+      14 production_data1_14 "(key1 protected) bit 14" -
+      15 production_data1_15 "(key1 protected) bit 15" -
+    End bits
+  End Register
+  Register 0x8B:2 Key1Protected_MTPB ""
+    Bits
+      0 production_data2_0 "(key1 protected) bit 0" -
+      1 production_data2_1 "(key1 protected) bit 1" -
+      2 production_data2_2 "(key1 protected) bit 2" -
+      3 production_data2_3 "(key1 protected) bit 3" -
+      4 production_data2_4 "(key1 protected) bit 4" -
+      5 production_data2_5 "(key1 protected) bit 5" -
+      6 production_data2_6 "(key1 protected) bit 6" -
+      7 production_data2_7 "(key1 protected) bit 7" -
+      8 production_data2_8 "(key1 protected) bit 8" -
+      9 production_data2_9 "(key1 protected) bit 9" -
+      10 production_data2_10 "(key1 protected) bit 10" -
+      11 production_data2_11 "(key1 protected) bit 11" -
+      12 production_data2_12 "(key1 protected) bit 12" -
+      13 production_data2_13 "(key1 protected) bit 13" -
+      14 production_data2_14 "(key1 protected) bit 14" -
+      15 production_data2_15 "(key1 protected) bit 15" -
+    End bits
+  End Register
+  Register 0x8C:2 Key1Protected_MTPC ""
+    Bits
+      0 production_data3_0 "(key1 protected) bit 0" -
+      1 production_data3_1 "(key1 protected) bit 1" -
+      2 production_data3_2 "(key1 protected) bit 2" -
+      3 production_data3_3 "(key1 protected) bit 3" -
+      4 production_data3_4 "(key1 protected) bit 4" -
+      5 production_data3_5 "(key1 protected) bit 5" -
+      6 production_data3_6 "(key1 protected) bit 6" -
+      7 production_data3_7 "(key1 protected) bit 7" -
+      8 production_data3_8 "(key1 protected) bit 8" -
+      9 production_data3_9 "(key1 protected) bit 9" -
+      10 production_data3_10 "(key1 protected) bit 10" -
+      11 production_data3_11 "(key1 protected) bit 11" -
+      12 production_data3_12 "(key1 protected) bit 12" -
+      13 production_data3_13 "(key1 protected) bit 13" -
+      14 production_data3_14 "(key1 protected) bit 14" -
+      15 production_data3_15 "(key1 protected) bit 15" -
+    End bits
+  End Register
+  Register 0x8D:2 Key1Protected_MTPD ""
+    Bits
+      0 production_data4_0 "(key1 protected) bit 0" -
+      1 production_data4_1 "(key1 protected) bit 1" -
+      2 production_data4_2 "(key1 protected) bit 2" -
+      3 production_data4_3 "(key1 protected) bit 3" -
+      4 production_data4_4 "(key1 protected) bit 4" -
+      5 production_data4_5 "(key1 protected) bit 5" -
+      6 production_data4_6 "(key1 protected) bit 6" -
+      7 production_data4_7 "(key1 protected) bit 7" -
+      8 production_data4_8 "(key1 protected) bit 8" -
+      9 production_data4_9 "(key1 protected) bit 9" -
+      10 production_data4_10 "(key1 protected) bit 10" -
+      11 production_data4_11 "(key1 protected) bit 11" -
+      12 production_data4_12 "(key1 protected) bit 12" -
+      13 production_data4_13 "(key1 protected) bit 13" -
+      14 production_data4_14 "(key1 protected) bit 14" -
+      15 production_data4_15 "(key1 protected) bit 15" -
+    End bits
+  End Register
+  Register 0x8E:2 Key1Protected_MTPE ""
+    Bits
+      0 production_data5_0 "(key1 protected) bit 0" -
+      1 production_data5_1 "(key1 protected) bit 1" -
+      2 production_data5_2 "(key1 protected) bit 2" -
+      3 production_data5_3 "(key1 protected) bit 3" -
+      4 production_data5_4 "(key1 protected) bit 4" -
+      5 production_data5_5 "(key1 protected) bit 5" -
+      6 production_data5_6 "(key1 protected) bit 6" -
+      7 production_data5_7 "(key1 protected) bit 7" -
+      8 production_data5_8 "(key1 protected) bit 8" -
+      9 production_data5_9 "(key1 protected) bit 9" -
+      10 production_data5_10 "(key1 protected) bit 10" -
+      11 production_data5_11 "(key1 protected) bit 11" -
+      12 production_data5_12 "(key1 protected) bit 12" -
+      13 production_data5_13 "(key1 protected) bit 13" -
+      14 production_data5_14 "(key1 protected) bit 14" -
+      15 production_data5_15 "(key1 protected) bit 15" -
+    End bits
+  End Register
+  Register 0x8F:2 Key1Protected_MTPF ""
+    Bits
+      0 production_data6_0 "(key1 protected) bit 0" -
+      1 production_data6_1 "(key1 protected) bit 1" -
+      2 production_data6_2 "(key1 protected) bit 2" -
+      3 production_data6_3 "(key1 protected) bit 3" -
+      4 production_data6_4 "(key1 protected) bit 4" -
+      5 production_data6_5 "(key1 protected) bit 5" -
+      6 production_data6_6 "(key1 protected) bit 6" -
+      7 production_data6_7 "(key1 protected) bit 7" -
+      8 production_data6_8 "(key1 protected) bit 8" -
+      9 production_data6_9 "(key1 protected) bit 9" -
+      10 production_data6_10 "(key1 protected) bit 10" -
+      11 production_data6_11 "(key1 protected) bit 11" -
+      12 production_data6_12 "(key1 protected) bit 12" -
+      13 production_data6_13 "(key1 protected) bit 13" -
+      14 production_data6_14 "(key1 protected) bit 14" -
+      15 production_data6_15 "(key1 protected) bit 15" -
+    End bits
+  End Register
+  Register 0x0C:2 reserve1 " "
+    Bits
+      0 reserve1_0_0 "reverse_1_0; 0 [default] bit 0" -
+      1 reserve1_0_1 "reverse_1_0; 0 [default] bit 1" -
+      2 reserve1_0_2 "reverse_1_0; 0 [default] bit 2" -
+      3 reserve1_0_3 "reverse_1_0; 0 [default] bit 3" -
+      4 reserve1_0_4 "reverse_1_0; 0 [default] bit 4" -
+      5 reserve1_0_5 "reverse_1_0; 0 [default] bit 5" -
+      6 reserve1_0_6 "reverse_1_0; 0 [default] bit 6" -
+      7 reserve1_0_7 "reverse_1_0; 0 [default] bit 7" -
+      8 reserve1_1_8 "reverse_1_1; 255 [default] bit 8" -
+      9 reserve1_1_9 "reverse_1_1; 255 [default] bit 9" -
+      10 reserve1_1_10 "reverse_1_1; 255 [default] bit 10" -
+      11 reserve1_1_11 "reverse_1_1; 255 [default] bit 11" -
+      12 reserve1_1_12 "reverse_1_1; 255 [default] bit 12" -
+      13 reserve1_1_13 "reverse_1_1; 255 [default] bit 13" -
+      14 reserve1_1_14 "reverse_1_1; 255 [default] bit 14" -
+      15 reserve1_1_15 "reverse_1_1; 255 [default] bit 15" -
+    End bits
+  End Register
+  Register 0x0D:2 reserve2 " "
+    Bits
+      0 reserve2_0_0 "reverse_2_0; 0 [default] bit 0" -
+      1 reserve2_0_1 "reverse_2_0; 0 [default] bit 1" -
+      2 reserve2_0_2 "reverse_2_0; 0 [default] bit 2" -
+      3 reserve2_0_3 "reverse_2_0; 0 [default] bit 3" -
+      4 reserve2_0_4 "reverse_2_0; 0 [default] bit 4" -
+      5 reserve2_0_5 "reverse_2_0; 0 [default] bit 5" -
+      6 reserve2_0_6 "reverse_2_0; 0 [default] bit 6" -
+      7 reserve2_0_7 "reverse_2_0; 0 [default] bit 7" -
+      8 reserve2_1_8 "reverse_2_1; 255 [default] bit 8" -
+      9 reserve2_1_9 "reverse_2_1; 255 [default] bit 9" -
+      10 reserve2_1_10 "reverse_2_1; 255 [default] bit 10" -
+      11 reserve2_1_11 "reverse_2_1; 255 [default] bit 11" -
+      12 reserve2_1_12 "reverse_2_1; 255 [default] bit 12" -
+      13 reserve2_1_13 "reverse_2_1; 255 [default] bit 13" -
+      14 reserve2_1_14 "reverse_2_1; 255 [default] bit 14" -
+      15 reserve2_1_15 "reverse_2_1; 255 [default] bit 15" -
+    End bits
+  End Register
+End Registers

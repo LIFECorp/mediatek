@@ -1,0 +1,11 @@
++com.mediatek.backuprestore.*
+-com.mediatek.backuprestore.R
+-com.mediatek.backuprestore.R$*
+-com.mediatek.backuprestore.BootActivity
+-com.mediatek.backuprestore.BootActivity$*
+-com.mediatek.backuprestore.utils.Constants
+-com.mediatek.backuprestore.utils.Constants$*
+-com.mediatek.backuprestore.utils.ScreenLock
+-com.mediatek.backuprestore.utils.ScreenLock$*
+-com.mediatek.backuprestore.modules.AppService$*
+-com.mediatek.backuprestore.utils.BackupXml$*

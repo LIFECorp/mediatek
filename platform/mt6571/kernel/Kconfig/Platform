@@ -1,0 +1,15 @@
+config ARCH_MT6571
+        bool "MediaTek MT6571"
+        select GENERIC_TIME
+        select GENERIC_CLOCKEVENTS
+        select ARCH_HAS_CPUFREQ
+        select ARM_AMBA
+        select CPU_V7
+        select HAVE_SMP
+        select NEED_MACH_MEMORY_H
+        select ARM_GIC
+        select FIQ_GLUE
+        select VFP_OPT
+        select ARM_L1_CACHE_SHIFT_6
+        help
+          This enable support for MediaTek MT6571.

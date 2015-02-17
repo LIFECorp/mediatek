@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="lunar_fest_chunjie" translatable="false">春節</string>
+    <string name="lunar_fest_duanwu" translatable="false">端午節</string>
+    <string name="lunar_fest_zhongqiu" translatable="false">中秋節</string>
+    <string name="lunar_leap" translatable="false">閏</string>
+</resources>

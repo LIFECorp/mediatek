@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+        android:title="@string/tedongle_sim_status_title">
+
+    <Preference android:key="operator_name" 
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/tedongle_status_operator"
+        android:summary="@string/device_info_not_available"
+        android:persistent="false" />
+    <Preference android:key="sim_number"
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/tedongle_sim_phone_number"
+        android:summary="@string/device_info_not_available"
+        android:persistent="false" />
+    <Preference android:key="network_type"
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/tedongle_status_network_type"
+        android:summary="@string/device_info_not_available"
+        android:persistent="false" />
+    <Preference android:key="roaming_state" 
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/tedongle_status_roaming"
+        android:summary="@string/device_info_not_available"
+        android:persistent="false" />
+    <Preference android:key="service_state" 
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/tedongle_status_service_state"
+        android:summary="@string/device_info_not_available"
+        android:persistent="false" />
+    <Preference android:key="sim_imsi" 
+        style="?android:attr/preferenceInformationStyle" 
+        android:title="@string/tedongle_sim_imsi"
+        android:summary="@string/device_info_not_available"
+        android:persistent="false" />
+</PreferenceScreen>

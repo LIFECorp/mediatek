@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="app_name">My Favorite</string>
+	<string name="music">Audios</string>
+	<string name="video">Videos</string>
+	<string name="photo">Photos</string>
+	<string name="picture">Pictures</string>
+	<string name="allfiles">All files</string>
+	<string name="musicuninstalled">Music application is not installed</string>
+	<string name="galleryuninstalled">Gallery application is not installed</string>	
+	<string name="allfilesuninstalled">File Manager application is not installed</string>	
+</resources>

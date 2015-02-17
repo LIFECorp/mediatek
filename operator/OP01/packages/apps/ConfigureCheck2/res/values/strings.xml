@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">ConfigureCheck</string>
+    <string name="activity_title_category">测试类型</string>
+    <string name="choose_category_type">请选择测试类型:</string>
+    <string name="CMCC_test_spec_date">基于CMCC测试规范:发布日期2013&#8211;02&#8211;25</string>
+    <string name="others">其它</string>
+    
+    <string name="title_activity_main">CTSC</string>
+    <string name="CTSC_version">CTSC版本：%s</string>
+    <string name="menu_CTSC_ver">CTSC版本</string>
+    
+    <!-- CMCCSendTestActivity -->
+    <string name="activity_title_send_test">送测检查</string>
+    <string name="CMCC_test_default_config_check">CMCC送测手机默认配置</string>
+    <string name="one_button_check">一键检查</string>
+    <string name="send_test_instruction">说明：在准备样机寄送到中国移动前，可以使用此功能检查手机默认配置是否符合入库测试要求。</string>
+    
+    <!-- ManSelfTestActivity -->
+    <string name="activity_title_self_test">自测检查</string>
+    <string name="manufacturer_test_config_check">厂商入库自测配置检查</string>
+    <string name="protocol_conformance_test">协议、一致性</string>
+    <string name="service_test">业务测试</string>
+    <string name="self_test_instruction">说明：在产品自测阶段，不同的测试项目对设置有特殊要求，此功能可以帮助您检查特定测试类别的手机配置是否满足要求。</string>
+    <string name="mtk_test_config_check">MTBF自测配置检查</string>
+    <string name="MTBF">MTBF</string>
+
+    
+    <string-array name="category_CMCC_send_test">
+        <item>@string/one_button_check</item>
+    </string-array>
+    
+    <string-array name="category_manufacturer_self_test">
+        <item>@string/protocol_conformance_test</item>
+        <item>@string/service_test</item>
+    </string-array>
+    
+    <string-array name="category_MTK_self_test">
+        <item>@string/MTBF</item>
+    </string-array>
+
+    <string name="help">帮助</string>
+    <string-array name="category_others">
+        <item>@string/help</item>
+    </string-array>
+
+    <!-- SubCategoryListActivity -->
+    <string name="wc_ttcn_3g_6210">无线通信_TTCN 3G(6210)</string>
+    <string name="wc_anritsu_23g_8470">无线通信_Anritsu 23G(8470)</string>
+    <string name="wc_ttcn_23g_6210">无线通信_TTCN 23G(6210)</string>
+    <string name="wc_rrm_6200">无线通信_RRM(6200)</string>
+    <string name="wc_rf_6010_8960">无线通信_RF 6010 &amp; 8960</string>
+    <string name="wc_network_iot">无线通信_网络IOT</string>
+
+    <string-array name="protocol_conformance_sub_category">
+        <item>@string/wc_ttcn_3g_6210</item>
+        <item>@string/wc_anritsu_23g_8470</item>
+        <item>@string/wc_ttcn_23g_6210</item>
+        <item>@string/wc_rrm_6200</item>
+        <item>@string/wc_rf_6010_8960</item>
+        <item>@string/wc_network_iot</item>
+    </string-array>
+
+    <string name="wc_basic_communication">无线通信_基本通信</string>
+    <string name="wc_phone_card_compatible">无线通信_机卡兼容</string>
+    <string name="sa_local_func">业务应用_本地功能</string>
+    <string name="sa_broadband_internet">业务应用_宽带互联网</string>
+    <string name="sa_video_tel">业务应用_可视电话</string>
+    <string name="sa_streaming">业务应用_流媒体</string>
+    <string name="sa_dm_lab_net">业务应用_DM3.0(实验网)</string>
+    <string name="sa_dm_real_net">业务应用_DM3.0(现网)</string>
+    <string name="sa_mobile_tv">业务应用_手机电视</string>
+    <string name="sa_agps">业务应用_AGPS</string>
+    <string name="sa_wlan">业务应用_WLAN</string>
+    <string name="sr_mtbf">软件可靠性_MTBF</string>
+    <string name="sr_local_perf">软件可靠性_本地性能</string>
+    <string name="hr_power_consumption">硬件可靠性_功耗</string>
+    <string name="fd_field_test">外场_外场测试</string>
+    
+    <string-array name="service_test_sub_category">
+        <item>@string/wc_basic_communication</item>
+        <item>@string/wc_phone_card_compatible</item>
+        <item>@string/sa_local_func</item>
+        <item>@string/sa_streaming</item>
+        <item>@string/sa_dm_lab_net</item>
+        <item>@string/sa_dm_real_net</item>
+        <!-- <item>@string/sa_mobile_tv</item> -->
+        <item>@string/sa_agps</item>
+        <item>@string/sa_wlan</item>
+        <item>@string/sr_mtbf</item>
+        <item>@string/sr_local_perf</item>
+        <item>@string/hr_power_consumption</item>
+        <item>@string/fd_field_test</item>
+    </string-array>
+    
+    <!-- CheckResultActivity -->
+    <string name="tab_label_auto">自动检查项</string>
+    <string name="tab_label_manual">人工检查项</string>
+    <string name="activity_title_check_result">检查结果</string>
+    <string name="auto_check_result_title">已自动检查下列设置，点击可了解详情</string>
+    <string name="choose_item_to_config">请勾选错误项进行修改</string>
+    <string name="auto_config">修改设置</string>
+    <string name="manual_check_result_title">请人工检查或配置下列设置，点击可了解详情</string>
+    <string name="choose_item_to_confirm">请勾选设置项进行确认</string>
+    <string name="right_confirm">正 确</string>
+    <string name="wrong_confirm">错 误</string>
+    <string name="rollback_confirm">还 原</string>
+    <string name="click_to_know_info">请点击以了解详情</string>
+    <string name="hint_name_title">[检查项]</string>
+    <string name="hint_current_value_title">[当前值]</string>
+    <string name="hint_requirement_title">[要求]</string>
+    <string name="hint_notice_title">[提示]</string>
+    <string name="hint_notice">此检查项不能自动设置</string>
+    <string name="menu_check_all">全部勾选</string>
+    <string name="menu_uncheck_all">全部取消勾选</string>
+    <string name="menu_check_report">检查报告</string>
+    <string name="menu_export_check_report">导出检查报告</string>
+    <string name="alert_dialog_title">SOP要求</string>
+    <string name="alert_dialog_ok">确定</string>
+    <string name="alert_dialog_forward">前往设置界面</string>
+    <string name="alert_restore_title">恢复出厂设置</string>
+    <string name="alert_restore_note">注意：请在一键检查前执行恢复出厂设置功能！\n操作方法：设置->个人->备份和重置-恢复出厂设置。</string>
+    
+    <string name="alert_modify_title">修改确认</string>
+    <string name="alert_modify_message">将修改如下几项，请确认: </string> 
+    
+    <!-- CheckReportActivity -->
+    <string name="activity_title_check_report">设置检查报告</string>
+    <string name="wrong_tile">[错误 %d]</string>
+    <string name="unknown_title">[未知 %d]</string>
+    <string name="right_title">[正确 %d]</string>
+    <string name="export_file_name">CheckReport_%1$s_%2$s.csv</string>
+    <string name="export_file_succeed">%1$s已导出到%2$s文件夹。</string>
+    <string name="export_file_failed">检查报告导出失败!</string>
+    <string name="export_dir">%1$s/ConfigureCheck</string>
+    <string name="export_time">生成时间: </string>
+    <string name="export_phone_info">手机信息,IMEI: </string>
+    <string name="csv_report_title">No.,检查项,查询结果,判定,说明</string>
+    <string name="wrong_judge">错误</string>
+    <string name="unknown_judge">未知</string>
+    <string name="right_judge">正确</string>
+    
+    <!-- HelpActivity -->
+    <string name="activity_title_help">帮助</string>
+
+    <!-- title and note of check item -->
+    <string name="SOP_REFER">\n详见SOP:</string>
+    <string name="SOP_Protocol">"\n《CMCC_无线通信_协议测试前必做的checklist_Important.ppt》"</string>
+    <string name="SOP_PhoneCard">"\n《CMCC_无线通信_机卡兼容.ppt》"</string>
+    <string name="SOP_IOT">"\n《CMCC_无线通信_网络IOT.ppt》"</string>
+    <string name="SOP_DM">"\n《CMCC_业务应用_DM3.0.ppt》"</string>
+    <string name="SOP_FieldTest">"\n《CMCC_外场_外场测试.ppt》"</string>
+    <string name="SOP_LOCAL_TEST">"\n《CMCC_软件可靠性_本地性能.ppt》"</string>
+    <string name="SOP_self_check">"\n详见SOP:\n《CMCC_Common_厂商自测Check_list.xls》\n特殊提醒：当进行协议测试或机卡兼容测试时，需手动设置"</string>
+    <string name="title_Network_Mode">选网模式</string>
+    <string name="note_NM_TD_SCDMA_Only">设置选网模式为TD-SCDMA Only：工模->NetworkSelecting->SetPreferred network type:->选择"TD-SCDMA only"</string>
+    <string name="note_NM_TD_SCDMA_Preferred">设置选网模式为TD-SCDMA Preferred:工模->NetworkSelecting->SetPreferred network type:->选择"TD-SCDMA preferred"</string>
+    <string name="note_NM_TD_DUAL_MODE">设置选网模式为GSM/TD-SCDMA(auto):工模->NetworkSelecting->SetPreferred network type:->选择"GSM/TD-SCDMA(auto)" </string>
+    <string name="value_NM_TD_SCDMA_Only">TD-SCDMA Only</string>
+    <string name="value_NM_TD_SCDMA_Preferred">TD-SCDMA Preferred</string>
+    <string name="value_NM_TD_DUAL_MODE">GSM/TD-SCDMA(auto)</string>
+    <string name="value_NM_TD_SCDMA_Preferred_faild">GSM/TD-SCDMA(auto) 修改设置失败</string>
+    
+    <string name="title_GPRS_ALWAYS_ATTACH">GPRS Always attach</string>
+    <string name="title_GPRS_ALWAYS_ATTACH_CONTINUE">GPRS Always attach Continue</string>
+    <string name="note_GPRS_always_on">设置GPRS always on：工模(EM)->GPRS->选中SIM1->点击"Always Attach"</string>
+    <string name="value_GPRS_not_always_on">when needed</string>
+    <string name="value_GPRS_when_needed_continue">when needed continue</string>
+    <string name="value_GPRS_not_to_specify">not to specify</string>
+    <string name="value_GPRS_always_on">always attach</string>
+    <string name="value_GPRS_attach_continue">always attach continue </string>
+    <string name="note_GPRS_attach_continue">设置GPRS always attach Continue：工模->GPRS->选中SIM1->选中"Always Attach Continue" ->SIM1 即可开机GPRS Attach,如需要PDP激活，需手动开启数据连接。 注意：测试完成后，请将设置还原，避免影响其他测试，通过选择"Not to Specify";若在测试中手动开启Always Attach continue,请正常关机重启手机，并重新测试该case，否则可能导致仪表连接失败</string>
+
+    <string name="title_CFU">CFU</string>
+    <string name="note_CFU_off">关闭开机CFU业务或设置CFU为Default：工模->CFU->选中"Always not query"或"Default"</string>
+    <string name="value_CFU_off">Off</string>
+    <string name="value_CFU_default">Default</string>
+    <string name="value_CFU_always_query">Always query</string>
+    <string name="value_CFU_always_not_query">Always not query</string>
+    
+    <string name="title_CTA_FTA">Modem模式</string>
+    <string name="note_CTA_FTA_off">禁止开启CTA和FTA开关: 工模->Modem Test->选中"None"或"IOT"或"Operator"或"Factory"</string>
+    <string name="title_integrity_check_off">Integrity Check</string>
+    <string name="note_integrity_check_off">关闭Integrity Check：工模->Modem Test->选中"Integrity off"。注意：完成测试后，请关闭integrity off,即打开Integrity Check,以免影响其他测试</string>
+    <string name="value_modem_none">None</string>
+    <string name="value_modem_Integrity_off">Integrity off</string>
+    <string name="value_modem_CTA">CTA</string>
+    <string name="value_modem_FTA">FTA</string>
+    <string name="value_modem_IOT">IOT</string>
+    <string name="value_modem_Operator">Operator</string>
+    <string name="value_modem_Factory">Factory</string>
+    
+    <string name="title_Data_Connection">数据连接</string>
+    <string name="note_DC_off">关闭数据连接:设置->SIM卡管理->数据连接->选中"关闭"</string>
+    <string name="value_DC_off">关闭</string>
+    <string name="note_DC_on">打开数据连接:设置->SIM卡管理->数据连接->选中SIM1</string>
+    <string name="value_DC_on">打开</string>
+    <string name="title_Data_ROAM">数据漫游</string>
+    <string name="note_DR_off">关闭数据漫游:设置->SIM卡管理->国际漫游->数据漫游->去掉勾选可关掉数据漫游</string>
+    <string name="value_DR_on">打开</string>
+    <string name="note_DR_on">打开数据漫游:设置->SIM卡管理->国际漫游->数据漫游->勾选可打开数据漫游</string>
+    <string name="value_DR_off">关闭</string>
+    
+    <string name="title_PLMN">PLMN</string>
+    <string name="value_PLMN_auto_select">自动选择</string>
+    <string name="note_PLMN_auto_select">PLMN选择设置为自动选择：设置->更多->移动网络->选中"自动选择"</string>        
+    <string name="value_PLMN_manual_select">手动选择</string> 
+    <string name="value_SIM">请插入SIM卡</string> 
+    <string name="value_GEMINI_DT_SUPPORT">双卡双通</string>
+    <string name="value_GEMINI_SINGLE_SUPPORT">双卡单通</string>
+    <string name="value_SINGLE_SD_SUPPORT">单卡单通</string>
+    <string name="title_GEMINI_SUPPORT">待机状态</string>
+    <string name="note_GEMINI_SUPPORT">检测并提示当前手机待机状态</string>
+    <string name="title_SIM_STATE">SIM卡状态</string>
+    <string name="note_DUAL_SIM_STATE">必须插入两张卡，请检查</string>
+    <string name="value_DUAL_SIM_STATE">当前已插入两张卡</string>
+    <string name="value_SIM_STATE">已插入卡</string>
+    <string name="note_SINGLE_SIM_CHECK">请只插入一张卡，且放入可注册3G网络的卡槽</string>
+    <string name="note_SIM_3G_CHECK">请将卡插入可注册3G网络的卡槽</string>
+    <string name="value_SIM_3G">卡已正确插入</string>
+    
+    <string name="title_time">时间</string>
+    <string name="note_time">设置北京时间:设置->时间->手动设置成当前北京时间或者勾选"自动确定时区"并且选择"自动确定日期和时间"->使用网络提供时间</string>
+    <string name="value_time_no_www">当前网络不可用，无法确定实际时间</string>
+    <string name="value_time_zone">当前非北京时区</string>
+    <string name="value_time_time_zone">未设定北京时区和自动使用网络时间</string>
+    <string name="value_time_time">未设定自动使用网络时间,当前时间可能不正确</string>
+    <string name="value_time">已设定北京时区和自动使用网络时间</string>    
+    <string name="title_sleep">休眠</string>
+    <string name="note_sleep">设定休眠时间30分钟:设置->显示->休眠->选定30分钟</string>
+    <string name="value_sleep">无操作</string>
+    <string name="value_sleep_end">分钟后</string>
+    <string name="value_sleep_max">无操作30分钟后</string>
+    <string name="title_lockscreen">不锁定屏幕</string>
+    <string name="value_unlockscreen">充电时屏幕不会休眠</string>
+    <string name="value_lockscreen">锁定屏幕</string>
+    <string name="note_lockscreen">不锁定屏幕:设置->开发者选项->取消勾选"不锁定屏幕"</string>
+    <string name="title_bookmark">书签</string>
+    <string name="value_bookmark_completed">书签已全部添加</string>
+    <string name="value_bookmark_uncompleted">书签未全部添加</string>
+    <string name="note_bookmark">将指定url添加到书签</string>
+    <string name="title_screen_rotate">自动转屏</string>
+    <string name="note_screen_rotate">关闭自动转屏:设置->显示->取消勾选"自动转屏"</string>
+    <string name="value_off">关闭</string>
+    <string name="value_on">开启</string>
+    <string name="title_WLAN">WLAN</string>
+    <string name="note_WLAN">关闭WLAN:设置->WLAN->切换到"关闭"</string>
+    <string name="title_shortcut">摆放图标</string>
+    <string name="value_shortcut_completed">快捷方式已全部创建</string>
+    <string name="value_shortcut_uncompleted">快捷方式未全部创建</string>
+    <string name="note_shortcut">在idle界面创建指定应用程序的快捷方式</string>
+    <string name="note_shortcut_not_checkable">(该检查项不支持自动查询)在idle界面创建指定应用程序的快捷方式</string>
+    <string name="title_ime">默认输入法</string>
+    <string name="value_ime_wrong">非英语(美国) android键盘(AOSP)</string>
+    <string name="value_ime_right">英语(美国) android键盘(AOSP)</string>
+    <string name="note_ime">默认输入法设定为android键盘:设置->语言和输入法->默认->选择"英语(美国) android键盘(AOSP)"</string>    
+    <string name="title_default_storage">默认存储器</string>
+    <string name="value_default_storage_phone">手机存储</string>
+    <string name="value_default_storage_card">SD card</string>
+    <string name="note_default_storage_phone">默认存储器设定手机存储:设置->存储->选择"手机存储"</string>
+    <string name="note_default_storage_card">默认存储器设定SD卡:设置->存储->选择"SD卡"</string>
+    <string name="title_dual_SIM_ask">关双卡询问</string>
+    <string name="note_dual_SIM_ask">双卡平台，进入phone或者message,选择默认使用SIM1，下次不再询问。建议以实际配置文档为指导</string>
+    <string name="title_web_font">浏览器设置</string>
+    <string name="note_web_font">浏览器设置:浏览器 -> 菜单 -> 更多 -> 设置 -> 文字大小 -> 超大。建议以实际配置文档为指导</string>
+    <string name="title_log">Log设置</string>
+    <string name="note_log">Log设置：打开log，不勾选Enable Taglog。建议以实际配置文档为指导</string>
+    <string name="title_clear_read_Screen">关闭红屏</string>
+    <string name="note_clear_read_Screen">测试版本应关闭红屏，方法如下：(客户版本请忽略)adb -s Serial_Number shell aee -s off。建议以实际配置文档为指导</string>
+    <string name="title_ime_setting">输入法设置</string>
+    <string name="note_ime_setting">修改AOAP 设置，显示更正建议，选择始终隐藏。建议以实际配置文档为指导</string>
+    <string name="title_mms_setting">信息设置</string>
+    <string name="note_mms_setting">信息设置：进入信息，关闭提示信息。建议以实际配置文档为指导</string>
+    <string name="title_email_setting">邮箱设置</string>
+    <string name="note_email_setting">邮箱设置：\n1.帐户：手机号139邮箱 \n2.密码，第一次使用获取方式，MM#新密码至10658139]3.其他用默认方式即可，名字任意。建议以实际配置文档为指导</string>
+    <string name="title_default_storage_setting">默认存储器设置</string>
+    <string name="note_default_storage_setting">默认存储器设置：GB3 project默认存储器设定为SD card。建议以实际配置文档为指导</string> 
+    
+    
+    <string name="title_calibration_data">RF校准</string>
+    <string name="note_calibration_data">务必确保测试机的RF校准没有问题</string>
+    
+    <string name="apk_calculator_name">Calculator</string>
+    <string name="title_apk_calculator">计算器Apk</string>
+    <string name="value_apk_calculator_exist">Calculator.apk已安装</string>
+    <string name="note_apk_calculator_exist">请确保已安装计算器Apk</string>
+    <string name="note_mtk_calculator_not_exist">未检查到MTK计算器，请确保已安装其它计算器Apk</string>
+    
+    <string name="apk_stopwatch_name">Stopwatch</string>
+    <string name="apk_deskclock_name">DeskClock</string>
+    <string name="title_apk_stopwatch">秒表Apk</string>
+    <string name="value_apk_stopwatch_exist">Stopwatch.apk已安装</string>
+    <string name="value_apk_deskclock_exist">DeskClock.apk(具有秒表功能)已安装</string>
+    <string name="note_apk_stopwatch_exist">请确保已安装秒表Apk</string>
+    <string name="note_mtk_stopwatch_not_exist">未检查到MTK秒表，请确保已安装其它秒表Apk</string>
+    <string name="note_deskclock_not_exist">未检查到时钟Apk(具有秒表功能)，请确保已安装其它秒表Apk</string>
+    
+    <string name="title_apk_office">Office Apk</string>
+    <string name="note_apk_office">MTK方案默认未内置Office应用程序，请厂商自行联系安装第三方Office APK，并确保不要是“论坛”版本，以避免会自动联网导致相关用例失败。详见《CMCC_业务应用_本地功能.ppt》</string>
+    
+    <string name="apk_notebook_name">NoteBook</string>
+    <string name="title_apk_notebook">记事本Apk</string>
+    <string name="value_apk_notebook_exist">NoteBook.apk已安装</string>
+    <string name="note_apk_notebook_exist">请确保已安装记事本Apk</string>
+    <string name="note_mtk_notebook_not_exist">未检查到MTK记事本，请确保已安装其它记事本Apk</string>
+    
+    <string name="apk_backup_name">BackupAndRestore</string>
+    <string name="title_apk_backup">备份Apk</string>
+    <string name="value_apk_backup_exist">BackupAndRestore.apk已安装</string>
+    <string name="note_apk_backup_exist">请确保已安装备份Apk</string>
+    <string name="note_mtk_backup_not_exist">未检查到MTK备份与恢复，请确保已安装其它备份Apk</string>
+    
+    <string name="apk_calendar_name">Calendar</string>
+    <string name="title_apk_calendar">日历Apk</string>
+    <string name="value_apk_calendar_exist">Calendar.apk已安装</string>
+    <string name="note_apk_calendar_exist">请确保已安装日历Apk</string>
+    <string name="note_calendar_not_exist">未检查到日历，请确保已安装其它日历Apk</string>
+    
+    <string name="title_24h_protect">24小时充电保护</string>
+    <string name="note_24h_disable">请务必在MTBF测试中disable24小时充电保护功能。量产的时候再打开此功能以避免安全隐患。具体修改方式见《CMCC_软件可靠性_MTBF.ppt》</string>
+    
+    <string name="title_wlan_ssid">WLAN热点SSID</string>
+    <string name="note_wlan_ssid">请确保SSID命名符合预期。WLAN热点SSID查看方法：设置->更多...->网络共享与便携式热点->WLAN热点->设置WLAN热点->网络SSID。详见《CMCC_Common_厂商自测Check_List.xls》</string>
+    <string name="value_please_open_wlan">请打开WLAN以进行检查</string>
+    
+    <string name="title_wlan_mac_addr">WLAN MAC地址</string>
+    <string name="note_wlan_mac_addr">请确保每台送测手机WLAN MAC地址唯一。WLAN MAC地址查看方法：设置->WLAN->选项菜单->高级->MAC地址。详见《CMCC_Common_厂商自测Check_List.xls》</string>
+    
+    <!-- Ruoyao -->
+    <string name="ctsc_enabled">enabled</string>
+    <string name="ctsc_disabled">disabled</string>
+    <string name="ctsc_yes">是</string>
+    <string name="ctsc_no">否</string>
+    <string name="ctsc_error">错误</string>
+    <string name="ctsc_unknown">未知</string>
+    <string name="ctsc_querying">正在查询中......</string>
+    
+    <string name="restore_title">恢复出厂设置</string> 		
+    <string name="restore_note">请在一键检查前执行恢复出厂设置功能！操作方法：设置->个人->备份和重置->恢复出厂设置。</string> 
+    <string name="imei_slot1">插槽1：</string>
+    <string name="imei_slot2">插槽2：</string>
+    <string name="imei_title">IMEI</string>
+    <string name="imei_note">请确认IMEI正确，且不与其他手机重复。详见《CMCC_无线通信_协议测试前必做的checklist_important.ppt》,《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="targetmode_title">客户服务机型</string>
+    <string name="targetmode_note">请确认客户服务机型是否和提交给CMCC的设备名称一致。详见《CMCC_common_厂商自测check_list.xls》</string>
+    <string name="targetversion_title">手机版本</string>
+    <string name="targetversion_note">请确认手机版本号与提交给移动的版本号一致。详见《CMCC_common_厂商自测check_list.xls》</string>
+    <string name="buildtype_title">编译类型(Load type)</string>
+    <string name="buildtype_note">请厂商务必使用User load来准备送测版本，不要使用Eng load。因为Eng mode下默认打开的debug功能会导致某些CMCC入库测试无法正常进行。详见《CMCC_Common_送测版本准备.ppt》,《CMCC_软件可靠性_本地性能.ppt》</string>
+    <string name="atci_title">ATCI Service</string>
+    <string name="atci_value_on">atcid已打开</string>
+    <string name="atci_value_off">atcid未打开</string>
+    <string name="atci_note">协议一致性测试需要从测试仪表下AT命令控制执行自动化测试，请务必确保AT命令通畅。详见《CMCC_Common_送测版本准备.ppt》</string>
+    <string name="battery_title">电池电量</string>
+    <string name="battery_note">请确保手机电池电量充满。详见《CMCC_Common_厂商自测Check_list.xls》</string>
+    <string name="vendor_title">基地客户端适配</string>
+    <string name="vendor_note">请确保已按照CMCC要求完成第三方APK适配。详见《CMCC_客户端_基地客户端适配.ppt》</string>
+    <string name="vendor_value_normal">第三方客户端已存在</string>
+    <string name="vendor_value_abnormal">缺少第三方客户端</string>
+    <string name="smsreg_state_title">短信自注册</string>
+    <string name="smsreg_note_off">短信自注册默认应关闭,但如果是省公司送测，短信自注册默认要打开。 详见《CMCC_无线通信_协议测试前必做的checklist_Important.ppt》，《CMCC_Common_送测版本准备.ppt》</string>
+    <string name="smsreg_note_on">DM测试前请先打开短信自注册。具体方法：工模->Hardware Testing->Device Management->SMS AutoRegister->Enable。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="smsreg_err_no_agent">DMAgent不存在</string>
+    <string name="smsreg_number">自注册号码</string>
+    <string name="smsreg_number_cur">自注册现网号码应为：10654040。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="smsreg_number_lab">自注册实验网号码应为：1065840409。 详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="smsreg_port_title">自注册端口号</string>
+    <string name="smsreg_port_note">自注册端口号应该为：16998。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="smsreg_info_title">自注册号码、端口号、服务器</string>
+    <string name="smsreg_info_note">请确认现网送测手机配置为现网参数，实验网送测手机请配置为试验网参数。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="smsreg_info_lab">当前自注册配置符合实验网参数</string>
+    <string name="smsreg_info_curr">当前自注册配置符合现网参数</string>
+    <string name="smsreg_info_conflict">自注册参数配置冲突</string>
+    <string name="smsreg_info_port_wrong">自注册端口号配置错误</string>
+    <string name="dmsrv_title">DM服务器地址</string>
+    <string name="dmsrv_cur">DM现网测试服务器地址应为：http://dm.monternet.com。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="dmsrv_lab">DM实验网测试服务器地址应为：http://218.206.176.97。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="dm_manu_title">DM厂商</string>
+    <string name="dm_manu_note">请确认DM厂商信息与向CMCC提交的信息一致,（不能为MTK1）。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="dm_product_title">DM型号</string>
+    <string name="dm_product_note">请确认DM型号信息与向CMCC提交的信息一致，（不能为MTK）。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="dm_version_title">DM软件版本</string>
+    <string name="dm_version_note">请确认DM软件版本与向CMCC提交的信息一致。详见《CMCC_业务应用_DM3.0.ppt》</string>
+    <string name="rf_title">开启准FR</string>
+    <string name="rf_note">准FR主要实现3G终端语音业务切换到2G网络使用，在2G网络上业务结束后迅速重选回3G网络的功能。2013.4.1之后送测的定制版本需要打开准FR。修改方式详见《CMCC_Common_送测版本准备.ppt》</string>
+    <string name="hsupa_title">HSUPA</string>
+    <string name="hsupa_note">2013.4.1之后送测的定制版本需要打开HSUPA，具体修改和验证方法请见《CMCC_Common_送测版本准备.ppt》</string>
+    <string name="value_hsupa_off">HSUPA已关闭</string>
+    <string name="value_hsupa_on">HSUPA已开启</string>
+    <string name="basefunc_title">基本功能检查</string>
+    <string name="basefunc_note">请检查以下功能是否正常：\n 
+    	1.接打电话\n
+    	2.收发短信彩信\n
+    	3.添加联系人\n
+    	4.SIM卡STK功能\n
+    	5.切换飞行模式\n
+    	6.在工模中切换GSM only, TD only and GSM/TD\n
+    	7.浏览器上网\n
+    	8.播放Audio/Video\n
+    	详见《CMCC_Common_厂商自测Check_list.xls》
+    </string>
+    
+    <string name="root_title">是否可以被root</string>
+    <string name="root_note">手机需要可以被root，具体做法请参考《CMCC_Common_送测版本准备.ppt》</string>
+    <string name="root_already">当前已经是root</string>
+
+    <string name="ivsr_title">IVSR</string>
+    <string name="ivsr_note">MTBF送测时，保证：工模->Teleypony->network setting->勾选IVSR。详见《CMCC_软件可靠性_MTBF.ppt》</string>
+    <string name="sn_title">序列号</string>
+    <string name="sn_note">MTBF测试仪器Comcat测试工具需要保证手机序列号唯一。具体修改方式见《CMCC_软件可靠性_MTBF.ppt》</string>
+
+    <string name="wifi_sleep_title">WLAN休眠策略</string>
+    <string name="wifi_sleep_note">WLAN射频测试前请关闭休眠模式。设置方法:WLAN->高级->在休眠状态下保持WLAN连接->始终。 详见《CMCC_业务应用_WLAN.ppt》</string>
+    <string name="wifi_no_sleep_note">终端执行完出厂设置后，WLAN->WLAN高级设置中的"在休眠状态下保持WLAN连接"项应该为"永不"。在使用默认设置进行测试时我们终端的功耗是能满足CMCC要求的。详见《CMCC_硬件可靠性_功耗.ppt》</string>
+    <string name="wifi_sleep_no">始终保持连接</string>  
+    <string name="wifi_sleep_yes">从不保持连接</string>
+    <string name="wifi_sleep_charge">仅充电时保持连接</string>
+    <string name="ctia_title">进入CTIA mode</string>
+    <string name="ctia_note">连接测试仪器进行RF相关测项时，请务必进入CTIA模式(勾选Enable CTIA Test Mode)。详见《CMCC_业务应用_WLAN.ppt》</string>
+
+    <string name="logger_on_title">开启MTK Logger</string>
+    <string name="logger_on_note">外场测试手机必须开启MTK Logger。</string>
+    <string name="logger_off_title">关闭MTK logger</string>
+    <string name="logger_off_note">功耗测试时请关闭log。详见《CMCC_硬件可靠性_功耗.ppt》</string>
+    <string name="taglog_off_title">关闭Tag log</string>
+    <string name="taglog_off_note">关闭Tag log方法：工模->Log&amp;Debugging->MTKLogger->设置(右上角)->去掉Tag log后面的对勾。详见《CMCC_软件可靠性_MTBF.ppt》,《CMCC_外场_外场测试.ppt》</string>
+
+    <string name="ua_note">请确认此特征值是否正确。请务必确保送测申请时提供给CMCC的UA/设备型号等参数，与送测版本保持一致，完成移动Server端注册。详见《CMCC_Common_送测版本准备.ppt》</string> 
+    <string name="browser_ua_title">Browser User Agent</string>
+    <string name="browser_ua_url_title">Browser User Agent Profile URL</string>
+    <string name="mms_ua_title">MMS User Agent</string>
+    <string name="mms_ua_url_title">MMS User Agent Profile URL</string>
+    <string name="http_ua_title">Http Streaming User Agent</string>
+    <string name="http_ua_url_title">HTTP Streaming User Agent Profile URL</string>
+    <string name="rtsp_ua_title">Rtsp Steaming User Agent</string>
+    <string name="rtsp_ua_url_title">Rtsp Steaming User Agent Profile URL</string>
+    <string name="cmmb_ua_title">CMMB User Agent</string>
+    
+    <string name="gprs_mode_title">GPRS模式</string>
+    <string name="gprs_call_pref_note">默认请设置为电话优先，只有在“基本通信，Edge下载速率”测项时才选择数据优先。\n详见《CMCC_common_厂商自测check_list.xls》</string>
+    <string name="gprs_data_pref_note">手机设置成Data prefer，工模->Telephony->Mobile data service preferred->启用“Mobile data service preferred”。详见《CMCC_无线通信_基本通信.ppt》</string>
+    <string name="gprs_data_preferred">数据优先</string>
+    <string name="gprs_call_preferred">电话优先</string>
+    
+    <!-- Bo -->
+    <string name="apn_check_title">APN配置检测</string>
+    <string name="apn_not_setted">APN没有配置</string>
+    <string name="apn_not_correct">APN配置不正确</string>
+    <string name="apn_name">Name: 任意</string>
+    <string name="apn_apn_lab">APN: </string>
+    <string name="apn_proxy_lab">Proxy: 192.168.230.8</string>
+    <string name="apn_port_lab">Port: 9028</string>
+    <string name="apn_mms"> MMSC: http://218.206.176.175:8181/was</string>
+    <string name="apn_mms_proxy">彩信代理: 192.168.230.8</string>
+    <string name="apn_mms_port">彩信端口: 9028</string>
+    <string name="apn_type"> Type: default, mms,net</string>
+    <string name="apn_cmnet">将APN设置为CMNET</string>
+    <string name="apn_cmwap">将APN设置为CMWAP</string>
+    <string name="streaming_doc">详见《CMCC_业务应用_流媒体》</string>
+    <string name="card_doc">详见《CMCC_业务应用_机卡兼容》</string>
+    <string name="iot_doc">详见《CMCC_无线通信_网络IOT》</string>
+    <string name="internet_doc">详见《CMCC_业务应用_浏览器》</string>
+    <string name="agps_doc">详见《CMCC_业务应用_AGPS》</string>
+    
+    <string name="supl_check_title">SUPL配置检测</string>
+    <string name="supl_not_correct">SUPL配置不正确</string>
+    <string name="supl_address">SLP Address: 218.206.176.50</string>
+    <string name="supl_port">SLP port: 7275</string>
+    <string name="supl_tls">TLS: ON </string>
+    <string name="supl_log_to_file">Log SUPl to File: On</string>
+    <string name="supl_net_request">Network Request: ON</string>
+    
+    <string name="smsc_check_title">SMSC配置检测</string>
+    <string name="smsc_not_correct">SMSC配置不正确</string>
+    <string name="smsc_number">SMSC: +8613800100569</string>
+    
+    <string name="bt_name_check_title">BT设备名检测</string>
+    <string name="bt_open_device">请打开蓝牙设备</string>
+    <string name="bt_name_current">当前蓝牙设备名称: </string>
+    <string name="bt_cmcc_req">要求与提交给CMCC的手机型号一致</string>
+    <string name="bt_doc">详见《CMCC_Common_厂商自测Check_list.xls》</string>
+    
+    <string name="mms_roaming_title">彩信漫游自动获取</string>
+    <string name="mms_roaming_setting">进入信息->设置->彩信设置->漫游自动获取。</string>
+    
+    <string name="string_sim">请插入Sim卡</string>    
+    <string name="string_checking">正在检测...</string>   
+    
+    <string name="str_noitem_message">手机不支持当前Feature</string>
+    
+    <string name="red_screen_title">红屏</string> 
+    <string name="red_screen_note">请关闭红屏：工模->Debug Utils->DAL Setting->Disable Red Screen</string> 
+    <string name="no_red_screen">不存在红屏机制</string> 
+
+    <string name="modem_switch_title">Modem Switch</string>
+    <string name="modem_switch_note">（仅针对支持W的TD三模手机）设置modem成TDD Modem：工模->World Phone->TDD Modem->Set。</string>
+    <string name="modem_switch_fdd">FDD Modem</string>
+    <string name="modem_switch_tdd">TDD Modem</string>
+    <string name="modem_switch_auto">Auto Switch</string>
+
+    <string name="mocall_log_title">10086 MO通话记录</string>
+    <string name="mocall_log_note">在通话记录里增加一个MO call给10086的通话记录</string>
+    <string name="mocall_log_existed">已存在</string>
+    <string name="mocall_log_unexisted">未存在</string>
+    
+</resources>

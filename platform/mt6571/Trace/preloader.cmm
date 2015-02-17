@@ -1,0 +1,86 @@
+do project.cmm
+
+; =========================================
+; Please DO NOT modify this section - START
+; =========================================
+SYSTEM.down
+SYSTEM.Reset
+SYStem.CPU CortexA7MPCore
+System.Option Cflush on    	;flush the cache to avoid data consistency
+SYSTEM.OPTION ENRESET On
+SYSTEM.OPTION TRST On
+SYStem.Option ResBreak OFF
+SYStem.Option WaitReset OFF
+SYStem.JtagClock 10MHz
+
+;R-T Memory Access
+SYSTEM.MULTICORE MEMORYACCESSPORT 0
+SYSTEM.MULTICORE DEBUGACCESSPORT 1
+
+;Serial Wire JTAG
+System.CONFIG SWDP ON
+
+;Setting Core debug register access
+SYStem.CONFIG CORENUMBER 2
+SYSTEM.MULTICORE COREBASE APB:0x80070000 0x80072000
+
+SYStem.Up
+
+setup.IMASKHLL ON
+setup.IMASKASM ON
+
+Break.SELect Program OnChip ; set_hw_breakpoint_by_def   Jau add
+Break.SELect Read OnChip
+Break.SELect Write OnChip
+
+
+
+print "loading pre-loader symbols"
+
+D.LOAD.ELF ../../../../mediatek/preloader/bin/preloader_&project.elf /gnu /nocode
+
+Y.SPATH.RESET ; reset all source path
+Y.SPATH.SRD 
+Y.SPATH.SRD ../../../../mediatek/platform/mt6571/preloader/src/init
+Y.SPATH.SRD ../../../../mediatek/platform/mt6571/preloader/src/lib
+Y.SPATH.SRD ../../../../mediatek/platform/mt6571/preloader/src/modules
+Y.SPATH.SRD ../../../../mediatek/platform/mt6571/preloader/src/security
+Y.SPATH.SRD ../../../../mediatek/custom/out/&project/preloader
+Y.SPATH.SRD ../../../../mediatek/platform/mt6571/preloader
+
+screen.on
+area.reset
+
+
+B::
+TOOLBAR ON
+STTUSBAR ON
+
+WINPOS 0.125 0.125 100. 30. 13. 1. W000
+WINTABS 16. 10. 25. 62.
+d.l
+
+Break.Delete 
+B.set main
+do wdt.cmm  ; disable hw watchdog timer
+
+go
+
+on pbreak gosub
+(
+	do wdt.cmm
+	print "Watchdog disabled"
+	return
+)
+stop
+END
+
+
+
+
+
+
+
+
+
+

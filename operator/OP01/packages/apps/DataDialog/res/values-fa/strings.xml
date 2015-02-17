@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">آيا اتصال داده برای تراکنش MMS تغيير داده شود؟</string>  
+    <string name="dialog_title">تغییر اتصال دیتا</string>  
+    <string name="dialog_continue">ادامه</string>  
+    <string name="dialog_cancel">لغو</string>  
+    <string name="wifi_failover_gprs_content">وای فای یافت نشد، اتصال از طریق شبکه برقرار شود؟</string> 
+</resources>

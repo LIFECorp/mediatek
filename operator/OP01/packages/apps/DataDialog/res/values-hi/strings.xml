@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">  
+    <string name="dialog_title">डेटा कनेक्‍शन परिवर्तन</string>  
+    <string name="app_name">डेटाडॉयलॉग</string>  
+    <string name="dialog_content">क्‍या एमएमएस ट्रांजेक्‍शन के लिए डेटा कनेक्‍शन बदलें?</string>  
+    <string name="dialog_continue">जारी रखें</string>  
+    <string name="dialog_cancel">रद्द</string>  
+    <string name="wifi_failover_gprs_content">WIFI उपलब्ध नहीं है, मोबाइल नेटवर्क से कनेक्ट होने का प्रयास करें?</string> 
+</resources>

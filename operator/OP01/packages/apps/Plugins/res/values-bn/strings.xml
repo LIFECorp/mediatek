@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+   <!-- MMS String Start-->
+       <string name="menu_sim_sms">সিম এসএমএস</string>
+   <!-- MMS String End-->      
+   
+   <!-- Phone String start -->
+   <string name="vt_start_time_from">থেকে শুরু হয়েছে</string>
+   <!-- Phone String end -->
+</resources>
+

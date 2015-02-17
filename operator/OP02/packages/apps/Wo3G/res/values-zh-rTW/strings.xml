@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="alertTitle">提示</string>
+    <string name="noNetworkMsg">沒有網絡連接</string>
+    <string name="requireCUMsg">該業務為中國聯通自有業務, 推薦使用中國聯通USIM卡進行連接!</string>
+    <string name="setupCUMsg">該業務為中國聯通自有業務, 推薦使用中國聯通USIM卡進行連接!</string>
+    <string name="ok">繼續</string>
+    <string name="ok1">確定</string>
+    <string name="cancel">取消</string>
+    <string name="app_name">沃门户</string>
+</resources>

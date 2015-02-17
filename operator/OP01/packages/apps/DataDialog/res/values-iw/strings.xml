@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">לשנות את חיבור הנתונים עבור הודעות MMS?</string>  
+    <string name="dialog_title">שינוי חיבור נתונים</string>  
+    <string name="dialog_continue">המשך</string>  
+    <string name="dialog_cancel">ביטול</string>  
+    <string name="wifi_failover_gprs_content">הרשת האלחוטית אינה זמינה, לנסות להתחבר באמצעות הרשת הסלולרית?</string> 
+</resources>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string-array name="sc_solar_terms"
+        translatable="false">
+        <item >小寒</item>
+        <item >大寒</item>
+        <item >立春</item>
+        <item >雨水</item>
+        <item >驚蟄</item>
+        <item >春分</item>
+        <item >清明</item>
+        <item >穀雨</item>
+        <item >立夏</item>
+        <item >小滿</item>
+        <item >芒種</item>
+        <item >夏至</item>
+        <item >小暑</item>
+        <item >大暑</item>
+        <item >立秋</item>
+        <item >處暑</item>
+        <item >白露</item>
+        <item >秋分</item>
+        <item >寒露</item>
+        <item >霜降</item>
+        <item >立冬</item>
+        <item >小雪</item>
+        <item >大雪</item>
+        <item >冬至</item>
+    </string-array>
+</resources>

@@ -1,0 +1,1 @@
+-keep class com.mediatek.MobileVideoConfig.MVCfgReceiver { <init>(...); }

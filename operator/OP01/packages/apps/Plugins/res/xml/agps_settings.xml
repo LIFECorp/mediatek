@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android">
+     <CheckBoxPreference
+         android:key="disable_agps_on_reboot"
+         android:title="@string/agps_disable_on_reboot"
+         android:summaryOff="@string/agps_disable_on_reboot_summary"
+         android:summaryOn="@string/agps_disable_on_reboot_summary"
+         android:persistent="true" />    
+	<CheckBoxPreference 
+	    android:key="Network_Initiate"
+		android:title="@string/Network_Initiate" 
+		android:summaryOff="@string/Network_Initiate_Summary_off"
+		android:summaryOn="@string/Network_Initiate_Summary_on"
+		android:persistent="true" />
+	<ListPreference 
+	    android:key="Network_Used"
+		android:title="@string/Network_Used"
+		android:dialogTitle="@string/Network_Used" 
+		android:entries="@array/network_use_entry"
+		android:entryValues="@array/network_use_entry"
+		android:persistent="true" /> 	
+    <ListPreference
+            android:key="select_profile"
+            android:title="@string/agps_profile_select"
+            android:summary="@string/agps_profile_select" 
+            android:persistent="true"/>
+   <EditTextPreference
+            android:key="slp_address"
+            android:title="@string/agps_profile_SLP_address_editbox_title"
+            android:defaultValue="127.0.0.1"
+            android:persistent="false"
+            android:singleLine="true"/>
+	<EditTextPreference
+            android:key="port"
+            android:title="@string/port_title"
+            android:defaultValue="8086"
+            android:persistent="false"
+            android:singleLine="true"/>
+    <CheckBoxPreference
+            android:key="tls"
+            android:title="@string/tls_title"
+			android:defaultValue="false"
+            android:summaryOff="@string/tls_summary_off"
+            android:summaryOn="@string/tls_summary_on"
+            android:persistent="false" /> 
+    <PreferenceCategory android:title="@string/MobileNetwork_Category">
+		<Preference 
+			android:key="mobile_dataConn"/>		
+	</PreferenceCategory>
+	<PreferenceCategory android:title="@string/AgpsHelp_Category">
+		<Preference 
+			android:key="about_agps"
+            android:title="@string/about_agps_title"/>			
+	</PreferenceCategory>
+</PreferenceScreen>

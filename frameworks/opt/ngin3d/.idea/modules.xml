@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../../packages/Media3D/tests/Media3DTests.iml" filepath="$PROJECT_DIR$/../../packages/Media3D/tests/Media3DTests.iml" />
+      <module fileurl="file://$PROJECT_DIR$/demos/App/ngin3dDemo/Ngin3dDemo.iml" filepath="$PROJECT_DIR$/demos/App/ngin3dDemo/Ngin3dDemo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../../packages/Media3D/media3d.iml" filepath="$PROJECT_DIR$/../../packages/Media3D/media3d.iml" />
+      <module fileurl="file://$PROJECT_DIR$/ngin3d.iml" filepath="$PROJECT_DIR$/ngin3d.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tests/ngin3dTests.iml" filepath="$PROJECT_DIR$/tests/ngin3dTests.iml" />
+    </modules>
+  </component>
+</project>
+

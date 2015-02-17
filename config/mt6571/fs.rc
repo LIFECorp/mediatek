@@ -1,0 +1,83 @@
+# mount different fs start
+
+on fs_property:ro.mount.fs=YAFFS
+# mount mtd partitions
+    # Mount /system rw first to give the filesystem a chance to save a checkpoint
+    write /proc/bootprof "INIT:NAND:Mount_START"    
+    mount yaffs2 mtd@system /system
+
+    chmod 0750 /system/etc/partition_permission.sh
+# via: set ril and pppd
+    chown root /system/bin/pppd
+    #chmod 4755 /system/bin/pppd
+    chown root /system/etc/ppp/ip-up-cdma
+    chmod 4755 /system/et/ppp/ip-up-cdma
+    chown root /system/etc/ppp/ipv6-up-cdma
+    chmod 4755 /system/etc/ppp/ipv6-up-cdma
+    chown root /system/etc/ppp/link-down-cdma
+    chmod 4755 /system/etc/ppp/link-down-cdma
+    # Mount iso file if it exists
+    mount iso9660 loop@/system/mobile_toolkit/iAmCdRom.iso /mnt/cd-rom ro
+
+    mount yaffs2 mtd@system /system ro remount
+    mount yaffs2 mtd@userdata /data nosuid nodev
+    mount yaffs2 mtd@cache /cache nosuid nodev
+    write /proc/bootprof "INIT:NAND:Mount_END"
+
+on fs_property:ro.mount.fs=EXT4
+    write /proc/bootprof "INIT:eMMC:Mount_START"
+    exec /sbin/e2fsck -p /emmc@android
+    # Mount /system rw first to give the filesystem a chance to save a checkpoint
+    #mount ext4 emmc@android /system wait commit=1,data=journal,noauto_da_alloc
+    mount ext4 /emmc@android /system wait commit=1,noauto_da_alloc
+
+    chmod 0750 /system/etc/partition_permission.sh
+    # RIL need to do this before the folder /system changed to read only
+    chown radio system /system/etc/ril
+    chmod 0770 /system/etc/ril
+    chmod 0444 /system/etc/ril/oper.lis
+    # Mount iso file if it exists
+    mount iso9660 loop@/system/mobile_toolkit/iAmCdRom.iso /mnt/cd-rom ro
+    # Wifi thermal need to chmod before system is changed to read only
+    chown root system /system/etc/throttle.sh
+    chmod 0750 /system/etc/throttle.sh
+    mount ext4 /emmc@android /system noatime ro remount wait 
+    exec /sbin/e2fsck -pfD /emmc@usrdata
+    exec /sbin/tune2fs -O has_journal /emmc@usrdata
+    exec /system/bin/ext4_resize
+    mount ext4 /emmc@usrdata /data noatime nosuid nodev wait noauto_da_alloc,discard
+    exec /sbin/e2fsck -p /emmc@cache
+    exec /sbin/tune2fs -O has_journal /emmc@cache
+    mount ext4 /emmc@cache /cache noatime nosuid nodev wait noauto_da_alloc,discard
+
+
+    write /proc/bootprof "INIT:eMMC:Mount_END"
+
+
+on fs_property:ro.mount.fs=UBIFS
+    write /proc/bootprof "INIT:NAND:Mount_START"
+    mount ubifs ubi@system /system wait
+    chmod 0750 /system/etc/partition_permission.sh
+# via: set ril and pppd
+    chown root /system/bin/pppd
+    #chmod 4755 /system/bin/pppd
+    chown root /system/etc/ppp/ip-up-cdma
+    chmod 4755 /system/et/ppp/ip-up-cdma
+    chown root /system/etc/ppp/ipv6-up-cdma
+    chmod 4755 /system/etc/ppp/ipv6-up-cdma
+    chown root /system/etc/ppp/link-down-cdma
+    chmod 4755 /system/etc/ppp/link-down-cdma
+    # Wifi thermal need to chmod before system is changed to read only
+    chown root system /system/etc/throttle.sh
+    chmod 0750 /system/etc/throttle.sh
+    # Mount iso file if it exists
+    mount iso9660 loop@/system/mobile_toolkit/iAmCdRom.iso /mnt/cd-rom ro
+
+    mount ubifs ubi@system /system ro remount
+    mount ubifs ubi@userdata /data nosuid nodev wait
+#    mount ubifs ubi@cache /cache nosuid nodev wait
+	mount yaffs2 mtd@cache /cache nosuid nodev
+
+    write /proc/bootprof "INIT:NAND:Mount_END"
+
+# mount different fs end

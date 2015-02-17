@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RadioButton
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id ="@+id/prefrence_radioButton_id"
+  android:checked="false"
+  android:focusable="false"
+  android:clickable="false"
+  android:layout_width="fill_parent"
+  android:layout_height="fill_parent">
+</RadioButton>

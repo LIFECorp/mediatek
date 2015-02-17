@@ -1,0 +1,2 @@
+;; disable WDT
+d.s asd:0x10007400 %le %long 0x22000000

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">Alterar Conexão de Dados para Transação MMS?</string>  
+    <string name="dialog_title">Alter. Conexão de Dados</string>  
+    <string name="dialog_continue">Continuar</string>  
+    <string name="dialog_cancel">Cancelar</string>  
+    <string name="wifi_failover_gprs_content">Aplicativo está ocupaedo em comandos BIP, tente novamente mais tarde.</string> 
+</resources>

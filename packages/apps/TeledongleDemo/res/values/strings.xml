@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Tedongle settings</string>
+    <string name="menu_settings">Settings</string>
+    <string name="Tedongle">Tedongle</string>
+    
+    <string name="wcdma_tedongle">WCDMA Suport:</string>
+    <string name="str_wcdma_huawei_e303">HUAWEI E303</string>
+    <string name="str_wcdma_huawei_e3131">HUAWEI E3131</string>
+    <string name="str_wcdma_zte_mf667">ZTE MF667</string>
+    <string name="str_wcdma_zte_mf197">ZTE MF197</string>
+    <string name="str_wcdma_zte_mf193a">ZTE MF193A</string>
+    <string name="evdo_tedognle">EVDO Suport:</string>
+    <string name="str_evdo_huawei_ec177">HUAWEI EC177</string>
+    <string name="str_evdo_zte_ac2787">ZTE AC2787</string>
+    <string name="str_evdo_zte_ac582">ZTE AC582</string>
+    
+    <!-- tedongle info -->
+    <string name="tedongle_info">Data connection info</string>    
+    <string name="tedongle_network_info">Tedongle Network Info</string>
+    <string name="tedongle_info_summary">Show the network info</string>
+    <string name="tedongle_network_infomation">Tedongle Network Info</string>
+    <string name="ip">IP</string>
+    <string name="ip_summary">111</string>
+    <string name="ifname">Interface name</string>
+    <string name="ifname_summary">111</string>
+    <string name="type">Type</string>
+    <string name="type_summary">111</string>
+    <string name="dnses">Dnses</string>
+    <string name="dnses_summary">111</string>
+    <string name="route">Gateway</string>
+    <string name="route_summary">111</string>
+    <string name="unknown">Unknown</string>
+    
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_data_disconnected">Disconnected</string>
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_data_connecting">Connecting</string>
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_data_connected">Connected</string>
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_data_suspended">Suspended</string>
+    
+    
+    <!-- sim info -->
+    <string name="tedongle_sim_info">SIM info</string>
+    <string name="tedongle_sim_status_title">Sim Status</string>
+    <string name="tedongle_sim_status_title_summary">test!</string>
+	<string name="tedongle_sim_phone_number">Sim number</string>
+    <string name="tedongle_status_operator">Operator name</string>
+    <string name="tedongle_status_signal_strength">Signal strength</string>
+    <string name="tedongle_status_network_type">Tedongle network type</string>
+    <string name="tedongle_status_service_state">Service state</string>
+    <string name="tedongle_status_roaming">Roaming</string>
+    <string name="tedongle_status_data_state">Tedongle data state</string>
+    <string name="tedongle_status_number">MDN</string>
+    <string name="device_info_not_available">Not available</string>
+    <string name="device_info_default">Unknow</string>    
+    <string name="tedongle_sim_imsi">IMSI</string>
+    
+    <!-- KeyboardView - accessibility support -->
+    <!-- Description of the Alt button in a KeyboardView. [CHAR LIMIT=NONE] -->
+    <string name="keyboardview_keycode_alt">Alt</string>
+    <!-- Description of the Cancel button in a KeyboardView. [CHAR LIMIT=NONE] -->
+    <string name="keyboardview_keycode_cancel">Cancel</string>
+    <!-- Description of the Delete button in a KeyboardView. [CHAR LIMIT=NONE] -->
+    <string name="keyboardview_keycode_delete">Delete</string>
+    <!-- Description of the Done button in a KeyboardView. [CHAR LIMIT=NONE] -->
+    <string name="keyboardview_keycode_done">Done</string>
+    <!-- Description of the Mode change button in a KeyboardView. [CHAR LIMIT=NONE] -->
+    <string name="keyboardview_keycode_mode_change">Mode change</string>
+    <!-- Description of the Shift button in a KeyboardView. [CHAR LIMIT=NONE] -->
+    <string name="keyboardview_keycode_shift">Shift</string>
+    <!-- Description of the Enter button in a KeyboardView. [CHAR LIMIT=NONE] -->
+    <string name="keyboardview_keycode_enter">Enter</string>
+    
+    <!-- signal strength -->
+    <string name="tedongle_signal_strenght">Signal Strength</string>
+    <!-- Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_unknown">unknown</string>
+    <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_display_packets">pkts</string>
+    <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_display_bytes">bytes</string>
+    <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_display_dbm">dBm</string>
+    <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_display_asu">asu</string>
+    <!-- Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_lac">LAC</string>
+    <!-- Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_cid">CID</string>
+    
+    <!-- sim lock -->
+    <string name="tedongle_sim_lock">Set up SIM card lock</string>
+    <string name="tedongle_sim_lock_summary">Set a PIN code to lock the SIM card in tedongle</string>
+    <string name="sim_lock_settings">SIM card lock settings</string>
+    <!-- Security & location settings screen, setting option name -->
+    <string name="sim_lock_settings_category">Set up SIM card lock</string>
+    <!-- Security & location settings screen, section heading for settings related to sim card locking -->
+    <string name="sim_lock_settings_title">SIM card lock</string>
+    <!-- SIM card lock settings screen, setting check box label -->
+    <string name="sim_pin_toggle">Lock SIM card</string>
+    <!-- SIM card lock settings screen, setting option summary text when SIM lock check box is selected -->
+    <string name="sim_lock_on" >Require PIN to use tablet</string>
+    <!-- SIM card lock settings screen, setting option summary text when SIM lock check box is clear -->
+    <string name="sim_lock_off" >Require PIN to use tablet</string>
+    <!-- SIM card lock settings screen, setting option name to change the SIM PIN -->
+    <string name="sim_pin_change">Change SIM PIN</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message instruction -->
+    <string name="sim_enter_pin">SIM PIN</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message instruction -->
+    <string name="sim_enable_sim_lock">Lock SIM card</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message instruction -->
+    <string name="sim_disable_sim_lock">Unlock SIM card</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message instruction -->
+    <string name="sim_enter_old">Old SIM PIN</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message instruction -->
+    <string name="sim_enter_new">New SIM PIN</string>
+    <string name="sim_reenter_new">Re-type new PIN</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message instruction -->
+    <string name="sim_change_pin">SIM PIN</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message when wrong PIN is entered -->
+    <string name="sim_bad_pin">Incorrect PIN</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message when PINs don't match -->
+    <string name="sim_pins_dont_match">PINs don\'t match</string>
+    <!-- SIM card lock settings screen, toast after not entering correct SIM PIN -->
+    <string name="sim_change_failed">Can\'t change PIN.\nPossibly incorrect PIN.</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog message when the entered PIN is correct-->
+    <string name="sim_change_succeeded">SIM PIN changed successfully</string>
+    <!-- SIM card lock settings screen, toast after not entering correct SIM PIN -->
+    <string name="sim_lock_failed">Can\'t change SIM card lock state.\nPossibly incorrect PIN.</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog button labels: -->
+    <string name="sim_enter_ok">OK</string>
+    <!-- SIM card lock settings screen, SIM PIN dialog button labels: -->
+    <string name="sim_enter_cancel">Cancel</string>
+    
+    <string name="tedongle_sim_pin_text">Type PIN code</string>
+    <string name="tedongle_sim_in">SIM card in Tedongle</string>
+    <string name="tedongle_sim_puk_text">Please input sim PUK</string>   
+    
+    
+    <string name="tedongle_radio_info_title">Device</string>
+    
+    <string name="tedongle_support_list">List</string>
+    <string name="support_list">Support list</string>
+    <string name="support_list_summary">The type of each dongle</string>
+    
+    <string name="tedongle_default_setting">About Tedongle</string>
+    
+    <string name="tedongle_radio_enable">Tedongle State</string>
+    
+
+    <!-- Keyguard strings -->
+    <string name="Tedongle_sim_pin">Tedongle sim PIN</string>
+    <string name="Tedongle_sim_puk">Tedongle sim PUK</string>
+    <!-- Message shown when user enters wrong PIN -->
+    <string name="kg_wrong_pin">Wrong PIN</string>
+    <!-- Instructions for using the SIM PIN unlock screen -->
+    <string name="kg_sim_pin_instructions">Enter SIM PIN</string>
+    <!-- Instructions for using the PIN unlock screen -->
+    <string name="kg_pin_instructions">Enter PIN</string>
+    <!-- Hint shown in the PUK screen that asks the user to enter the PUK code given to them by their provider -->
+    <string name="kg_puk_enter_puk_hint">SIM is now disabled. Enter PUK code to continue. Contact carrier for details.</string>
+    <!-- Hint shown in the PUK unlock screen PIN TextView -->
+    <string name="kg_puk_enter_pin_hint">Enter desired PIN code</string>
+    <!-- Message shown when the user needs to confirm the PIN they just entered in the PUK screen -->
+    <string name="kg_enter_confirm_pin_hint">Confirm desired PIN code</string>
+    <!-- Message shown in dialog while the device is unlocking the SIM card -->
+    <string name="kg_sim_unlock_progress_dialog_message">Unlocking SIM card\u2026</string>
+    <!-- Message shown when the user enters the wrong PIN code -->
+    <string name="kg_password_wrong_pin_code">Wrong PIN code(Remain:</string>
+    <!-- Message shown when the user enters an invalid SIM pin password in PUK screen -->
+    <string name="kg_invalid_sim_pin_hint">Type a PIN that is 4 to 8 numbers.</string>
+    <!-- Message shown when the user enters an invalid PUK code in the PUK screen -->
+    <string name="kg_invalid_sim_puk_hint">PUK code should be 8 numbers or more.</string>
+    <!-- Message shown when the user enters an invalid PUK code -->
+    <string name="kg_invalid_puk">Re-enter the correct PUK code. Repeated attempts will permanently disable the SIM.</string>
+      <!-- String shown in PUK screen when PIN codes don't match -->
+    <string name="kg_invalid_confirm_pin_hint" product="default">PIN codes does not match</string>
+    <!-- Message shown in dialog when max number of attempts are reached for PIN screen of keyguard -->
+    <string name="kg_too_many_failed_pin_attempts_dialog_message">You have incorrectly typed your PIN 
+    </string>
+    
+        <!-- Sequence of characters used to separate message strings in keyguard. Typically just em-dash
+         with spaces on either side. [CHAR LIMIT=3] -->
+    <string name="kg_text_message_separator" product="default">" \u2014 "</string>
+    <!-- The delete-widget drop target button text -->
+    <string name="kg_reordering_delete_drop_target_text">Remove</string>
+    <string name="lockscreen_sim_unlock_progress_dialog_message">Unlocking sim card \u2026</string>
+    
+    <string name="title_dialog_error">Error</string>
+    <string name="title_dialog_cancel">Press back to cancel</string>
+    <string name="title_dialog_wait">Please wait</string>
+    
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_service_in">In service</string>
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_service_out">Out of service</string>
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_service_emergency">Emergency calls only</string>
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_service_off">Radio off</string>
+    
+        <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_roaming_in">Roaming</string>
+    <!-- tedongle Info screen. Status label.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_roaming_not">Not roaming</string>
+    <string name="dialog_title_puk">Please input PUK to unlock SIM card</string>
+    <string name="dialog_title_pin">Please input PIN to unlock SIM card</string>
+    <string name="dialog_yes">YES</string>
+    <string name="dialog_no">NO</string>
+    <string name="connecting">Connecting...</string>
+</resources>

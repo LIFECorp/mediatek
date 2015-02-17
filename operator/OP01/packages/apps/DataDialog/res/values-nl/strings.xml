@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">Dataverbinding voor MMS-overdracht wijzigen?</string>  
+    <string name="dialog_title">Van gegevensverbinding wisselen</string>  
+    <string name="dialog_continue">Doorgaan</string>  
+    <string name="dialog_cancel">Annuleren</string>  
+    <string name="wifi_failover_gprs_content">WiFi niet bereikbaar, verbinding met mobiel netwerk proberen?</string> 
+</resources>

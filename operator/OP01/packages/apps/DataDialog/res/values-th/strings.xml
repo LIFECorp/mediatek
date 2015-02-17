@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources> 
+    <string name="app_name">DataDialog</string>  
+    <string name="dialog_content">เปลี่ยนการเชื่อมต่อข้อมูลสำหรับการใช้งาน MMS หรือไม่?</string>  
+    <string name="dialog_title">การเชื่อมต่อข้อมูลเปลี่ยน</string>  
+    <string name="dialog_continue">ทำต่อ</string>  
+    <string name="dialog_cancel">ยกเลิก</string>  
+    <string name="wifi_failover_gprs_content">ไม่มี WIFI ต้องการลองเชื่อมต่อเครือข่ายมือถือหรือไม่</string> 
+</resources>

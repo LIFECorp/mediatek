@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">  
+    <string name="app_name">مربع حوار البيانات</string>  
+    <string name="dialog_content">هل يتم تغيير بيانات الاتصال لإجراء رسائل وسائط متعددة أم لا؟</string>  
+    <string name="dialog_title">تغيير بيانات الاتصال</string>  
+    <string name="dialog_continue">"متابعة"</string>  
+    <string name="dialog_cancel">"إلغاء"</string>  
+    <string name="wifi_failover_gprs_content">تقنية WiFi غير متاحة، هل تريد محاولة الاتصال بشبكة الهاتف؟</string> 
+</resources>
