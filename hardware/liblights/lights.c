@@ -463,25 +463,18 @@ set_speaker_light_locked(struct light_device_t* dev,
     	red = green = blue = 0;
     }
 
+    blink_red(0, 0, 0);
+    blink_green(0, 0, 0);
+    blink_blue(0, 0, 0);
+
     if (red) {
-        blink_green(0, 0, 0);
-        blink_blue(0, 0, 0);
         blink_red(red, onMS, offMS);
     }
-    else if (green) {
-        blink_red(0, 0, 0);
-        blink_blue(0, 0, 0);
+    if (green) {
         blink_green(green, onMS, offMS);
     }
-    else if (blue) {
-        blink_red(0, 0, 0);
-        blink_green(0, 0, 0);
+    if (blue) {
         blink_blue(blue, onMS, offMS);
-    }
-    else {
-        blink_red(0, 0, 0);
-        blink_green(0, 0, 0);
-        blink_blue(0, 0, 0);
     }
 
     return 0;
